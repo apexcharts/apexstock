@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>CandleStick Chart</title>
+
+    <style>
+      #chart-container {
+        max-width: 1050px;
+        margin: 35px auto;
+        position: relative;
+      }
+    </style>
+
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+
+    <script>
+      // Replace Math.random() with a pseudo-random number generator to get reproducible results in e2e tests
+      // Based on https://gist.github.com/blixt/f17b47c62508be59987b
+      var _seed = 42;
+      Math.random = function () {
+        _seed = (_seed * 16807) % 2147483647;
+        return (_seed - 1) / 2147483646;
+      };
+    </script>
+  </head>
+
+  <body>
+    <div id="chart-container">
+      <div id="chart" style="position: relative"></div>
+    </div>
+
+    <script>
+      function generateOHLCData(count) {
+        const data = [];
+        let baseDate = new Date("2022-01-01").getTime();
+        let price = 100;
+        const volMin = 6000;
+        const volmax = 900000;
+
+        for (let i = 0; i < count; i++) {
+          const date = baseDate + i * 86400000; // Add one day in milliseconds
+
+          // Generate random OHLC values
+          const change = (Math.random() - 0.5) * 5;
+          const open = price;
+          const close = price + change;
+          const high = Math.max(open, close) + Math.random() * 2;
+          const low = Math.min(open, close) - Math.random() * 2;
+
+          // Add datapoint
+          data.push({
+            x: new Date(date),
+            y: [
+              Number(open.toFixed(2)),
+              Number(high.toFixed(2)),
+              Number(low.toFixed(2)),
+              Number(close.toFixed(2)),
+            ],
+            v: Math.floor(Math.random() * (volmax - volMin + 1)) + volMin,
+          });
+
+          // Update base price for next datapoint
+          price = close;
+        }
+
+        return data;
+      }
+
+      // Initialize sample data
+      const sampleData = generateOHLCData(250);
+
+      const chartOptions = {
+        chart: {
+          height: 400,
+          // additional ApexCharts settings
+        },
+        series: [
+          {
+            data: sampleData,
+          },
+        ],
+        plotOptions: {
+          stockChart: {
+            indicators: ["Moving Average", "RSI", "Bollinger Bands", "MACD"],
+          },
+        },
+        xaxis: {
+          type: "datetime",
+        },
+        yaxis: {
+          tooltip: {
+            enabled: true,
+          },
+        },
+      };
+
+      const stockChart = new ApexStock(
+        document.querySelector("#chart"),
+        chartOptions
+      );
+      stockChart.render();
+    </script>
+  </body>
+</html>

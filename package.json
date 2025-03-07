@@ -1,0 +1,39 @@
+{
+  "name": "@apexcharts/apexstock",
+  "version": "1.0.0",
+  "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "description": "An extension library for ApexCharts focusing on stock charts",
+  "main": "dist/apexstock.min.js",
+  "module": "dist/apexstock.esm.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w --bundleConfigAsCjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "apexcharts",
+    "charts",
+    "stock",
+    "financial"
+  ],
+  "author": "ApexCharts",
+  "devDependencies": {
+    "@babel/core": "^7.23.2",
+    "@babel/preset-env": "^7.23.2",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.4",
+    "@rollup/plugin-node-resolve": "^15.2.1",
+    "core-js": "^3.33.0",
+    "rollup": "^3.29.4",
+    "rollup-plugin-terser": "^7.0.2"
+  },
+  "peerDependencies": {
+    "apexcharts": "^4.0.0"
+  }
+}
