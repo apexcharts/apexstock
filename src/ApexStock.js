@@ -3,46 +3,109 @@ class ApexStock {
   /**
    * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
    * @param {Object} chartOptions - The ApexCharts options object.
+   *   Expected configuration example:
+   *     {
+   *       chart: {
+   *         id: "myMainChart",         // (optional) main chart id; default: "apexstock-main-chart"
+   *         height: 600,
+   *       },
+   *       series: [{
+   *         data: [ { x: new Date(...), y: [open, high, low, close], v: volume }, ... ]
+   *       }],
+   *       plotOptions: {
+   *         stockChart: {
+   *           indicators: {
+   *             movingaverage: {
+   *               show: true,
+   *               // additional options for the moving average indicator chart
+   *             },
+   *             rsi: {
+   *               enabled: true
+   *             },
+   *             bollingerbands: {
+   *               enabled: true,
+   *               chartOptions: {
+   *                 fill: {
+   *                   color: "rgba(0, 114, 255, 0.08)"
+   *                 }
+   *               }
+   *             },
+   *             macd: {
+   *               enabled: true
+   *             }
+   *           }
+   *         }
+   *       }
+   *     }
    */
   constructor(chartEl, chartOptions) {
     this.chartEl = chartEl;
-    // Total height is provided via chartOptions.chart.height (assumed numeric, e.g. 600)
+    // Total height for the main chart is provided via chartOptions.chart.height
     this.totalHeight = chartOptions.chart.height || 350;
 
-    // Clear any existing content and create two sub-containers:
-    // one for the main chart and one for the indicator charts.
+    if (!chartOptions.chart.id) {
+      chartOptions.chart.id = "apexstock-main-chart";
+    }
+
+    // Assign an ID to the main chart container.
+    this.mainChartId = chartOptions.chart.id;
+
+    // Clear any existing content and create sub-containers.
     this.chartEl.innerHTML = "";
+    // Main chart container
     this.mainChartDiv = document.createElement("div");
-    this.indicatorContainer = document.createElement("div");
+    this.mainChartDiv.id = this.mainChartId;
     this.mainChartDiv.classList.add("apexstock-main-chart");
-    this.indicatorContainer.classList.add("apexstock-indicator-container");
-    // Initially, if no indicator is added, main chart gets full height.
     this.mainChartDiv.style.height = this.totalHeight + "px";
+
+    // Indicator container (for indicators that render in separate charts)
+    this.indicatorContainer = document.createElement("div");
+    this.indicatorContainer.classList.add("apexstock-indicator-container");
+    // Initially, if no indicator is added, indicator container gets 0 height.
     this.indicatorContainer.style.height = "0px";
+
     this.chartEl.appendChild(this.mainChartDiv);
+
     this.chartEl.appendChild(this.indicatorContainer);
 
-    // Store references to indicator charts
+    // Store references to indicator chart instances.
     this.indicatorCharts = [];
 
-    // Extract stock-chart–specific settings from plotOptions.stockChart.
+    // Process stock-chart–specific settings.
     const stockChartOptions =
       (chartOptions.plotOptions && chartOptions.plotOptions.stockChart) || {};
+
+    // Main OHLC series.
     this.series = chartOptions.series[0].data || [];
-    this.indicators = stockChartOptions.indicators || [
-      "Moving Average",
-      "RSI",
-      "Bollinger Bands",
-      "MACD",
-    ];
-    // Always add "Volumes" to the dropdown options if not already included.
-    if (!this.indicators.includes("Volumes")) {
-      this.indicators.push("Volumes");
+
+    // Process indicators configuration.
+    // Allow indicators to be passed as an object.
+    if (
+      typeof stockChartOptions.indicators === "object" &&
+      !Array.isArray(stockChartOptions.indicators)
+    ) {
+      this.indicators = stockChartOptions.indicators;
+    } else if (Array.isArray(stockChartOptions.indicators)) {
+      // If passed as array, convert to object with default options.
+      this.indicators = {};
+      stockChartOptions.indicators.forEach((ind) => {
+        this.indicators[ind.toLowerCase()] = { enabled: true };
+      });
+    } else {
+      // Default indicator settings.
+      this.indicators = {
+        movingaverage: { show: true },
+        rsi: { enabled: true },
+        bollingerbands: { enabled: true },
+        macd: { enabled: true },
+      };
+    }
+    // Always add "volumes" if not already present.
+    if (!("volumes" in this.indicators)) {
+      this.indicators.volumes = { enabled: true };
     }
 
     // Process volumes data.
-    // Option 1: Use volumes provided explicitly
-    // Option 2: Derive volumes from each OHLC point if property 'v' exists.
     if (stockChartOptions.volumes) {
       this.volumesData = stockChartOptions.volumes;
     } else {
@@ -51,12 +114,12 @@ class ApexStock {
         .filter((x) => x !== null);
     }
 
-    // Merge the provided chartOptions with defaults for a candlestick chart.
-    // Set the chart type to 'candlestick' and the height to the total height.
+    // Merge provided chartOptions with defaults for the main candlestick chart.
     this.mainChartOptions = Object.assign({}, chartOptions, {
       chart: Object.assign({}, chartOptions.chart, {
         type: "candlestick",
         height: this.totalHeight,
+        id: this.mainChartId,
       }),
       series: [
         {
@@ -67,7 +130,6 @@ class ApexStock {
       xaxis: {
         type: "datetime",
       },
-      // Initially, we have a single y-axis for the candlestick.
       yaxis: [
         {
           opposite: false,
@@ -79,7 +141,8 @@ class ApexStock {
       },
     });
 
-    // Create the main candlestick chart instance.
+    // Create the main candlestick chart.
+    console.log(this.mainChartOptions);
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
   }
 
@@ -90,13 +153,14 @@ class ApexStock {
     // Render the main candlestick chart.
     this.chart.render();
 
-    // Create the indicator dropdown and the trendline button.
+    // Create the indicator dropdown.
     this.addIndicatorDropdown();
+    // (Optional: add trendline option if desired)
     // this.addTrendlineOption();
   }
 
   /**
-   * Adds a dropdown control (positioned at the top left) to let the user add indicator charts.
+   * Adds a dropdown (positioned at the top left) to let the user add indicator charts.
    */
   addIndicatorDropdown() {
     const dropdown = document.createElement("select");
@@ -111,10 +175,17 @@ class ApexStock {
     defaultOption.innerText = "Select Indicator";
     dropdown.appendChild(defaultOption);
 
-    this.indicators.forEach((indicator) => {
+    // Populate dropdown from the keys of the indicators object.
+    Object.keys(this.indicators).forEach((key) => {
+      const displayName =
+        key === "rsi" || key === "macd" || key === "volumes"
+          ? key.toUpperCase()
+          : key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/^./, (str) => str.toUpperCase());
       const option = document.createElement("option");
-      option.value = indicator;
-      option.innerText = indicator;
+      option.value = key;
+      option.innerText = displayName;
       dropdown.appendChild(option);
     });
 
@@ -123,12 +194,12 @@ class ApexStock {
 
     dropdown.addEventListener("change", (e) => {
       const selected = e.target.value;
-      this.updateIndicator(selected);
+      this.updateIndicator(selected.replace(/\s+/g, ""));
     });
   }
 
   /**
-   * Adds a button (positioned at the top left) to toggle drawing a trendline on the main chart.
+   * (Optional) Adds a button to toggle a trendline on the main chart.
    */
   addTrendlineOption() {
     const button = document.createElement("button");
@@ -142,7 +213,6 @@ class ApexStock {
     this.chartEl.parentNode.insertBefore(button, this.chartEl);
 
     button.addEventListener("click", () => {
-      // Toggle a simple trendline annotation on the main chart.
       this.chart.updateOptions({
         annotations: {
           xaxis: [
@@ -154,10 +224,7 @@ class ApexStock {
               opacity: 0.2,
               label: {
                 borderColor: "#00E396",
-                style: {
-                  color: "#fff",
-                  background: "#00E396",
-                },
+                style: { color: "#fff", background: "#00E396" },
                 text: "Trendline",
               },
             },
@@ -168,9 +235,9 @@ class ApexStock {
   }
 
   /**
-   * Helper function to compute the new heights for the main chart and indicator charts.
+   * Helper function to compute new heights for main and indicator charts.
    * @param {number} newIndicatorCount - Total count of indicator charts (existing + new one)
-   * @returns {Object} - An object with newMainHeight, indicatorContainerHeight, and indicatorHeight.
+   * @returns {Object} - { newMainHeight, indicatorContainerHeight, indicatorHeight }
    */
   computeHeights(newIndicatorCount) {
     const newMainHeight = Math.floor(0.6 * this.totalHeight);
@@ -182,13 +249,11 @@ class ApexStock {
   }
 
   /**
-   * Updates the heights of all charts based on the current number of indicators.
-   * This is called whenever a new indicator is added or removed.
+   * Updates the heights of all charts based on current indicator count.
    */
   updateAllChartHeights() {
     const indicatorCount = this.indicatorContainer.children.length;
     if (indicatorCount === 0) {
-      // If no indicators, main chart gets full height
       this.mainChartDiv.style.height = this.totalHeight + "px";
       this.indicatorContainer.style.height = "0px";
       this.chart.updateOptions(
@@ -201,8 +266,6 @@ class ApexStock {
 
     const { newMainHeight, indicatorContainerHeight, indicatorHeight } =
       this.computeHeights(indicatorCount);
-
-    // Update main chart height
     this.mainChartDiv.style.height = newMainHeight + "px";
     this.indicatorContainer.style.height = indicatorContainerHeight + "px";
     this.chart.updateOptions(
@@ -211,12 +274,9 @@ class ApexStock {
       false
     );
 
-    // Update all indicator chart heights
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
       indicatorDiv.style.height = indicatorHeight + "px";
-
-      // Update the chart height if there's a chart instance stored
       if (this.indicatorCharts[i]) {
         this.indicatorCharts[i].updateOptions(
           { chart: { height: indicatorHeight } },
@@ -228,234 +288,211 @@ class ApexStock {
   }
 
   /**
-   * Adds a new indicator chart below the main chart.
-   * For most indicators, a new chart is created.
-   * However, for "Volumes", the volume series is added to the main chart on an opposite y-axis.
-   * For "Bollinger Bands", the bands are added directly to the main chart series without modifying the chart height.
-   * @param {string} indicator - The indicator name (e.g. "Moving Average", "RSI", "Volumes", "Bollinger Bands", "MACD").
+   * Adds an indicator – either as a new chart or (for Volumes and Bollinger Bands)
+   * directly to the main chart.
+   * @param {string} indicatorKey - The key for the indicator (e.g., "movingaverage", "rsi", "bollingerbands", "macd", "volumes").
    */
-  updateIndicator(indicator) {
-    if (!indicator) return;
+  updateIndicator(indicatorKey) {
+    if (!indicatorKey) return;
 
-    if (indicator === "Volumes") {
-      // For volumes, update the main chart to include a volume series on an opposite y-axis.
+    // Normalize key to lower-case.
+    indicatorKey = indicatorKey.toLowerCase();
+
+    // Handle Volumes indicator: add as an extra series to the main chart.
+    if (indicatorKey === "volumes") {
       if (!this.volumesData || this.volumesData.length === 0) {
         console.warn("No volumes data available.");
         document.getElementById("indicatorDropdown").value = "";
         return;
       }
-
-      // Check if volume series is already added (by checking the current series length).
       const currentSeries = this.chart.w.globals.series;
       if (currentSeries && currentSeries.length > 1) {
-        // Assume volumes already added.
         document.getElementById("indicatorDropdown").value = "";
         return;
       }
-
-      // Prepare the volume series.
       const volumeSeries = {
         name: "Volumes",
         type: "column",
         data: this.volumesData,
       };
-
-      // Update the main chart series: first series remains candlestick, second is volumes.
       const newSeries = [{ name: "Price", data: this.series }, volumeSeries];
-
-      // Update yaxis configuration to have two axes.
       const newYaxis = [
-        {
-          opposite: false,
-          title: { text: "Price" },
-        },
-        {
-          opposite: true,
-          title: { text: "Volume" },
-        },
+        { opposite: false, title: { text: "Price" } },
+        { opposite: true, title: { text: "Volume" } },
       ];
-
       this.chart.updateOptions({ yaxis: newYaxis });
       this.chart.updateSeries(newSeries);
       document.getElementById("indicatorDropdown").value = "";
       return;
-    } else if (indicator === "Bollinger Bands") {
-      // Bollinger Bands are added to the main chart without modifying the main chart height.
-      const period = 20;
-      const stdDev = 2;
+    }
+    // Handle Bollinger Bands: add to main chart without changing its height.
+    else if (indicatorKey === "bollingerbands") {
+      const period = 20,
+        stdDev = 2;
       const { upper, lower } = this.calculateBollingerBands(
         this.series,
         period,
         stdDev
       );
-
-      // Append Bollinger Bands as a rangeArea series to the main chart's series.
-      this.chart.updateSeries([
-        ...this.chart.w.config.series,
-        {
-          name: "Bollinger Bands",
-          type: "rangeArea",
-          data: upper.map((value, index) => ({
-            x: this.series[index].x,
-            y: [lower[index], value],
-          })),
-          color: "rgba(0, 114, 255, 0.08)",
-        },
-      ]);
+      let bbSeries = {
+        name: "Bollinger Bands",
+        type: "rangeArea",
+        data: upper.map((value, index) => ({
+          x: this.series[index].x,
+          y: [lower[index], value],
+        })),
+        color: "rgba(0, 114, 255, 0.08)",
+      };
+      if (this.indicators.bollingerbands?.chartOptions) {
+        bbSeries = Object.assign(
+          {},
+          bbSeries,
+          this.indicators.bollingerbands.chartOptions
+        );
+      }
+      this.chart.updateSeries([...this.chart.w.config.series, bbSeries]);
       document.getElementById("indicatorDropdown").value = "";
       return;
-    } else if (indicator === "Moving Average") {
-      // Calculate a simple moving average (SMA) using the close price (4th element of y).
+    }
+    // For other indicators (Moving Average, RSI, MACD), create a new indicator chart.
+    let indicatorChartOptions = {};
+    // For Moving Average.
+    if (indicatorKey === "movingaverage") {
       const maData = this.calculateMovingAverage(this.series, 10);
-      var indicatorChartOptions = {
+      const defaultSeries = [
+        {
+          name: "Moving Average",
+          data: maData.map((value, index) => ({
+            x: this.series[index].x,
+            y: value,
+          })),
+        },
+      ];
+      indicatorChartOptions = {
         chart: {
           type: "line",
-          toolbar: {
-            show: false,
-          },
+          toolbar: { show: false },
           parentHeightOffset: 0,
         },
-        series: [
-          {
-            name: "Moving Average",
-            data: maData.map((value, index) => ({
-              x: this.series[index].x,
-              y: value,
-            })),
-          },
-        ],
-        xaxis: {
-          type: "datetime",
-          labels: {
-            show: false,
-          },
-        },
-        yaxis: {
-          title: { text: "MA" },
-        },
-        stroke: {
-          width: 1,
-          colors: "#7D57C2",
-        },
+        series: defaultSeries,
+        xaxis: { type: "datetime", labels: { show: false } },
+        yaxis: { title: { text: "MA" } },
+        stroke: { width: 1, colors: "#7D57C2" },
       };
-    } else if (indicator === "RSI") {
-      // Calculate a simple RSI with a period of 14.
+
+      if (this.indicators.movingaverage?.chartOptions) {
+        indicatorChartOptions = Object.assign(
+          {},
+          indicatorChartOptions,
+          this.indicators.movingaverage.chartOptions
+        );
+        if (!indicatorChartOptions.series) {
+          indicatorChartOptions.series = defaultSeries;
+        }
+      }
+    } else if (indicatorKey === "rsi") {
       const rsiData = this.calculateRSI(this.series, 14);
-      var indicatorChartOptions = {
+      const defaultSeries = [
+        {
+          name: "RSI",
+          data: rsiData.map((value, index) => ({
+            x: this.series[index].x,
+            y: value,
+          })),
+        },
+      ];
+      indicatorChartOptions = {
         chart: {
           type: "line",
-          toolbar: {
-            show: false,
-          },
+          toolbar: { show: false },
           parentHeightOffset: 0,
         },
-        series: [
-          {
-            name: "RSI",
-            data: rsiData.map((value, index) => ({
-              x: this.series[index].x,
-              y: value,
-            })),
-          },
-        ],
+        series: defaultSeries,
         xaxis: {
           type: "datetime",
-          labels: {
-            show: false,
-          },
-          axisTicks: {
-            show: false,
-          },
+          labels: { show: false },
+          axisTicks: { show: false },
         },
-        yaxis: {
-          min: 0,
-          max: 100,
-          title: { text: "RSI" },
-        },
-        stroke: {
-          width: 1,
-          colors: "#7D57C2",
-        },
+        yaxis: { min: 0, max: 100, title: { text: "RSI" } },
+        stroke: { width: 1, colors: "#7D57C2" },
       };
-    } else if (indicator === "MACD") {
-      // Calculate MACD with standard parameters.
+      if (this.indicators.rsi?.chartOptions) {
+        indicatorChartOptions = Object.assign(
+          {},
+          indicatorChartOptions,
+          this.indicators.rsi.chartOptions
+        );
+        if (!indicatorChartOptions.series) {
+          indicatorChartOptions.series = defaultSeries;
+        }
+      }
+    } else if (indicatorKey === "macd") {
       const { macd, signal, histogram } = this.calculateMACD(this.series);
-      const me = this;
-      var indicatorChartOptions = {
+      const defaultSeries = [
+        {
+          name: "MACD",
+          type: "line",
+          data: macd.map((value, index) => ({
+            x: this.series[index].x,
+            y: this.truncateNumber(value),
+          })),
+          color: "#008FFB",
+        },
+        {
+          name: "Signal",
+          type: "line",
+          data: signal.map((value, index) => ({
+            x: this.series[index].x,
+            y: this.truncateNumber(value),
+          })),
+          color: "#FF4560",
+        },
+        {
+          name: "Histogram",
+          type: "bar",
+          data: histogram.map((value, index) => ({
+            x: this.series[index].x,
+            y: this.truncateNumber(value),
+          })),
+        },
+      ];
+      indicatorChartOptions = {
         chart: {
           type: "line",
-          toolbar: {
-            show: false,
-          },
+          toolbar: { show: false },
           parentHeightOffset: 0,
         },
-        series: [
-          {
-            name: "MACD",
-            type: "line",
-            data: macd.map((value, index) => ({
-              x: this.series[index].x,
-              y: me.truncateNumber(value),
-            })),
-            color: "#008FFB",
-          },
-          {
-            name: "Signal",
-            type: "line",
-            data: signal.map((value, index) => ({
-              x: this.series[index].x,
-              y: me.truncateNumber(value),
-            })),
-            color: "#FF4560",
-          },
-          {
-            name: "Histogram",
-            type: "bar",
-            data: histogram.map((value, index) => ({
-              x: this.series[index].x,
-              y: me.truncateNumber(value),
-            })),
-          },
-        ],
-        xaxis: {
-          type: "datetime",
-          labels: {
-            show: false,
-          },
-        },
-        yaxis: {
-          title: { text: "MACD" },
-        },
-        stroke: {
-          width: [1, 1, 0],
-        },
-        legend: {
-          show: false,
-        },
+        series: defaultSeries,
+        xaxis: { type: "datetime", labels: { show: false } },
+        yaxis: { title: { text: "MACD" } },
+        stroke: { width: [1, 1, 0] },
+        legend: { show: false },
         plotOptions: {
           bar: {
             colors: {
               ranges: [
-                {
-                  from: 0.1,
-                  to: 100,
-                  color: "#00E396",
-                },
-                {
-                  from: -100,
-                  to: 0,
-                  color: "#FF4560",
-                },
+                { from: 0.1, to: 100, color: "#00E396" },
+                { from: -100, to: 0, color: "#FF4560" },
               ],
             },
           },
         },
       };
+      if (this.indicators.macd.chartOptions) {
+        indicatorChartOptions = Object.assign(
+          {},
+          indicatorChartOptions,
+          this.indicators.macd.chartOptions
+        );
+        if (!indicatorChartOptions.series) {
+          indicatorChartOptions.series = defaultSeries;
+        }
+      }
     }
 
-    // For non-Bollinger Bands indicators, create a new div for the indicator chart.
+    // Create a new div for the indicator chart.
     const indicatorDiv = document.createElement("div");
-    indicatorDiv.dataset.indicator = indicator;
+    indicatorDiv.dataset.indicator = indicatorKey;
     indicatorDiv.style.width = "100%";
     this.indicatorContainer.appendChild(indicatorDiv);
 
@@ -469,23 +506,18 @@ class ApexStock {
     );
     indicatorChartOptions.chart.height = indicatorHeight;
 
+    console.log(indicatorChartOptions);
+
     // Render the indicator chart in the new div.
-    const chart = new ApexCharts(indicatorDiv, indicatorChartOptions);
-    chart.render();
+    const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
+    chartInstance.render();
+    this.indicatorCharts.push(chartInstance);
 
-    // Store reference to the chart instance.
-    this.indicatorCharts.push(chart);
-
-    // Reset the dropdown to its default option.
     document.getElementById("indicatorDropdown").value = "";
   }
 
   /**
-   * Calculates a simple moving average (SMA) for the given OHLC series.
-   * Uses the closing price (4th element of the y-array).
-   * @param {Array} series - The OHLC series.
-   * @param {number} period - The number of data points for the average.
-   * @returns {Array} - An array containing the SMA values (null for indices with insufficient data).
+   * Calculates a simple moving average (SMA) using the close price.
    */
   calculateMovingAverage(series, period) {
     const ma = [];
@@ -495,7 +527,7 @@ class ApexStock {
       } else {
         let sum = 0;
         for (let j = i - period + 1; j <= i; j++) {
-          sum += series[j].y[3]; // close price
+          sum += series[j].y[3];
         }
         ma.push(this.truncateNumber(sum / period));
       }
@@ -504,16 +536,12 @@ class ApexStock {
   }
 
   /**
-   * Calculates the Relative Strength Index (RSI) for the given OHLC series.
-   * Uses the closing price (4th element of the y-array).
-   * @param {Array} series - The OHLC series.
-   * @param {number} period - The period to use for RSI calculation.
-   * @returns {Array} - An array of RSI values (null for indices with insufficient data).
+   * Calculates RSI using the close price.
    */
   calculateRSI(series, period) {
     const rsi = [];
-    let gains = 0;
-    let losses = 0;
+    let gains = 0,
+      losses = 0;
     for (let i = 0; i < series.length; i++) {
       const price = series[i].y[3];
       if (i === 0) {
@@ -535,8 +563,8 @@ class ApexStock {
             rsi.push(null);
           }
         } else {
-          let sumGain = 0;
-          let sumLoss = 0;
+          let sumGain = 0,
+            sumLoss = 0;
           for (let j = i - period + 1; j <= i; j++) {
             const delta = series[j].y[3] - series[j - 1].y[3];
             sumGain += delta > 0 ? delta : 0;
@@ -555,16 +583,11 @@ class ApexStock {
 
   /**
    * Calculates Bollinger Bands for the given OHLC series.
-   * @param {Array} series - The OHLC series.
-   * @param {number} period - The period for the moving average.
-   * @param {number} stdDev - The standard deviation multiplier.
-   * @returns {Object} - An object with middle, upper, and lower band arrays.
    */
   calculateBollingerBands(series, period, stdDev) {
     const middle = this.calculateMovingAverage(series, period);
-    const upper = [];
-    const lower = [];
-
+    const upper = [],
+      lower = [];
     for (let i = 0; i < series.length; i++) {
       if (i < period - 1) {
         upper.push(null);
@@ -580,24 +603,15 @@ class ApexStock {
         lower.push(this.truncateNumber(middle[i] - stdDev * stdDevValue));
       }
     }
-
     return { middle, upper, lower };
   }
 
   /**
    * Calculates MACD for the given OHLC series.
-   * @param {Array} series - The OHLC series.
-   * @param {number} fastPeriod - The period for the fast EMA (default: 12).
-   * @param {number} slowPeriod - The period for the slow EMA (default: 26).
-   * @param {number} signalPeriod - The period for the signal line (default: 9).
-   * @returns {Object} - An object with macd, signal, and histogram arrays.
    */
   calculateMACD(series, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
-    // Calculate EMAs
     const fastEMA = this.calculateEMA(series, fastPeriod);
     const slowEMA = this.calculateEMA(series, slowPeriod);
-
-    // Calculate MACD line
     const macd = [];
     for (let i = 0; i < series.length; i++) {
       if (i < slowPeriod - 1) {
@@ -606,12 +620,9 @@ class ApexStock {
         macd.push(fastEMA[i] - slowEMA[i]);
       }
     }
-
-    // Calculate signal line (EMA of MACD)
     const signal = [];
-    let signalSum = 0;
-    let validCount = 0;
-
+    let signalSum = 0,
+      validCount = 0;
     for (let i = 0; i < macd.length; i++) {
       if (i < slowPeriod - 1 + signalPeriod - 1) {
         signal.push(null);
@@ -619,7 +630,6 @@ class ApexStock {
         if (validCount < signalPeriod) {
           signalSum += macd[i - (signalPeriod - 1) + validCount];
           validCount++;
-
           if (validCount === signalPeriod) {
             signal.push(signalSum / signalPeriod);
           } else {
@@ -631,8 +641,6 @@ class ApexStock {
         }
       }
     }
-
-    // Calculate histogram
     const histogram = [];
     for (let i = 0; i < series.length; i++) {
       if (i < slowPeriod - 1 + signalPeriod - 1) {
@@ -641,27 +649,20 @@ class ApexStock {
         histogram.push(macd[i] - signal[i]);
       }
     }
-
     return { macd, signal, histogram };
   }
 
   /**
-   * Calculates Exponential Moving Average (EMA) for the given OHLC series.
-   * @param {Array} series - The OHLC series.
-   * @param {number} period - The period for the EMA.
-   * @returns {Array} - An array of EMA values.
+   * Calculates EMA for the given OHLC series.
    */
   calculateEMA(series, period) {
     const ema = [];
     const multiplier = 2 / (period + 1);
-
-    // Calculate first SMA as starting point
     let sum = 0;
     for (let i = 0; i < period; i++) {
-      sum += series[i].y[3]; // close price
+      sum += series[i].y[3];
     }
     const sma = sum / period;
-
     for (let i = 0; i < series.length; i++) {
       if (i < period - 1) {
         ema.push(null);
@@ -675,7 +676,6 @@ class ApexStock {
         );
       }
     }
-
     return ema;
   }
 
