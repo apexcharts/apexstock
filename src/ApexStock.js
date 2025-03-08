@@ -16,72 +16,73 @@ class ApexStock {
    */
   constructor(chartEl, chartOptions) {
     this.chartEl = chartEl;
-    // Total height for the main chart is provided via chartOptions.chart.height
     this.totalHeight = chartOptions.chart.height || 350;
 
+    // Generate a random id for grouping indicator charts.
     chartOptions.chart.id = this.randomId();
     this.groupID = "group" + this.randomId();
-
-    // Assign an ID to the main chart container.
     this.mainChartId = chartOptions.chart.id;
 
-    // Clear any existing content and create sub-containers.
     this.chartEl.innerHTML = "";
-    // Main chart container
     this.mainChartDiv = document.createElement("div");
     this.mainChartDiv.id = this.mainChartId;
     this.mainChartDiv.classList.add("apexstock-main-chart");
     this.mainChartDiv.style.height = this.totalHeight + "px";
 
-    // Indicator container (for indicators that render in separate charts)
     this.indicatorContainer = document.createElement("div");
     this.indicatorContainer.classList.add("apexstock-indicator-container");
-    // Initially, if no indicator is added, indicator container gets 0 height.
     this.indicatorContainer.style.height = "0px";
 
     this.chartEl.appendChild(this.mainChartDiv);
     this.chartEl.appendChild(this.indicatorContainer);
 
-    // Store references to indicator chart instances in a map.
-    // For indicators added directly to the main chart (Bollinger Bands), we store a marker (true).
+    // Map to store indicator chart instances.
     this.indicatorChartMap = {};
 
-    // Process stock-chart–specific settings.
     const stockChartOptions =
       (chartOptions.plotOptions && chartOptions.plotOptions.stockChart) || {};
-
-    // Main OHLC series.
     this.series = chartOptions.series[0].data || [];
 
-    // Process indicators configuration.
-    // Allow indicators to be passed as an object.
+    // Process indicator configuration.
     if (
       typeof stockChartOptions.indicators === "object" &&
       !Array.isArray(stockChartOptions.indicators)
     ) {
       this.indicators = stockChartOptions.indicators;
     } else if (Array.isArray(stockChartOptions.indicators)) {
-      // If passed as array, convert to object with default options.
       this.indicators = {};
       stockChartOptions.indicators.forEach((ind) => {
         this.indicators[ind.toLowerCase()] = { enabled: true };
       });
     } else {
-      // Default indicator settings.
       this.indicators = {
-        "moving average": { show: true },
+        "moving average": { enabled: true },
         rsi: { enabled: true },
         "bollinger bands": { enabled: true },
         macd: { enabled: true },
         volumes: { enabled: true },
+        "exponential moving average": { enabled: true },
+        "fibonacci retracements": { enabled: true },
+        "price volume trend": { enabled: true },
+        "stochastic oscillator": { enabled: true },
+        "standard deviation indicator": { enabled: true },
+        "average directional index": { enabled: true },
+        "chaikin oscillator": { enabled: true },
+        "commodity channel index": { enabled: true },
+        "trend strength index": { enabled: true },
+        "accelerator oscillator": { enabled: true },
+        "bollinger bands %b": { enabled: true },
+        "bollinger bands width": { enabled: true },
+        "linear regression": { enabled: true },
+        "ichimoku cloud indicator": { enabled: true },
       };
     }
 
+    // Process volumes data.
     this.volumesData = this.series
       .map((point) => (point.v ? { x: point.x, y: point.v } : null))
       .filter((x) => x !== null);
 
-    // Merge provided chartOptions with defaults for the main candlestick chart.
     this.mainChartOptions = Object.assign({}, chartOptions, {
       chart: Object.assign({}, chartOptions.chart, {
         type: "candlestick",
@@ -95,42 +96,25 @@ class ApexStock {
           data: this.series,
         },
       ],
-      xaxis: {
-        type: "datetime",
-      },
-      yaxis: [
-        {
-          opposite: false,
-          title: { text: "Price" },
-        },
-      ],
-      legend: {
-        show: false,
-      },
+      xaxis: { type: "datetime" },
+      yaxis: [{ opposite: false, title: { text: "Price" } }],
+      legend: { show: false },
     });
 
+    console.log(this.mainChartOptions);
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
   }
 
-  /**
-   * Render the main chart and setup additional UI controls.
-   */
   render() {
-    // Render the main candlestick chart.
     this.chart.render();
-    // Create the custom indicator dropdown.
     this.addCustomIndicatorDropdown();
-    // (Optional: add trendline option if desired)
-    // this.addTrendlineOption();
+    // this.addTrendlineOption(); // Optional
   }
 
   randomId() {
     return (Math.random() + 1).toString(36).substring(4);
   }
 
-  /**
-   * Creates a custom dropdown control for selecting/deselecting indicators.
-   */
   addCustomIndicatorDropdown() {
     const wrapper = document.createElement("div");
     wrapper.classList.add("custom-select-wrapper");
@@ -191,9 +175,6 @@ class ApexStock {
     this.chartEl.parentNode.insertBefore(wrapper, this.chartEl);
   }
 
-  /**
-   * (Optional) Adds a button to toggle a trendline on the main chart.
-   */
   addTrendlineOption() {
     const button = document.createElement("button");
     button.id = "trendlineBtn";
@@ -225,11 +206,6 @@ class ApexStock {
     });
   }
 
-  /**
-   * Computes new heights for main and indicator charts.
-   * @param {number} newIndicatorCount - Total count of indicator charts (existing + new one)
-   * @returns {Object} - { newMainHeight, indicatorContainerHeight, indicatorHeight }
-   */
   computeHeights(newIndicatorCount) {
     const newMainHeight = Math.floor(0.6 * this.totalHeight);
     const indicatorContainerHeight = Math.floor(0.4 * this.totalHeight);
@@ -239,9 +215,6 @@ class ApexStock {
     return { newMainHeight, indicatorContainerHeight, indicatorHeight };
   }
 
-  /**
-   * Updates the heights of all charts based on current indicator count.
-   */
   updateAllChartHeights() {
     const indicatorCount = this.indicatorContainer.children.length;
     if (indicatorCount === 0) {
@@ -265,7 +238,6 @@ class ApexStock {
       false,
       false
     );
-
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
       indicatorDiv.style.height = indicatorHeight + "px";
@@ -284,10 +256,6 @@ class ApexStock {
     }
   }
 
-  /**
-   * Adds (or toggles) an indicator. If already present, it is removed.
-   * @param {string} indicatorKey - The key for the indicator.
-   */
   updateIndicator(indicatorKey) {
     if (!indicatorKey) return;
     indicatorKey = indicatorKey.toLowerCase();
@@ -300,7 +268,6 @@ class ApexStock {
 
     let indicatorChartOptions = {};
 
-    // For Volumes: now create a separate indicator chart.
     if (indicatorKey === "volumes") {
       if (!this.volumesData || this.volumesData.length === 0) {
         console.warn("No volumes data available.");
@@ -528,6 +495,390 @@ class ApexStock {
           indicatorChartOptions.series = defaultSeries;
         }
       }
+    } else if (indicatorKey === "exponential moving average") {
+      // Here we use calculateEMA (which returns EMA values) as the indicator.
+      const emaData = this.calculateEMA(this.series, 10);
+      const defaultSeries = [
+        {
+          name: "EMA",
+          data: emaData.map((value, index) => ({
+            x: this.series[index].x,
+            y: value,
+          })),
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "ema" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "EMA" } },
+        stroke: { width: 1, colors: "#FF9900" },
+      };
+    }
+    // New indicator: Fibonacci Retracements (drawn as annotations on main chart).
+    else if (indicatorKey === "fibonacci retracements") {
+      // Compute high and low.
+      const highs = this.series.map((pt) => pt.y[1]);
+      const lows = this.series.map((pt) => pt.y[2]);
+      const maxHigh = Math.max(...highs);
+      const minLow = Math.min(...lows);
+      const diff = maxHigh - minLow;
+      const levels = [0, 0.236, 0.382, 0.5, 0.618, 1].map(
+        (f) => minLow + f * diff
+      );
+      // Add annotations to main chart.
+      const annotations = levels.map((level) => ({
+        y: level,
+        borderColor: "#FF9900",
+        label: { text: `${Math.round(((level - minLow) / diff) * 100)}%` },
+      }));
+      // Update main chart with annotations.
+      this.chart.updateOptions({ annotations: { yaxis: annotations } });
+      // Store a marker.
+      this.indicatorChartMap[indicatorKey] = true;
+      return;
+    }
+    // New indicator: Price Volume Trend.
+    else if (indicatorKey === "price volume trend") {
+      const pvtData = this.calculatePVT(this.series);
+      const defaultSeries = [
+        {
+          name: "PVT",
+          data: pvtData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "pvt" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "PVT" } },
+        stroke: { width: 1, colors: "#0099CC" },
+      };
+    }
+    // New indicator: Stochastic Oscillator.
+    else if (indicatorKey === "stochastic oscillator") {
+      const { k, d } = this.calculateStochastic(this.series, 14, 3);
+      const defaultSeries = [
+        { name: "Stochastic %K", data: k },
+        { name: "Stochastic %D", data: d },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "stochastic" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "Stochastic" } },
+        stroke: { width: 1, colors: ["#33CC33", "#FF9933"] },
+      };
+    }
+    // New indicator: Standard Deviation Indicator.
+    else if (indicatorKey === "standard deviation indicator") {
+      const stdData = this.calculateStdDevIndicator(this.series, 14);
+      const defaultSeries = [
+        {
+          name: "Std Dev",
+          data: stdData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "stddev" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "Std Dev" } },
+        stroke: { width: 1, colors: "#CC33FF" },
+      };
+    }
+    // New indicator: Average Directional Index (ADX).
+    else if (indicatorKey === "average directional index") {
+      const adxData = this.calculateADX(this.series, 14);
+      const defaultSeries = [
+        {
+          name: "ADX",
+          data: adxData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "adx" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "ADX" } },
+        stroke: { width: 1, colors: "#9900CC" },
+      };
+    }
+    // New indicator: Chaikin Oscillator.
+    else if (indicatorKey === "chaikin oscillator") {
+      const chaikin = this.calculateChaikinOsc(this.series);
+      const defaultSeries = [
+        {
+          name: "Chaikin Osc",
+          data: chaikin,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "chaikin" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "Chaikin" } },
+        stroke: { width: 1, colors: "#CC3333" },
+      };
+    }
+    // New indicator: Commodity Channel Index (CCI).
+    else if (indicatorKey === "commodity channel index") {
+      const cciData = this.calculateCCI(this.series, 20);
+      const defaultSeries = [
+        {
+          name: "CCI",
+          data: cciData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "cci" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "CCI" } },
+        stroke: { width: 1, colors: "#FF6600" },
+      };
+    }
+    // New indicator: Trend Strength Index (TSI).
+    else if (indicatorKey === "trend strength index") {
+      const tsiData = this.calculateTSI(this.series, 25, 13);
+      const defaultSeries = [
+        {
+          name: "TSI",
+          data: tsiData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "tsi" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "TSI" } },
+        stroke: { width: 1, colors: "#0066CC" },
+      };
+    }
+    // New indicator: Accelerator Oscillator.
+    else if (indicatorKey === "accelerator oscillator") {
+      const acData = this.calculateAcceleratorOsc(this.series);
+      const defaultSeries = [
+        {
+          name: "AC",
+          data: acData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "ac" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "AC" } },
+        stroke: { width: 1, colors: "#009900" },
+      };
+    }
+    // New indicator: Bollinger Bands %B.
+    else if (indicatorKey === "bollinger bands %b") {
+      const bb = this.calculateBollingerBands(this.series, 20, 2);
+      const bBPercent = this.calculateBBPercent(
+        this.series,
+        bb.lower,
+        bb.upper
+      );
+      const defaultSeries = [
+        {
+          name: "Bollinger %B",
+          data: bBPercent,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "bbb" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "%B" } },
+        stroke: { width: 1, colors: "#6600CC" },
+      };
+    }
+    // New indicator: Bollinger Bands Width.
+    else if (indicatorKey === "bollinger bands width") {
+      const bb = this.calculateBollingerBands(this.series, 20, 2);
+      const bBWidth = this.calculateBBWidth(
+        this.series,
+        bb.middle,
+        bb.upper,
+        bb.lower
+      );
+      const defaultSeries = [
+        {
+          name: "Bollinger Width",
+          data: bBWidth,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "bbw" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "Width" } },
+        stroke: { width: 1, colors: "#CC0066" },
+      };
+    }
+    // New indicator: Linear Regression.
+    else if (indicatorKey === "linear regression") {
+      const lrData = this.calculateLinearRegression(this.series, 30);
+      const defaultSeries = [
+        {
+          name: "Linear Regression",
+          data: lrData,
+        },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "lr" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "LR" } },
+        stroke: { width: 1, colors: "#0099FF" },
+      };
+    }
+    // New indicator: Ichimoku Cloud Indicator.
+    else if (indicatorKey === "ichimoku cloud indicator") {
+      const ichimoku = this.calculateIchimoku(this.series);
+      // For simplicity, we plot just the Tenkan-sen and Kijun-sen lines.
+      const defaultSeries = [
+        { name: "Tenkan-sen", data: ichimoku.tenkan },
+        { name: "Kijun-sen", data: ichimoku.kijun },
+      ];
+      indicatorChartOptions = {
+        chart: {
+          type: "line",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "ichimoku" + this.groupID,
+          group: this.groupID,
+        },
+        series: defaultSeries,
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
+        yaxis: { title: { text: "Ichimoku" } },
+        stroke: { width: 1, colors: ["#FF6600", "#0066FF"] },
+      };
     }
 
     // Create a new div for the indicator chart.
@@ -536,9 +887,7 @@ class ApexStock {
     indicatorDiv.style.width = "100%";
     this.indicatorContainer.appendChild(indicatorDiv);
 
-    // Recalculate and update all chart heights.
     this.updateAllChartHeights();
-
     if (!indicatorChartOptions.chart) indicatorChartOptions.chart = {};
     const { indicatorHeight } = this.computeHeights(
       this.indicatorContainer.children.length
@@ -547,19 +896,12 @@ class ApexStock {
 
     const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
     chartInstance.render();
-    // Store the instance (or marker) in our map.
     this.indicatorChartMap[indicatorKey] = chartInstance;
   }
 
-  /**
-   * Removes an indicator chart by its key.
-   * For Bollinger Bands, updates the main chart series.
-   * @param {string} indicatorKey - The key of the indicator to remove.
-   */
   removeIndicator(indicatorKey) {
     indicatorKey = indicatorKey.toLowerCase();
     if (indicatorKey === "bollinger bands") {
-      // Remove Bollinger Bands from main chart.
       const currentSeries = this.chart.w.config.series;
       const newSeries = currentSeries.filter(
         (s) => s.name !== "Bollinger Bands"
@@ -582,9 +924,6 @@ class ApexStock {
     }
   }
 
-  /**
-   * Calculates a simple moving average (SMA) using the close price.
-   */
   calculateMovingAverage(series, period) {
     const ma = [];
     for (let i = 0; i < series.length; i++) {
@@ -601,9 +940,6 @@ class ApexStock {
     return ma;
   }
 
-  /**
-   * Calculates RSI using the close price.
-   */
   calculateRSI(series, period) {
     const rsi = [];
     let gains = 0,
@@ -647,9 +983,6 @@ class ApexStock {
     return rsi;
   }
 
-  /**
-   * Calculates Bollinger Bands for the given OHLC series.
-   */
   calculateBollingerBands(series, period, stdDev) {
     const middle = this.calculateMovingAverage(series, period);
     const upper = [],
@@ -672,9 +1005,6 @@ class ApexStock {
     return { middle, upper, lower };
   }
 
-  /**
-   * Calculates MACD for the given OHLC series.
-   */
   calculateMACD(series, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
     const fastEMA = this.calculateEMA(series, fastPeriod);
     const slowEMA = this.calculateEMA(series, slowPeriod);
@@ -718,9 +1048,6 @@ class ApexStock {
     return { macd, signal, histogram };
   }
 
-  /**
-   * Calculates EMA for the given OHLC series.
-   */
   calculateEMA(series, period) {
     const ema = [];
     const multiplier = 2 / (period + 1);
@@ -743,6 +1070,376 @@ class ApexStock {
       }
     }
     return ema;
+  }
+
+  // Calculate Fibonacci Retracements.
+  calculateFibonacciRetracements(series) {
+    const highs = series.map((pt) => pt.y[1]);
+    const lows = series.map((pt) => pt.y[2]);
+    const maxHigh = Math.max(...highs);
+    const minLow = Math.min(...lows);
+    const diff = maxHigh - minLow;
+    // Levels: 0%, 23.6%, 38.2%, 50%, 61.8%, 100%
+    return [0, 0.236, 0.382, 0.5, 0.618, 1].map(
+      (level) => minLow + level * diff
+    );
+  }
+
+  // New: Calculate Price Volume Trend.
+  calculatePVT(series) {
+    const pvt = [];
+    let prev = 0;
+    for (let i = 0; i < series.length; i++) {
+      if (i === 0) {
+        pvt.push({ x: series[i].x, y: 0 });
+      } else {
+        const prevClose = series[i - 1].y[3];
+        const currClose = series[i].y[3];
+        const volume = series[i].v || 0;
+        const changePct = (currClose - prevClose) / prevClose;
+        prev = prev + changePct * volume;
+        pvt.push({ x: series[i].x, y: this.truncateNumber(prev) });
+      }
+    }
+    return pvt;
+  }
+
+  // New: Calculate Stochastic Oscillator.
+  calculateStochastic(series, period, smoothPeriod) {
+    const k = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < period - 1) {
+        k.push({ x: series[i].x, y: null });
+      } else {
+        const periodSlice = series.slice(i - period + 1, i + 1);
+        const closes = periodSlice.map((pt) => pt.y[3]);
+        const highs = periodSlice.map((pt) => pt.y[1]);
+        const lows = periodSlice.map((pt) => pt.y[2]);
+        const highestHigh = Math.max(...highs);
+        const lowestLow = Math.min(...lows);
+        const value =
+          ((series[i].y[3] - lowestLow) / (highestHigh - lowestLow)) * 100;
+        k.push({ x: series[i].x, y: this.truncateNumber(value) });
+      }
+    }
+    // Smooth %K to get %D.
+    const d = [];
+    for (let i = 0; i < k.length; i++) {
+      if (i < smoothPeriod - 1 || k[i].y === null) {
+        d.push({ x: k[i].x, y: null });
+      } else {
+        let sum = 0;
+        for (let j = i - smoothPeriod + 1; j <= i; j++) {
+          sum += k[j].y;
+        }
+        d.push({ x: k[i].x, y: this.truncateNumber(sum / smoothPeriod) });
+      }
+    }
+    return { k, d };
+  }
+
+  // New: Calculate Standard Deviation Indicator.
+  calculateStdDevIndicator(series, period) {
+    const stdDevArr = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < period - 1) {
+        stdDevArr.push({ x: series[i].x, y: null });
+      } else {
+        const periodSlice = series.slice(i - period + 1, i + 1);
+        const closes = periodSlice.map((pt) => pt.y[3]);
+        const mean = closes.reduce((a, b) => a + b, 0) / period;
+        let sumSq = 0;
+        closes.forEach((c) => {
+          sumSq += Math.pow(c - mean, 2);
+        });
+        const std = Math.sqrt(sumSq / period);
+        stdDevArr.push({ x: series[i].x, y: this.truncateNumber(std) });
+      }
+    }
+    return stdDevArr;
+  }
+
+  // New: Calculate Average Directional Index (ADX). (Simplified version)
+  calculateADX(series, period) {
+    // This is a very simplified placeholder implementation.
+    const adxArr = [];
+    // For simplicity, we return an array with nulls for initial period and then a constant value.
+    for (let i = 0; i < series.length; i++) {
+      adxArr.push({ x: series[i].x, y: i < period ? null : 25 });
+    }
+    return adxArr;
+  }
+
+  // New: Calculate Chaikin Oscillator.
+  calculateChaikinOsc(series) {
+    // Compute A/D line.
+    const ad = [];
+    let cumulative = 0;
+    for (let i = 0; i < series.length; i++) {
+      const high = series[i].y[1];
+      const low = series[i].y[2];
+      const close = series[i].y[3];
+      const volume = series[i].v || 0;
+      const clv = (high - close - (close - low)) / (high - low || 1);
+      cumulative += clv * volume;
+      ad.push(cumulative);
+    }
+    // Calculate EMAs of the A/D line.
+    const emaShort = this.calculateEMAFromArray(ad, 3);
+    const emaLong = this.calculateEMAFromArray(ad, 10);
+    const chaikin = [];
+    for (let i = 0; i < ad.length; i++) {
+      if (emaShort[i] === null || emaLong[i] === null) {
+        chaikin.push({ x: series[i].x, y: null });
+      } else {
+        chaikin.push({
+          x: series[i].x,
+          y: this.truncateNumber(emaShort[i] - emaLong[i]),
+        });
+      }
+    }
+    return chaikin;
+  }
+
+  // Helper: Calculate EMA from an array of numbers.
+  calculateEMAFromArray(arr, period) {
+    const ema = [];
+    const multiplier = 2 / (period + 1);
+    let sum = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (i < period) {
+        if (arr[i] !== null) sum += arr[i];
+        else sum += 0;
+        if (i === period - 1) {
+          const sma = sum / period;
+          ema.push(this.truncateNumber(sma));
+        } else {
+          ema.push(null);
+        }
+      } else {
+        ema.push(
+          this.truncateNumber(
+            arr[i] * multiplier + ema[i - 1] * (1 - multiplier)
+          )
+        );
+      }
+    }
+    return ema;
+  }
+
+  // New: Calculate Commodity Channel Index (CCI).
+  calculateCCI(series, period) {
+    const cciArr = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < period - 1) {
+        cciArr.push({ x: series[i].x, y: null });
+      } else {
+        const slice = series.slice(i - period + 1, i + 1);
+        const typicalPrices = slice.map(
+          (pt) => (pt.y[1] + pt.y[2] + pt.y[3]) / 3
+        );
+        const sma = typicalPrices.reduce((a, b) => a + b, 0) / period;
+        const meanDeviation =
+          typicalPrices.reduce((acc, tp) => acc + Math.abs(tp - sma), 0) /
+          period;
+        const currentTypical =
+          (series[i].y[1] + series[i].y[2] + series[i].y[3]) / 3;
+        const cci = (currentTypical - sma) / (0.015 * meanDeviation);
+        cciArr.push({ x: series[i].x, y: this.truncateNumber(cci) });
+      }
+    }
+    return cciArr;
+  }
+
+  // New: Calculate Trend Strength Index (TSI). (Simplified version)
+  calculateTSI(series, longPeriod, shortPeriod) {
+    // Using a simplified version: TSI = 100 * (Double smoothed price change) / (Double smoothed absolute price change)
+    const diff = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i === 0) diff.push(0);
+      else diff.push(series[i].y[3] - series[i - 1].y[3]);
+    }
+    const smoothedDiff = this.calculateEMAFromArray(diff, shortPeriod);
+    const doubleSmoothedDiff = this.calculateEMAFromArray(
+      smoothedDiff,
+      longPeriod
+    );
+    const absDiff = diff.map((d) => Math.abs(d));
+    const smoothedAbsDiff = this.calculateEMAFromArray(absDiff, shortPeriod);
+    const doubleSmoothedAbsDiff = this.calculateEMAFromArray(
+      smoothedAbsDiff,
+      longPeriod
+    );
+    const tsi = [];
+    for (let i = 0; i < series.length; i++) {
+      if (doubleSmoothedAbsDiff[i] === 0 || doubleSmoothedDiff[i] === null) {
+        tsi.push({ x: series[i].x, y: null });
+      } else {
+        tsi.push({
+          x: series[i].x,
+          y: this.truncateNumber(
+            100 * (doubleSmoothedDiff[i] / doubleSmoothedAbsDiff[i])
+          ),
+        });
+      }
+    }
+    return tsi;
+  }
+
+  // New: Calculate Accelerator Oscillator.
+  calculateAcceleratorOsc(series) {
+    // Awesome Oscillator (AO): difference between 5-period SMA and 34-period SMA of median price.
+    const medianPrices = series.map((pt) => (pt.y[1] + pt.y[2]) / 2);
+    const sma5 = this.calculateSMAFromArray(medianPrices, 5);
+    const sma34 = this.calculateSMAFromArray(medianPrices, 34);
+    const ao = medianPrices.map((_, i) => {
+      if (sma5[i] === null || sma34[i] === null) return null;
+      return sma5[i] - sma34[i];
+    });
+    const aoSMA = this.calculateSMAFromArray(ao, 5);
+    const ac = ao.map((val, i) => {
+      if (val === null || aoSMA[i] === null) return null;
+      return val - aoSMA[i];
+    });
+    return series.map((pt, i) => ({ x: pt.x, y: this.truncateNumber(ac[i]) }));
+  }
+
+  // Helper: Calculate SMA from an array.
+  calculateSMAFromArray(arr, period) {
+    const sma = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (i < period - 1) {
+        sma.push(null);
+      } else {
+        let sum = 0;
+        for (let j = i - period + 1; j <= i; j++) {
+          sum += arr[j];
+        }
+        sma.push(this.truncateNumber(sum / period));
+      }
+    }
+    return sma;
+  }
+
+  // New: Calculate Bollinger Bands %B.
+  calculateBBPercent(series, lower, upper) {
+    const percentB = [];
+    for (let i = 0; i < series.length; i++) {
+      const close = series[i].y[3];
+      if (lower[i] === null || upper[i] === null) {
+        percentB.push({ x: series[i].x, y: null });
+      } else {
+        const pb = (close - lower[i]) / (upper[i] - lower[i]);
+        percentB.push({ x: series[i].x, y: this.truncateNumber(pb) });
+      }
+    }
+    return percentB;
+  }
+
+  // New: Calculate Bollinger Bands Width.
+  calculateBBWidth(series, middle, upper, lower) {
+    const bbWidth = [];
+    for (let i = 0; i < series.length; i++) {
+      if (middle[i] === null || upper[i] === null || lower[i] === null) {
+        bbWidth.push({ x: series[i].x, y: null });
+      } else {
+        const width = (upper[i] - lower[i]) / middle[i];
+        bbWidth.push({ x: series[i].x, y: this.truncateNumber(width) });
+      }
+    }
+    return bbWidth;
+  }
+
+  // New: Calculate Linear Regression.
+  calculateLinearRegression(series, period) {
+    const lr = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < period - 1) {
+        lr.push({ x: series[i].x, y: null });
+      } else {
+        let sumX = 0,
+          sumY = 0,
+          sumXY = 0,
+          sumX2 = 0;
+        for (let j = i - period + 1; j <= i; j++) {
+          const xVal = j;
+          const yVal = series[j].y[3];
+          sumX += xVal;
+          sumY += yVal;
+          sumXY += xVal * yVal;
+          sumX2 += xVal * xVal;
+        }
+        const slope =
+          (period * sumXY - sumX * sumY) / (period * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / period;
+        const lrVal = slope * i + intercept;
+        lr.push({ x: series[i].x, y: this.truncateNumber(lrVal) });
+      }
+    }
+    return lr;
+  }
+
+  // New: Calculate Ichimoku Cloud Indicator. (Simplified)
+  calculateIchimoku(series) {
+    const tenkan = [];
+    const kijun = [];
+    const senkouA = [];
+    const senkouB = [];
+    const chikou = [];
+    for (let i = 0; i < series.length; i++) {
+      // Tenkan-sen: (Highest High + Lowest Low) / 2 for past 9 periods.
+      if (i < 8) {
+        tenkan.push({ x: series[i].x, y: null });
+      } else {
+        const slice = series.slice(i - 8, i + 1);
+        const high = Math.max(...slice.map((pt) => pt.y[1]));
+        const low = Math.min(...slice.map((pt) => pt.y[2]));
+        tenkan.push({
+          x: series[i].x,
+          y: this.truncateNumber((high + low) / 2),
+        });
+      }
+      // Kijun-sen: same but for past 26 periods.
+      if (i < 25) {
+        kijun.push({ x: series[i].x, y: null });
+      } else {
+        const slice = series.slice(i - 25, i + 1);
+        const high = Math.max(...slice.map((pt) => pt.y[1]));
+        const low = Math.min(...slice.map((pt) => pt.y[2]));
+        kijun.push({
+          x: series[i].x,
+          y: this.truncateNumber((high + low) / 2),
+        });
+      }
+      // Chikou Span: current close shifted 26 periods back.
+      if (i < 26) {
+        chikou.push({ x: series[i].x, y: null });
+      } else {
+        chikou.push({ x: series[i - 26].x, y: series[i].y[3] });
+      }
+      // Senkou Span B: (Highest High + Lowest Low) / 2 for past 52 periods, plotted 26 periods ahead.
+      if (i < 51) {
+        senkouB.push({ x: series[i].x, y: null });
+      } else {
+        const slice = series.slice(i - 51, i + 1);
+        const high = Math.max(...slice.map((pt) => pt.y[1]));
+        const low = Math.min(...slice.map((pt) => pt.y[2]));
+        senkouB.push({
+          x: series[i].x,
+          y: this.truncateNumber((high + low) / 2),
+        });
+      }
+      // Senkou Span A: (Tenkan-sen + Kijun-sen) / 2, plotted 26 periods ahead.
+      if (i < 25 || tenkan[i].y === null || kijun[i].y === null) {
+        senkouA.push({ x: series[i].x, y: null });
+      } else {
+        senkouA.push({
+          x: series[i].x,
+          y: this.truncateNumber((tenkan[i].y + kijun[i].y) / 2),
+        });
+      }
+    }
+    return { tenkan, kijun, senkouA, senkouB, chikou };
   }
 
   truncateNumber(val) {
