@@ -250,7 +250,8 @@ class ApexStock {
       this.chart.updateOptions(
         { chart: { height: this.totalHeight } },
         false,
-        true
+        false,
+        false
       );
       return;
     }
@@ -260,6 +261,7 @@ class ApexStock {
     this.indicatorContainer.style.height = indicatorContainerHeight + "px";
     this.chart.updateOptions(
       { chart: { height: newMainHeight } },
+      false,
       false,
       false
     );
@@ -274,6 +276,7 @@ class ApexStock {
       ) {
         this.indicatorChartMap[key].updateOptions(
           { chart: { height: indicatorHeight } },
+          false,
           false,
           false
         );
@@ -321,7 +324,11 @@ class ApexStock {
           },
         },
         series: defaultSeries,
-        xaxis: { type: "datetime", labels: { show: false } },
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
         yaxis: { title: { text: "Volume" } },
         stroke: { curve: "linestep", width: 1 },
         dataLabels: { enabled: false },
@@ -397,7 +404,11 @@ class ApexStock {
           group: this.groupID,
         },
         series: defaultSeries,
-        xaxis: { type: "datetime", labels: { show: false } },
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
         yaxis: { title: { text: "MA" } },
         stroke: { width: 1, colors: "#7D57C2" },
       };
@@ -488,7 +499,11 @@ class ApexStock {
           group: this.groupID,
         },
         series: defaultSeries,
-        xaxis: { type: "datetime", labels: { show: false } },
+        xaxis: {
+          type: "datetime",
+          labels: { show: false },
+          axisTicks: { show: false },
+        },
         yaxis: { title: { text: "MACD" } },
         stroke: { width: [1, 1, 0] },
         legend: { show: false },
@@ -529,8 +544,6 @@ class ApexStock {
       this.indicatorContainer.children.length
     );
     indicatorChartOptions.chart.height = indicatorHeight;
-
-    console.log(indicatorChartOptions);
 
     const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
     chartInstance.render();
