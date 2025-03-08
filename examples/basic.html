@@ -12,6 +12,62 @@
         margin: 35px auto;
         position: relative;
       }
+
+      /* dropdown css */
+
+      /* Custom dropdown wrapper */
+      .custom-select-wrapper {
+        position: relative;
+        width: 250px;
+        font-family: Arial, sans-serif;
+        user-select: none;
+      }
+      .custom-select-trigger {
+        position: relative;
+        display: block;
+        width: 100%;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #ccc;
+        cursor: pointer;
+      }
+      .custom-select-trigger:after {
+        content: "▼";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        color: #999;
+      }
+      .custom-options {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-top: none;
+        z-index: 999;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+      }
+      .custom-option {
+        padding: 10px;
+        cursor: pointer;
+      }
+      .custom-option:hover {
+        background: #f2f2f2;
+      }
+      .custom-option.selected {
+        background: #e6f7ff;
+      }
+      .custom-option.selected:before {
+        content: "✔";
+        margin-right: 5px;
+        color: #00aaff;
+      }
     </style>
 
     <script src="../../apexcharts-js/dist/apexcharts.js"></script>
@@ -83,11 +139,7 @@
             data: sampleData,
           },
         ],
-        plotOptions: {
-          stockChart: {
-            indicators: ["Moving Average", "RSI", "Bollinger Bands", "MACD"],
-          },
-        },
+        plotOptions: {},
         xaxis: {
           type: "datetime",
         },

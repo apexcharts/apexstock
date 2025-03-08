@@ -12,30 +12,6 @@ class ApexStock {
    *       series: [{
    *         data: [ { x: new Date(...), y: [open, high, low, close], v: volume }, ... ]
    *       }],
-   *       plotOptions: {
-   *         stockChart: {
-   *           indicators: {
-   *             movingaverage: {
-   *               show: true,
-   *               // additional options for the moving average indicator chart
-   *             },
-   *             rsi: {
-   *               enabled: true
-   *             },
-   *             bollingerbands: {
-   *               enabled: true,
-   *               chartOptions: {
-   *                 fill: {
-   *                   color: "rgba(0, 114, 255, 0.08)"
-   *                 }
-   *               }
-   *             },
-   *             macd: {
-   *               enabled: true
-   *             }
-   *           }
-   *         }
-   *       }
    *     }
    */
   constructor(chartEl, chartOptions) {
@@ -65,11 +41,10 @@ class ApexStock {
     this.indicatorContainer.style.height = "0px";
 
     this.chartEl.appendChild(this.mainChartDiv);
-
     this.chartEl.appendChild(this.indicatorContainer);
 
-    // Store references to indicator chart instances.
-    this.indicatorCharts = [];
+    // Store references to indicator chart instances in a map.
+    this.indicatorChartMap = {};
 
     // Process stock-chart–specific settings.
     const stockChartOptions =
@@ -94,9 +69,9 @@ class ApexStock {
     } else {
       // Default indicator settings.
       this.indicators = {
-        movingaverage: { show: true },
+        "moving average": { show: true },
         rsi: { enabled: true },
-        bollingerbands: { enabled: true },
+        "bollinger bands": { enabled: true },
         macd: { enabled: true },
       };
     }
@@ -153,49 +128,84 @@ class ApexStock {
     // Render the main candlestick chart.
     this.chart.render();
 
-    // Create the indicator dropdown.
-    this.addIndicatorDropdown();
+    // Create the custom indicator dropdown.
+    this.addCustomIndicatorDropdown();
     // (Optional: add trendline option if desired)
     // this.addTrendlineOption();
   }
 
   /**
-   * Adds a dropdown (positioned at the top left) to let the user add indicator charts.
+   * Creates a custom dropdown control for selecting/deselecting indicators.
    */
-  addIndicatorDropdown() {
-    const dropdown = document.createElement("select");
-    dropdown.id = "indicatorDropdown";
-    dropdown.style.position = "absolute";
-    dropdown.style.top = "0px";
-    dropdown.style.left = "10px";
-    dropdown.style.zIndex = "1000";
+  addCustomIndicatorDropdown() {
+    // Create the custom select wrapper.
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("custom-select-wrapper");
 
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.innerText = "Select Indicator";
-    dropdown.appendChild(defaultOption);
+    // Create the trigger element.
+    const trigger = document.createElement("div");
+    trigger.classList.add("custom-select-trigger");
+    trigger.innerText = "Select Indicator";
+    wrapper.appendChild(trigger);
 
-    // Populate dropdown from the keys of the indicators object.
+    // Create the container for custom options.
+    const optionsContainer = document.createElement("div");
+    optionsContainer.classList.add("custom-options");
+
+    // Populate options from the indicators object.
     Object.keys(this.indicators).forEach((key) => {
+      // Format key for display.
       const displayName =
-        key === "rsi" || key === "macd" || key === "volumes"
+        key === "rsi" || key === "macd"
           ? key.toUpperCase()
           : key
               .replace(/([A-Z])/g, " $1")
               .replace(/^./, (str) => str.toUpperCase());
-      const option = document.createElement("option");
-      option.value = key;
+      const option = document.createElement("div");
+      option.classList.add("custom-option");
+      option.dataset.value = key;
       option.innerText = displayName;
-      dropdown.appendChild(option);
+      optionsContainer.appendChild(option);
+
+      // Click handler for each option.
+      option.addEventListener("click", (e) => {
+        const optionValue = e.currentTarget.dataset.value;
+        // Toggle selected class.
+        if (e.currentTarget.classList.contains("selected")) {
+          e.currentTarget.classList.remove("selected");
+          this.removeIndicator(optionValue);
+        } else {
+          e.currentTarget.classList.add("selected");
+          this.updateIndicator(optionValue);
+        }
+        // Update trigger text to list selected options.
+        const selectedOptions = optionsContainer.querySelectorAll(
+          ".custom-option.selected"
+        );
+        if (selectedOptions.length > 0) {
+          const names = Array.from(selectedOptions).map((opt) => opt.innerText);
+          trigger.innerText = names.join(", ");
+        } else {
+          trigger.innerText = "Select Indicator";
+        }
+      });
     });
 
-    // Insert the dropdown above the chart container.
-    this.chartEl.parentNode.insertBefore(dropdown, this.chartEl);
-
-    dropdown.addEventListener("change", (e) => {
-      const selected = e.target.value;
-      this.updateIndicator(selected.replace(/\s+/g, ""));
+    wrapper.appendChild(optionsContainer);
+    // Toggle dropdown open/close on trigger click.
+    trigger.addEventListener("click", () => {
+      optionsContainer.style.display =
+        optionsContainer.style.display === "block" ? "none" : "block";
     });
+    // Close dropdown if clicked outside.
+    document.addEventListener("click", (e) => {
+      if (!wrapper.contains(e.target)) {
+        optionsContainer.style.display = "none";
+      }
+    });
+
+    // Insert the custom select into the DOM above the chart container.
+    this.chartEl.parentNode.insertBefore(wrapper, this.chartEl);
   }
 
   /**
@@ -263,7 +273,6 @@ class ApexStock {
       );
       return;
     }
-
     const { newMainHeight, indicatorContainerHeight, indicatorHeight } =
       this.computeHeights(indicatorCount);
     this.mainChartDiv.style.height = newMainHeight + "px";
@@ -273,12 +282,13 @@ class ApexStock {
       false,
       false
     );
-
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
       indicatorDiv.style.height = indicatorHeight + "px";
-      if (this.indicatorCharts[i]) {
-        this.indicatorCharts[i].updateOptions(
+      // Update each indicator chart instance's height if available.
+      const key = indicatorDiv.dataset.indicator;
+      if (this.indicatorChartMap[key]) {
+        this.indicatorChartMap[key].updateOptions(
           { chart: { height: indicatorHeight } },
           false,
           false
@@ -290,26 +300,26 @@ class ApexStock {
   /**
    * Adds an indicator – either as a new chart or (for Volumes and Bollinger Bands)
    * directly to the main chart.
-   * @param {string} indicatorKey - The key for the indicator (e.g., "movingaverage", "rsi", "bollingerbands", "macd", "volumes").
+   * If the indicator is already present, it is removed.
+   * @param {string} indicatorKey - The key for the indicator
    */
   updateIndicator(indicatorKey) {
     if (!indicatorKey) return;
-
     // Normalize key to lower-case.
     indicatorKey = indicatorKey.toLowerCase();
-
-    // Handle Volumes indicator: add as an extra series to the main chart.
+    // If already added, remove it.
+    if (this.indicatorChartMap[indicatorKey]) {
+      this.removeIndicator(indicatorKey);
+      return;
+    }
+    // Handle Volumes: add as extra series to main chart.
     if (indicatorKey === "volumes") {
       if (!this.volumesData || this.volumesData.length === 0) {
         console.warn("No volumes data available.");
-        document.getElementById("indicatorDropdown").value = "";
         return;
       }
       const currentSeries = this.chart.w.globals.series;
-      if (currentSeries && currentSeries.length > 1) {
-        document.getElementById("indicatorDropdown").value = "";
-        return;
-      }
+      if (currentSeries && currentSeries.length > 1) return;
       const volumeSeries = {
         name: "Volumes",
         type: "column",
@@ -322,11 +332,10 @@ class ApexStock {
       ];
       this.chart.updateOptions({ yaxis: newYaxis });
       this.chart.updateSeries(newSeries);
-      document.getElementById("indicatorDropdown").value = "";
       return;
     }
-    // Handle Bollinger Bands: add to main chart without changing its height.
-    else if (indicatorKey === "bollingerbands") {
+    // Handle Bollinger Bands: add directly to main chart.
+    else if (indicatorKey === "bollinger bands") {
       const period = 20,
         stdDev = 2;
       const { upper, lower } = this.calculateBollingerBands(
@@ -343,21 +352,20 @@ class ApexStock {
         })),
         color: "rgba(0, 114, 255, 0.08)",
       };
-      if (this.indicators.bollingerbands?.chartOptions) {
+      if (this.indicators["bollinger bands"]?.chartOptions) {
         bbSeries = Object.assign(
           {},
           bbSeries,
-          this.indicators.bollingerbands.chartOptions
+          this.indicators["bollinger bands"].chartOptions
         );
       }
       this.chart.updateSeries([...this.chart.w.config.series, bbSeries]);
-      document.getElementById("indicatorDropdown").value = "";
       return;
     }
-    // For other indicators (Moving Average, RSI, MACD), create a new indicator chart.
+    // For Moving Average, RSI, MACD – create a new indicator chart.
     let indicatorChartOptions = {};
-    // For Moving Average.
-    if (indicatorKey === "movingaverage") {
+
+    if (indicatorKey === "moving average") {
       const maData = this.calculateMovingAverage(this.series, 10);
       const defaultSeries = [
         {
@@ -379,12 +387,11 @@ class ApexStock {
         yaxis: { title: { text: "MA" } },
         stroke: { width: 1, colors: "#7D57C2" },
       };
-
-      if (this.indicators.movingaverage?.chartOptions) {
+      if (this.indicators["moving average"]?.chartOptions) {
         indicatorChartOptions = Object.assign(
           {},
           indicatorChartOptions,
-          this.indicators.movingaverage.chartOptions
+          this.indicators["moving average"].chartOptions
         );
         if (!indicatorChartOptions.series) {
           indicatorChartOptions.series = defaultSeries;
@@ -478,7 +485,7 @@ class ApexStock {
           },
         },
       };
-      if (this.indicators.macd.chartOptions) {
+      if (this.indicators.macd?.chartOptions) {
         indicatorChartOptions = Object.assign(
           {},
           indicatorChartOptions,
@@ -507,13 +514,31 @@ class ApexStock {
     indicatorChartOptions.chart.height = indicatorHeight;
 
     console.log(indicatorChartOptions);
-
     // Render the indicator chart in the new div.
     const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
     chartInstance.render();
-    this.indicatorCharts.push(chartInstance);
+    // Store the instance in our map keyed by indicatorKey.
+    this.indicatorChartMap[indicatorKey] = chartInstance;
+  }
 
-    document.getElementById("indicatorDropdown").value = "";
+  /**
+   * Removes an indicator chart by its key.
+   * @param {string} indicatorKey - The key of the indicator to remove.
+   */
+  removeIndicator(indicatorKey) {
+    const chartInstance = this.indicatorChartMap[indicatorKey];
+    if (chartInstance) {
+      chartInstance.destroy();
+      // Remove its container element.
+      const children = Array.from(this.indicatorContainer.children);
+      children.forEach((child) => {
+        if (child.dataset.indicator === indicatorKey) {
+          this.indicatorContainer.removeChild(child);
+        }
+      });
+      delete this.indicatorChartMap[indicatorKey];
+      this.updateAllChartHeights();
+    }
   }
 
   /**
