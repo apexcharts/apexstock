@@ -19,9 +19,8 @@ class ApexStock {
     // Total height for the main chart is provided via chartOptions.chart.height
     this.totalHeight = chartOptions.chart.height || 350;
 
-    if (!chartOptions.chart.id) {
-      chartOptions.chart.id = "apexstock-main-chart";
-    }
+    chartOptions.chart.id = this.randomId();
+    this.groupID = "group" + this.randomId();
 
     // Assign an ID to the main chart container.
     this.mainChartId = chartOptions.chart.id;
@@ -44,6 +43,7 @@ class ApexStock {
     this.chartEl.appendChild(this.indicatorContainer);
 
     // Store references to indicator chart instances in a map.
+    // For indicators added directly to the main chart (Bollinger Bands), we store a marker (true).
     this.indicatorChartMap = {};
 
     // Process stock-chart–specific settings.
@@ -73,21 +73,13 @@ class ApexStock {
         rsi: { enabled: true },
         "bollinger bands": { enabled: true },
         macd: { enabled: true },
+        volumes: { enabled: true },
       };
     }
-    // Always add "volumes" if not already present.
-    if (!("volumes" in this.indicators)) {
-      this.indicators.volumes = { enabled: true };
-    }
 
-    // Process volumes data.
-    if (stockChartOptions.volumes) {
-      this.volumesData = stockChartOptions.volumes;
-    } else {
-      this.volumesData = this.series
-        .map((point) => (point.v ? { x: point.x, y: point.v } : null))
-        .filter((x) => x !== null);
-    }
+    this.volumesData = this.series
+      .map((point) => (point.v ? { x: point.x, y: point.v } : null))
+      .filter((x) => x !== null);
 
     // Merge provided chartOptions with defaults for the main candlestick chart.
     this.mainChartOptions = Object.assign({}, chartOptions, {
@@ -95,6 +87,7 @@ class ApexStock {
         type: "candlestick",
         height: this.totalHeight,
         id: this.mainChartId,
+        group: this.groupID,
       }),
       series: [
         {
@@ -116,8 +109,6 @@ class ApexStock {
       },
     });
 
-    // Create the main candlestick chart.
-    console.log(this.mainChartOptions);
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
   }
 
@@ -127,34 +118,32 @@ class ApexStock {
   render() {
     // Render the main candlestick chart.
     this.chart.render();
-
     // Create the custom indicator dropdown.
     this.addCustomIndicatorDropdown();
     // (Optional: add trendline option if desired)
     // this.addTrendlineOption();
   }
 
+  randomId() {
+    return (Math.random() + 1).toString(36).substring(4);
+  }
+
   /**
    * Creates a custom dropdown control for selecting/deselecting indicators.
    */
   addCustomIndicatorDropdown() {
-    // Create the custom select wrapper.
     const wrapper = document.createElement("div");
     wrapper.classList.add("custom-select-wrapper");
 
-    // Create the trigger element.
     const trigger = document.createElement("div");
     trigger.classList.add("custom-select-trigger");
     trigger.innerText = "Select Indicator";
     wrapper.appendChild(trigger);
 
-    // Create the container for custom options.
     const optionsContainer = document.createElement("div");
     optionsContainer.classList.add("custom-options");
 
-    // Populate options from the indicators object.
     Object.keys(this.indicators).forEach((key) => {
-      // Format key for display.
       const displayName =
         key === "rsi" || key === "macd"
           ? key.toUpperCase()
@@ -167,10 +156,8 @@ class ApexStock {
       option.innerText = displayName;
       optionsContainer.appendChild(option);
 
-      // Click handler for each option.
       option.addEventListener("click", (e) => {
         const optionValue = e.currentTarget.dataset.value;
-        // Toggle selected class.
         if (e.currentTarget.classList.contains("selected")) {
           e.currentTarget.classList.remove("selected");
           this.removeIndicator(optionValue);
@@ -178,33 +165,29 @@ class ApexStock {
           e.currentTarget.classList.add("selected");
           this.updateIndicator(optionValue);
         }
-        // Update trigger text to list selected options.
         const selectedOptions = optionsContainer.querySelectorAll(
           ".custom-option.selected"
         );
-        if (selectedOptions.length > 0) {
-          const names = Array.from(selectedOptions).map((opt) => opt.innerText);
-          trigger.innerText = names.join(", ");
-        } else {
-          trigger.innerText = "Select Indicator";
-        }
+        trigger.innerText =
+          selectedOptions.length > 0
+            ? Array.from(selectedOptions)
+                .map((opt) => opt.innerText)
+                .join(", ")
+            : "Select Indicator";
       });
     });
 
     wrapper.appendChild(optionsContainer);
-    // Toggle dropdown open/close on trigger click.
     trigger.addEventListener("click", () => {
       optionsContainer.style.display =
         optionsContainer.style.display === "block" ? "none" : "block";
     });
-    // Close dropdown if clicked outside.
     document.addEventListener("click", (e) => {
       if (!wrapper.contains(e.target)) {
         optionsContainer.style.display = "none";
       }
     });
 
-    // Insert the custom select into the DOM above the chart container.
     this.chartEl.parentNode.insertBefore(wrapper, this.chartEl);
   }
 
@@ -219,9 +202,7 @@ class ApexStock {
     button.style.top = "0px";
     button.style.left = "150px";
     button.style.zIndex = "1000";
-
     this.chartEl.parentNode.insertBefore(button, this.chartEl);
-
     button.addEventListener("click", () => {
       this.chart.updateOptions({
         annotations: {
@@ -245,7 +226,7 @@ class ApexStock {
   }
 
   /**
-   * Helper function to compute new heights for main and indicator charts.
+   * Computes new heights for main and indicator charts.
    * @param {number} newIndicatorCount - Total count of indicator charts (existing + new one)
    * @returns {Object} - { newMainHeight, indicatorContainerHeight, indicatorHeight }
    */
@@ -282,12 +263,15 @@ class ApexStock {
       false,
       false
     );
+
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
       indicatorDiv.style.height = indicatorHeight + "px";
-      // Update each indicator chart instance's height if available.
       const key = indicatorDiv.dataset.indicator;
-      if (this.indicatorChartMap[key]) {
+      if (
+        this.indicatorChartMap[key] &&
+        typeof this.indicatorChartMap[key].updateOptions === "function"
+      ) {
         this.indicatorChartMap[key].updateOptions(
           { chart: { height: indicatorHeight } },
           false,
@@ -298,41 +282,64 @@ class ApexStock {
   }
 
   /**
-   * Adds an indicator – either as a new chart or (for Volumes and Bollinger Bands)
-   * directly to the main chart.
-   * If the indicator is already present, it is removed.
-   * @param {string} indicatorKey - The key for the indicator
+   * Adds (or toggles) an indicator. If already present, it is removed.
+   * @param {string} indicatorKey - The key for the indicator.
    */
   updateIndicator(indicatorKey) {
     if (!indicatorKey) return;
-    // Normalize key to lower-case.
     indicatorKey = indicatorKey.toLowerCase();
+
     // If already added, remove it.
     if (this.indicatorChartMap[indicatorKey]) {
       this.removeIndicator(indicatorKey);
       return;
     }
-    // Handle Volumes: add as extra series to main chart.
+
+    let indicatorChartOptions = {};
+
+    // For Volumes: now create a separate indicator chart.
     if (indicatorKey === "volumes") {
       if (!this.volumesData || this.volumesData.length === 0) {
         console.warn("No volumes data available.");
         return;
       }
-      const currentSeries = this.chart.w.globals.series;
-      if (currentSeries && currentSeries.length > 1) return;
-      const volumeSeries = {
-        name: "Volumes",
-        type: "column",
-        data: this.volumesData,
-      };
-      const newSeries = [{ name: "Price", data: this.series }, volumeSeries];
-      const newYaxis = [
-        { opposite: false, title: { text: "Price" } },
-        { opposite: true, title: { text: "Volume" } },
+      const defaultSeries = [
+        {
+          name: "Volumes",
+          data: this.volumesData,
+        },
       ];
-      this.chart.updateOptions({ yaxis: newYaxis });
-      this.chart.updateSeries(newSeries);
-      return;
+      indicatorChartOptions = {
+        chart: {
+          type: "area",
+          toolbar: { show: false },
+          parentHeightOffset: 0,
+          id: "volume" + this.groupID,
+          group: this.groupID,
+          animations: {
+            enabled: false,
+          },
+        },
+        series: defaultSeries,
+        xaxis: { type: "datetime", labels: { show: false } },
+        yaxis: { title: { text: "Volume" } },
+        stroke: { curve: "linestep", width: 1 },
+        dataLabels: { enabled: false },
+        fill: {
+          type: "solid",
+          opacity: 0.2,
+        },
+      };
+      if (this.indicators.volumes?.chartOptions) {
+        indicatorChartOptions = Object.assign(
+          {},
+          indicatorChartOptions,
+          this.indicators.volumes.chartOptions
+        );
+        if (!indicatorChartOptions.series) {
+          indicatorChartOptions.series = defaultSeries;
+        }
+      }
     }
     // Handle Bollinger Bands: add directly to main chart.
     else if (indicatorKey === "bollinger bands") {
@@ -359,13 +366,18 @@ class ApexStock {
           this.indicators["bollinger bands"].chartOptions
         );
       }
-      this.chart.updateSeries([...this.chart.w.config.series, bbSeries]);
+      // Update main chart series to filter out any existing Bollinger Bands series,
+      // then add the new one.
+      const currentSeries = this.chart.w.config.series.filter(
+        (s) => s.name !== "Bollinger Bands"
+      );
+      this.chart.updateSeries([...currentSeries, bbSeries]);
+      // Store a marker for removal.
+      this.indicatorChartMap[indicatorKey] = true;
       return;
     }
-    // For Moving Average, RSI, MACD – create a new indicator chart.
-    let indicatorChartOptions = {};
-
-    if (indicatorKey === "moving average") {
+    // For Moving Average.
+    else if (indicatorKey === "moving average") {
       const maData = this.calculateMovingAverage(this.series, 10);
       const defaultSeries = [
         {
@@ -381,6 +393,8 @@ class ApexStock {
           type: "line",
           toolbar: { show: false },
           parentHeightOffset: 0,
+          id: "movingaverage" + this.groupID,
+          group: this.groupID,
         },
         series: defaultSeries,
         xaxis: { type: "datetime", labels: { show: false } },
@@ -413,6 +427,8 @@ class ApexStock {
           type: "line",
           toolbar: { show: false },
           parentHeightOffset: 0,
+          id: "rsi" + this.groupID,
+          group: this.groupID,
         },
         series: defaultSeries,
         xaxis: {
@@ -468,6 +484,8 @@ class ApexStock {
           type: "line",
           toolbar: { show: false },
           parentHeightOffset: 0,
+          id: "macd" + this.groupID,
+          group: this.groupID,
         },
         series: defaultSeries,
         xaxis: { type: "datetime", labels: { show: false } },
@@ -506,7 +524,6 @@ class ApexStock {
     // Recalculate and update all chart heights.
     this.updateAllChartHeights();
 
-    // Set the height for the new indicator chart in its options.
     if (!indicatorChartOptions.chart) indicatorChartOptions.chart = {};
     const { indicatorHeight } = this.computeHeights(
       this.indicatorContainer.children.length
@@ -514,30 +531,41 @@ class ApexStock {
     indicatorChartOptions.chart.height = indicatorHeight;
 
     console.log(indicatorChartOptions);
-    // Render the indicator chart in the new div.
+
     const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
     chartInstance.render();
-    // Store the instance in our map keyed by indicatorKey.
+    // Store the instance (or marker) in our map.
     this.indicatorChartMap[indicatorKey] = chartInstance;
   }
 
   /**
    * Removes an indicator chart by its key.
+   * For Bollinger Bands, updates the main chart series.
    * @param {string} indicatorKey - The key of the indicator to remove.
    */
   removeIndicator(indicatorKey) {
-    const chartInstance = this.indicatorChartMap[indicatorKey];
-    if (chartInstance) {
-      chartInstance.destroy();
-      // Remove its container element.
-      const children = Array.from(this.indicatorContainer.children);
-      children.forEach((child) => {
-        if (child.dataset.indicator === indicatorKey) {
-          this.indicatorContainer.removeChild(child);
-        }
-      });
+    indicatorKey = indicatorKey.toLowerCase();
+    if (indicatorKey === "bollinger bands") {
+      // Remove Bollinger Bands from main chart.
+      const currentSeries = this.chart.w.config.series;
+      const newSeries = currentSeries.filter(
+        (s) => s.name !== "Bollinger Bands"
+      );
+      this.chart.updateSeries(newSeries);
       delete this.indicatorChartMap[indicatorKey];
-      this.updateAllChartHeights();
+    } else {
+      const chartInstance = this.indicatorChartMap[indicatorKey];
+      if (chartInstance) {
+        chartInstance.destroy();
+        const children = Array.from(this.indicatorContainer.children);
+        children.forEach((child) => {
+          if (child.dataset.indicator === indicatorKey) {
+            this.indicatorContainer.removeChild(child);
+          }
+        });
+        delete this.indicatorChartMap[indicatorKey];
+        this.updateAllChartHeights();
+      }
     }
   }
 
