@@ -1,6 +1,4 @@
-import Utils from "./utils/Utils";
-
-class Drawing {
+class DrawingTools {
   /**
    * @param {ApexCharts} chart - The ApexCharts instance
    * @param {HTMLElement} chartDiv - The chart container element
@@ -234,12 +232,17 @@ class Drawing {
     this.boundMouseMove = this.handleMouseMove.bind(this);
     this.boundMouseUp = this.handleMouseUp.bind(this);
     this.boundResize = this.handleResize.bind(this);
+    this.boundWheelEvent = this.handleWheelEvent.bind(this);
 
     // Listen for chart events directly on the SVG overlay
     this.svgOverlay.addEventListener("mousedown", this.boundMouseDown);
     window.addEventListener("mousemove", this.boundMouseMove);
     window.addEventListener("mouseup", this.boundMouseUp);
     window.addEventListener("resize", this.boundResize);
+
+    // Add wheel event listeners to both chart and overlay
+    this.chartDiv.addEventListener("wheel", this.boundWheelEvent);
+    this.svgOverlay.addEventListener("wheel", this.boundWheelEvent);
 
     // Listen for zoom events to update drawings
     if (this.chart.addEventListener) {
@@ -251,6 +254,41 @@ class Drawing {
         this.redrawElements();
       });
     }
+  }
+
+  /**
+   * Handles mousewheel events to deactivate the drawing mode
+   * @param {WheelEvent} e - Wheel event
+   */
+  handleWheelEvent(e) {
+    // If a tool is currently selected, deselect it
+    if (this.currentTool) {
+      console.log("Mousewheel detected, deactivating drawing tools");
+      this.deactivateAllTools();
+    }
+
+    // Allow the event to propagate for chart zooming
+  }
+
+  /**
+   * Deactivates all drawing tools and hides the overlay
+   */
+  deactivateAllTools() {
+    // Deselect all tool buttons
+    this.toolbarContainer
+      .querySelectorAll(".apexstock-drawing-tool")
+      .forEach((btn) => {
+        btn.classList.remove("active");
+      });
+
+    // Reset the current tool
+    this.currentTool = null;
+
+    // Disable drawing overlay
+    this.svgOverlay.classList.remove("active-drawing");
+    this.svgOverlay.style.pointerEvents = "none";
+
+    console.log("All drawing tools deactivated");
   }
 
   /**
@@ -268,6 +306,12 @@ class Drawing {
       return;
     } else if (toolName === "clear") {
       this.clearAllDrawings();
+      return;
+    }
+
+    // If the same tool is clicked again, deactivate it
+    if (this.currentTool === toolName) {
+      this.deactivateAllTools();
       return;
     }
 
@@ -405,9 +449,8 @@ class Drawing {
       this.currentElement = null;
       this.currentElementData = null;
 
-      // Return pointer events to normal state
-      this.svgOverlay.classList.remove("active-drawing");
-      this.svgOverlay.style.pointerEvents = "none";
+      // Keep the overlay active for more drawing with the same tool
+      // The overlay will be deactivated only on wheel event or tool deselection
     }
   }
 
@@ -990,7 +1033,10 @@ class Drawing {
     window.removeEventListener("mousemove", this.boundMouseMove);
     window.removeEventListener("mouseup", this.boundMouseUp);
     window.removeEventListener("resize", this.boundResize);
-    window.removeEventListener("resize", this.syncOverlayPosition);
+
+    // Remove wheel event listeners
+    this.chartDiv.removeEventListener("wheel", this.boundWheelEvent);
+    this.svgOverlay.removeEventListener("wheel", this.boundWheelEvent);
 
     // Clear any intervals
     if (this.intervalId) {
@@ -1009,4 +1055,4 @@ class Drawing {
   }
 }
 
-export default Drawing;
+export default DrawingTools;
