@@ -82,6 +82,9 @@ class ApexStock {
         toolbar: {
           show: false,
         },
+        animations: {
+          enabled: false,
+        },
       }),
       series: [{ name: "Price", data: this.series }],
       xaxis: { type: "datetime" },
