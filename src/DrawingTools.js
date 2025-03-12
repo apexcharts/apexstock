@@ -15,8 +15,6 @@ class DrawingTools {
     this.startPoint = null;
     this.drawingColor = "#FF5733";
     this.drawingWidth = 2;
-    this.undoStack = [];
-    this.redoStack = [];
 
     // Explicitly define the syncOverlayPosition method as a bound function
     this.syncOverlayPosition = function () {
@@ -164,8 +162,6 @@ class DrawingTools {
       { name: "rectangle", icon: "▭", tooltip: "Rectangle" },
       { name: "circle", icon: "◯", tooltip: "Circle" },
       { name: "ellipse", icon: "⬭", tooltip: "Ellipse" },
-      { name: "undo", icon: "↩", tooltip: "Undo" },
-      { name: "redo", icon: "↪", tooltip: "Redo" },
       { name: "clear", icon: "✕", tooltip: "Clear All" },
     ];
 
@@ -208,12 +204,8 @@ class DrawingTools {
       button.textContent = tool.icon;
       button.title = tool.tooltip;
 
-      if (
-        tool.name === "undo" ||
-        tool.name === "redo" ||
-        tool.name === "clear"
-      ) {
-        button.style.marginLeft = tool.name === "undo" ? "10px" : "2px";
+      if (tool.name === "clear") {
+        button.style.marginLeft = "2px";
       }
 
       button.addEventListener("click", () => this.handleToolClick(tool.name));
@@ -298,13 +290,7 @@ class DrawingTools {
   handleToolClick(toolName) {
     console.log("Tool clicked:", toolName);
 
-    if (toolName === "undo") {
-      this.undo();
-      return;
-    } else if (toolName === "redo") {
-      this.redo();
-      return;
-    } else if (toolName === "clear") {
+    if (toolName === "clear") {
       this.clearAllDrawings();
       return;
     }
@@ -321,7 +307,7 @@ class DrawingTools {
       .forEach((btn) => {
         if (btn.dataset.tool === toolName) {
           btn.classList.add("active");
-        } else if (["undo", "redo", "clear"].indexOf(btn.dataset.tool) === -1) {
+        } else if (["clear"].indexOf(btn.dataset.tool) === -1) {
           btn.classList.remove("active");
         }
       });
@@ -432,15 +418,6 @@ class DrawingTools {
     this.isDrawing = false;
 
     if (this.currentElement) {
-      // Save the element to undo stack
-      this.undoStack.push({
-        element: this.currentElement,
-        data: this.currentElementData,
-      });
-
-      // Clear redo stack when a new element is added
-      this.redoStack = [];
-
       this.elements.push({
         element: this.currentElement,
         data: this.currentElementData,
@@ -970,49 +947,9 @@ class DrawingTools {
   }
 
   /**
-   * Undo the last drawing action
-   */
-  undo() {
-    if (this.undoStack.length === 0) return;
-
-    const lastElement = this.undoStack.pop();
-    this.redoStack.push(lastElement);
-
-    // Remove the element from the elements array
-    const index = this.elements.findIndex(
-      (item) => item.element === lastElement.element
-    );
-    if (index !== -1) {
-      this.elements.splice(index, 1);
-    }
-
-    // Redraw all elements
-    this.redrawElements();
-  }
-
-  /**
-   * Redo the last undone drawing action
-   */
-  redo() {
-    if (this.redoStack.length === 0) return;
-
-    const elementToRedo = this.redoStack.pop();
-    this.undoStack.push(elementToRedo);
-
-    // Add the element back to the elements array
-    this.elements.push(elementToRedo);
-
-    // Redraw all elements
-    this.redrawElements();
-  }
-
-  /**
    * Clear all drawings
    */
   clearAllDrawings() {
-    // Add current elements to undo stack before clearing
-    this.undoStack.push(...this.elements);
-
     // Clear the elements array
     this.elements = [];
 
@@ -1020,9 +957,6 @@ class DrawingTools {
     while (this.drawingGroup.firstChild) {
       this.drawingGroup.removeChild(this.drawingGroup.firstChild);
     }
-
-    // Clear redo stack
-    this.redoStack = [];
   }
 
   /**
