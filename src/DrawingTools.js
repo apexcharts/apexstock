@@ -21,7 +21,7 @@ class DrawingTools {
     this.elements = [];
     this.currentElement = null;
     this.startPoint = null;
-    this.drawingColor = "#0077b6";
+    this.drawingColor = "#008FFB";
     this.drawingWidth = 2;
     this.currentElementData = null;
 
@@ -39,6 +39,7 @@ class DrawingTools {
 
     // Initialize the text annotation manager
     this.textAnnotationManager = new TextAnnotationManager(
+      chartDiv,
       this.svgOverlay,
       this.coordinateConverter,
       this.handleTextCreated.bind(this)

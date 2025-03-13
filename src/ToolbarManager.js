@@ -36,10 +36,10 @@ class ToolbarManager {
     // Define tools
     const tools = [
       { name: "line", icon: "╱", tooltip: "Line" }, // Diagonal line
-      { name: "brush", icon: "🖌", tooltip: "Brush" }, // Paintbrush
-      { name: "highlighter", icon: "🖍", tooltip: "Highlighter" }, // Crayon
+      { name: "brush", icon: "∿", tooltip: "Brush" }, // Paintbrush
+      { name: "highlighter", icon: "🖌️", tooltip: "Highlighter" }, // Crayon
       { name: "rectangle", icon: "▢", tooltip: "Rectangle" }, // Hollow square
-      { name: "circle", icon: "◎", tooltip: "Circle" }, // Hollow circle with dot
+      { name: "circle", icon: "◯", tooltip: "Circle" }, // Hollow circle with dot
       { name: "ellipse", icon: "⬭", tooltip: "Ellipse" }, // Ellipse
       { name: "text", icon: "T", tooltip: "Text Annotation" }, // Text annotation
       { name: "clear", icon: "🗑", tooltip: "Clear All" }, // Trash bin
