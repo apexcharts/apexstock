@@ -3,7 +3,7 @@ import EventManager from "./EventManager";
 import OverlayManager from "./OverlayManager";
 import ToolbarManager from "./ToolbarManager";
 import DrawingElementFactory from "./DrawingElementFactory";
-import CoordinateConverter from "./CoordinateConverter";
+import CoordinateConverter from "./utils/CoordinateConverter";
 import TextAnnotationManager from "./TextAnnotationManager";
 
 class DrawingTools {

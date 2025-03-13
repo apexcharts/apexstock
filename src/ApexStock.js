@@ -88,7 +88,15 @@ class ApexStock {
       }),
       series: [{ name: "Price", data: this.series }],
       xaxis: { type: "datetime" },
-      yaxis: [{ opposite: false, title: { text: "Price" } }],
+      yaxis: [
+        {
+          tooltip: {
+            enabled: true,
+            offsetX: -20,
+          },
+          title: { text: "Price" },
+        },
+      ],
       legend: { show: false },
     });
 
