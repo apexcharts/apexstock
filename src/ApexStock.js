@@ -1,8 +1,9 @@
 import Indicators from "./Indicators";
 import Utils from "./utils/Utils";
 import Drawing from "./DrawingTools";
+import apexStockCSS from "ApexStock.css";
 
-class ApexStock {
+export default class ApexStock {
   /**
    * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
    * @param {Object} chartOptions - The ApexCharts options object.
@@ -105,6 +106,28 @@ class ApexStock {
   }
 
   render() {
+    let rootNode = this.chartEl.getRootNode && this.chartEl.getRootNode();
+    let inShadowRoot = Utils.is("ShadowRoot", rootNode);
+    let doc = this.chartEl.ownerDocument;
+
+    let css = inShadowRoot
+      ? rootNode.getElementById("apexstock-css")
+      : doc.getElementById("apexstock-css");
+
+    if (!css) {
+      css = document.createElement("style");
+      css.id = "apexstock-css";
+      css.textContent = apexStockCSS;
+
+      if (inShadowRoot) {
+        // We are in Shadow DOM, add to shadow root
+        rootNode.prepend(css);
+      } else {
+        // Add to <head> of element's document
+        doc.head.appendChild(css);
+      }
+    }
+
     this.chart.render();
     this.addCustomIndicatorDropdown();
     new Drawing(this.chart, this.chartEl, this.series);
@@ -868,5 +891,3 @@ class ApexStock {
     return Indicators.calculateIchimoku(series);
   }
 }
-
-window.ApexStock = ApexStock;
