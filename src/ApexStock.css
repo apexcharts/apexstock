@@ -68,26 +68,9 @@
   color: #00aaff;
 }
 
-/* Overlay wrapper for drawing (positioned on top of the chart) */
-.apexstock-drawing-overlay-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10;
-}
 
-/* SVG overlay for drawing */
-.apexstock-drawing-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
+
+
 
 /* Drawing toolbar container (positioned beside the chart) */
 .apexstock-drawing-toolbar {

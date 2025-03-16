@@ -1,7 +1,8 @@
 import Indicators from "./Indicators";
 import Utils from "./utils/Utils";
-import Drawing from "./DrawingTools";
+import DrawingTools from "./DrawingTools";
 import apexStockCSS from "ApexStock.css";
+import Export from "./Export";
 
 export default class ApexStock {
   /**
@@ -130,7 +131,11 @@ export default class ApexStock {
 
     this.chart.render();
     this.addCustomIndicatorDropdown();
-    new Drawing(this.chart, this.chartEl, this.series);
+    new DrawingTools(this.chart, this.chartEl, this.series);
+    // Initialize after chart is loaded
+    const chartExport = new Export(this.chartEl, {
+      filename: "my-stock-chart.png",
+    });
   }
 
   randomId() {

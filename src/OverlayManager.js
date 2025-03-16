@@ -20,9 +20,16 @@ class OverlayManager {
     // Create a wrapper for the SVG overlay that's outside the chart elements
     this.overlayWrapper = document.createElement("div");
     this.overlayWrapper.className = "apexstock-drawing-overlay-wrapper";
+    this.overlayWrapper.style.position = "absolute";
+    this.overlayWrapper.style.top = "0";
+    this.overlayWrapper.style.left = "0";
+    this.overlayWrapper.style.width = "100%";
+    this.overlayWrapper.style.height = "100%";
+    this.overlayWrapper.style.pointerEvents = "none";
+    this.overlayWrapper.style.zIndex = "10";
 
     // Place the wrapper directly on the chart's parent to avoid being removed on chart updates
-    this.chartDiv.parentNode.appendChild(this.overlayWrapper);
+    this.chartDiv.appendChild(this.overlayWrapper);
 
     // Create SVG container that will overlay the chart
     this.svgOverlay = document.createElementNS(
@@ -30,6 +37,12 @@ class OverlayManager {
       "svg"
     );
     this.svgOverlay.setAttribute("class", "apexstock-drawing-overlay");
+    this.svgOverlay.style.position = "absolute";
+    this.svgOverlay.style.top = "0";
+    this.svgOverlay.style.left = "0";
+    this.svgOverlay.style.width = "100%";
+    this.svgOverlay.style.height = "100%";
+    this.svgOverlay.style.pointerEvents = "none";
     this.overlayWrapper.appendChild(this.svgOverlay);
 
     // Create defs for markers or patterns if needed
