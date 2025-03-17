@@ -92,6 +92,37 @@ export default {
         }
         return null; // Let Rollup handle other files
       },
+      // Add the watch hook to monitor CSS files
+      buildStart() {
+        // Get all .css files in the src directory
+        const findCssFiles = (dir) => {
+          const results = [];
+          const items = fs.readdirSync(dir);
+
+          for (const item of items) {
+            const fullPath = path.join(dir, item);
+            const stat = fs.statSync(fullPath);
+
+            if (stat.isDirectory()) {
+              results.push(...findCssFiles(fullPath));
+            } else if (item.endsWith(".css")) {
+              results.push(fullPath);
+            }
+          }
+
+          return results;
+        };
+
+        try {
+          // Add CSS files to the watch list
+          const cssFiles = findCssFiles("./src");
+          for (const file of cssFiles) {
+            this.addWatchFile(file);
+          }
+        } catch (error) {
+          console.error("Error setting up CSS file watching:", error);
+        }
+      },
     },
 
     resolve({

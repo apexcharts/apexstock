@@ -69,27 +69,20 @@
 }
 
 
-
-
-
-/* Drawing toolbar container (positioned beside the chart) */
 .apexstock-drawing-toolbar {
   position: absolute;
   top: 0px;
   left: 220px;
   z-index: 11;
   border-radius: 3px;
-  padding: 5px;
   display: flex;
   align-items: center;
-  border: 1px solid rgb(222, 226, 230);
-  background: rgb(248, 249, 250);
 }
 
 /* Buttons in the drawing toolbar */
 .apexstock-drawing-tool {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   margin: 0 2px;
   cursor: pointer;
   background: rgb(255, 255, 255);
@@ -98,18 +91,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .apexstock-drawing-tool[data-tool="brush"] {
   font-size: 30px;
   align-items: self-end;
-  line-height: 28px;
+  line-height: 34px;
 }
 
 .apexstock-drawing-color-picker {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   border: none;
   padding: 0;
   margin-right: 5px;

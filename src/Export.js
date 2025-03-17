@@ -8,7 +8,7 @@ export default class Export {
   constructor(chartEl, options = {}) {
     this.chartEl = chartEl;
     this.options = {
-      filename: "apexstock-chart.png",
+      filename: "apexstock-chart",
       quality: 1,
       scale: 2, // Higher scale for better resolution
       ...options,
@@ -33,7 +33,7 @@ export default class Export {
     buttonContainer.className = "apex-export-btn-container";
     buttonContainer.style.cssText = `
       position: absolute;
-      top: 10px;
+      top: 0px;
       right: 10px;
       z-index: 100;
     `;
@@ -52,8 +52,8 @@ export default class Export {
       align-items: center;
       justify-content: center;
       transition: background-color 0.2s;
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
     `;
 
     // Add download icon (SVG)
@@ -76,7 +76,7 @@ export default class Export {
 
     // Append to container
     buttonContainer.appendChild(exportButton);
-    chartContainer.appendChild(buttonContainer);
+    chartContainer.parentNode.appendChild(buttonContainer);
 
     // Store references
     this.exportButton = exportButton;
