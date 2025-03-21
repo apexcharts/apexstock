@@ -5,8 +5,9 @@
  */
 
 export default class Export {
-  constructor(chartEl, options = {}) {
-    this.chartEl = chartEl;
+  constructor(ctx, options = {}) {
+    this.ctx = ctx;
+    this.chartEl = ctx.chartEl;
     this.options = {
       filename: "apexstock-chart",
       quality: 1,
@@ -30,22 +31,20 @@ export default class Export {
 
     // Create button container
     const buttonContainer = document.createElement("div");
-    buttonContainer.className = "apex-export-btn-container";
+    buttonContainer.className = "apexstock-export-btn-container";
     buttonContainer.style.cssText = `
-      position: absolute;
-      top: 0px;
-      right: 10px;
+      position: relative;
       z-index: 100;
     `;
 
     // Create button
     const exportButton = document.createElement("button");
-    exportButton.className = "apex-export-btn";
+    exportButton.className = "apexstock-export-btn";
     exportButton.title = "Download Chart as PNG";
     exportButton.style.cssText = `
       background-color: rgba(255, 255, 255, 0.8);
       border: 1px solid #ddd;
-      border-radius: 4px;
+      border-radius: 3px;
       padding: 5px;
       cursor: pointer;
       display: flex;
@@ -76,7 +75,7 @@ export default class Export {
 
     // Append to container
     buttonContainer.appendChild(exportButton);
-    chartContainer.parentNode.appendChild(buttonContainer);
+    this.ctx.primaryToolbarRight.appendChild(buttonContainer);
 
     // Store references
     this.exportButton = exportButton;
@@ -343,7 +342,7 @@ export default class Export {
       padding: 10px 15px;
       background-color: ${type === "error" ? "#f44336" : "#4CAF50"};
       color: white;
-      border-radius: 4px;
+      border-radius: 3px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
       z-index: 1000;
       opacity: 0;

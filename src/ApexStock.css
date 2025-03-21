@@ -1,4 +1,87 @@
-/* Custom dropdown wrapper */
+/* Toolbar container */
+.apexstock-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  width: 100%;
+  position: relative;
+  margin-bottom: 5px;
+}
+
+/* Left side container */
+.apexstock-toolbar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Right side container */
+.apexstock-toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+/* Chart type dropdown */
+.apexstock-chart-type-wrapper {
+  position: relative;
+  display: inline-block;
+  z-index: 100;
+  margin-right: 10px;
+  background: rgb(255, 255, 255);
+  border: 1px solid rgb(206, 212, 218);
+  border-radius: 3px;
+}
+
+.apexstock-chart-type-trigger {
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  width: 30px;
+}
+
+.apexstock-chart-type-trigger:hover {
+  background-color: #f5f5f5;
+}
+
+.apexstock-chart-type-dropdown {
+  position: absolute;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  width: 150px;
+  left: 0;
+  top: 100%;
+  display: none;
+  margin-top: 2px;
+}
+
+.apexstock-chart-type-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.apexstock-chart-type-option:hover {
+  background-color: #f5f5f5;
+}
+
+.apexstock-chart-type-option.active {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
+/* Indicator dropdown */
 .apexstock-custom-select-wrapper {
   position: relative;
   width: 200px;
@@ -16,13 +99,15 @@
   position: relative;
   display: block;
   width: 100%;
-  padding: 8px;
+  padding: 7px;
   background: #fff;
   border: 1px solid #ccc;
+  border-radius: 3px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  height: 30px;
 }
 
 .apexstock-custom-select-trigger:after {
@@ -41,12 +126,13 @@
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid #ccc;
+  border: 1px solid rgb(206, 212, 218);
   border-top: none;
   z-index: 999;
   max-height: 200px;
   overflow-y: auto;
   display: none;
+  margin-top: 2px;
 }
 
 .apexstock-custom-option {
@@ -68,18 +154,14 @@
   color: #00aaff;
 }
 
-
+/* Drawing toolbar */
 .apexstock-drawing-toolbar {
-  position: absolute;
-  top: 0px;
-  left: 220px;
-  z-index: 11;
-  border-radius: 3px;
   display: flex;
   align-items: center;
+  z-index: 11;
+  margin-left: 20px;
 }
 
-/* Buttons in the drawing toolbar */
 .apexstock-drawing-tool {
   width: 30px;
   height: 30px;
@@ -112,4 +194,44 @@
 .apexstock-drawing-tool.active {
   background: #f0f0f0;
   box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Export button */
+.apexstock-export-btn-container {
+  z-index: 100;
+}
+
+.apexstock-export-btn {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgb(221, 221, 221);
+  border-radius: 3px;
+  padding: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  width: 30px;
+  height: 30px;
+}
+
+.apexstock-export-btn:hover {
+  background-color: #f5f5f5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .apexstock-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .apexstock-toolbar-left {
+    margin-bottom: 10px;
+    width: 100%;
+  }
+
+  .apexstock-toolbar-right {
+    align-self: flex-end;
+  }
 }

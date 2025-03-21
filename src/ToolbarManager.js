@@ -8,12 +8,14 @@ class ToolbarManager {
    * @param {Function} clearHandler - Handler for clear button clicks
    */
   constructor(
+    ctx,
     chartDiv,
     initialColor,
     initialWidth,
     toolClickHandler,
     clearHandler
   ) {
+    this.ctx = ctx;
     this.chartDiv = chartDiv;
     this.drawingColor = initialColor;
     this.drawingWidth = initialWidth;
@@ -109,7 +111,7 @@ class ToolbarManager {
       toolbarContainer.appendChild(button);
     });
 
-    this.chartDiv.parentNode.appendChild(toolbarContainer);
+    this.ctx.primaryToolbarLeft.appendChild(toolbarContainer);
     this.toolbarContainer = toolbarContainer;
   }
 

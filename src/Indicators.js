@@ -423,6 +423,153 @@ class Indicators {
     }
     return { tenkan, kijun, senkouA, senkouB, chikou };
   }
+
+  static calculateCCI(series, period = 20) {
+    const cci = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < period - 1) {
+        cci.push({ x: series[i].x, y: null });
+      } else {
+        const periodSlice = series.slice(i - period + 1, i + 1);
+
+        // Calculate typical price for each candle (high + low + close) / 3
+        const typicalPrices = periodSlice.map(
+          (candle) => (candle.y[1] + candle.y[2] + candle.y[3]) / 3
+        );
+
+        // Calculate simple moving average of typical prices
+        const sma = typicalPrices.reduce((sum, tp) => sum + tp, 0) / period;
+
+        // Calculate mean deviation
+        let meanDeviation = 0;
+        typicalPrices.forEach((tp) => {
+          meanDeviation += Math.abs(tp - sma);
+        });
+        meanDeviation /= period;
+
+        // Calculate CCI
+        const currentTP =
+          (series[i].y[1] + series[i].y[2] + series[i].y[3]) / 3;
+        const cciValue =
+          meanDeviation === 0 ? 0 : (currentTP - sma) / (0.015 * meanDeviation);
+
+        cci.push({ x: series[i].x, y: Utils.truncateNumber(cciValue) });
+      }
+    }
+    return cci;
+  }
+
+  static calculateTSI(
+    series,
+    longPeriod = 25,
+    shortPeriod = 13,
+    signalPeriod = 7
+  ) {
+    const tsi = [];
+    const momentum = [];
+    const absChange = [];
+
+    // Calculate price changes
+    for (let i = 0; i < series.length; i++) {
+      if (i === 0) {
+        momentum.push(0);
+        absChange.push(0);
+      } else {
+        const change = series[i].y[3] - series[i - 1].y[3];
+        momentum.push(change);
+        absChange.push(Math.abs(change));
+      }
+    }
+
+    // Calculate EMAs
+    const ema1 = Indicators.calculateEMAFromArray(momentum, longPeriod);
+    const ema2 = Indicators.calculateEMAFromArray(ema1, shortPeriod);
+
+    const absEma1 = Indicators.calculateEMAFromArray(absChange, longPeriod);
+    const absEma2 = Indicators.calculateEMAFromArray(absEma1, shortPeriod);
+
+    // Calculate TSI values
+    for (let i = 0; i < series.length; i++) {
+      if (ema2[i] === null || absEma2[i] === null || absEma2[i] === 0) {
+        tsi.push({ x: series[i].x, y: null });
+      } else {
+        const tsiValue = 100 * (ema2[i] / absEma2[i]);
+        tsi.push({ x: series[i].x, y: Utils.truncateNumber(tsiValue) });
+      }
+    }
+
+    // Calculate signal line
+    const tsiValues = tsi.map((t) => t.y);
+    const signal = Indicators.calculateEMAFromArray(tsiValues, signalPeriod);
+
+    // Format the result
+    const signalLine = tsi.map((t, i) => ({
+      x: t.x,
+      y: signal[i],
+    }));
+
+    return { tsi, signal: signalLine };
+  }
+
+  static calculateAcceleratorOsc(series, acPeriod = 5) {
+    // First calculate Awesome Oscillator
+    const awesome = Indicators.calculateAwesomeOscillator(series);
+
+    // Then calculate the SMA of Awesome Oscillator
+    const awesomeValues = awesome.map((a) => a.y);
+    const sma = Indicators.calculateSMAFromArray(awesomeValues, acPeriod);
+
+    // Calculate Accelerator Oscillator = AO - SMA(AO, acPeriod)
+    const acc = [];
+    for (let i = 0; i < series.length; i++) {
+      if (awesome[i].y === null || sma[i] === null) {
+        acc.push({ x: series[i].x, y: null });
+      } else {
+        acc.push({
+          x: series[i].x,
+          y: Utils.truncateNumber(awesome[i].y - sma[i]),
+        });
+      }
+    }
+
+    return acc;
+  }
+
+  // Helper method for Accelerator Oscillator
+  static calculateAwesomeOscillator(series) {
+    const fastPeriod = 5;
+    const slowPeriod = 34;
+    const ao = [];
+
+    for (let i = 0; i < series.length; i++) {
+      if (i < slowPeriod - 1) {
+        ao.push({ x: series[i].x, y: null });
+      } else {
+        // Calculate median price for each candle (high + low) / 2
+        const fastSlice = series.slice(i - fastPeriod + 1, i + 1);
+        const slowSlice = series.slice(i - slowPeriod + 1, i + 1);
+
+        // Calculate SMA of median prices
+        const fastMedian =
+          fastSlice.reduce(
+            (sum, candle) => sum + (candle.y[1] + candle.y[2]) / 2,
+            0
+          ) / fastPeriod;
+
+        const slowMedian =
+          slowSlice.reduce(
+            (sum, candle) => sum + (candle.y[1] + candle.y[2]) / 2,
+            0
+          ) / slowPeriod;
+
+        // AO = SMA(median price, 5) - SMA(median price, 34)
+        const aoValue = fastMedian - slowMedian;
+        ao.push({ x: series[i].x, y: Utils.truncateNumber(aoValue) });
+      }
+    }
+
+    return ao;
+  }
 }
 
 export default Indicators;

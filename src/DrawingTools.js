@@ -9,13 +9,13 @@ import TextAnnotationManager from "./TextAnnotationManager";
 class DrawingTools {
   /**
    * @param {ApexCharts} chart - The ApexCharts instance
-   * @param {HTMLElement} chartDiv - The chart container element
+   * @param {HTMLElement} chartEl - The chart container element
    * @param {Array} series - The data series for coordinate transformation
    */
-  constructor(chart, chartDiv, series) {
-    this.chart = chart;
-    this.chartDiv = chartDiv;
-    this.series = series;
+  constructor(ctx) {
+    this.chart = ctx.chart;
+    this.chartEl = ctx.chartEl;
+    this.series = ctx.series;
     this.isDrawing = false;
     this.currentTool = null;
     this.elements = [];
@@ -28,18 +28,18 @@ class DrawingTools {
     // Initialize the coordinate converter
     this.coordinateConverter = new CoordinateConverter(
       this.chart,
-      this.chartDiv
+      this.chartEl
     );
 
     // Initialize the overlay manager
-    this.overlayManager = new OverlayManager(this.chartDiv);
+    this.overlayManager = new OverlayManager(this.chartEl);
     this.svgOverlay = this.overlayManager.svgOverlay;
     this.drawingGroup = this.overlayManager.drawingGroup;
     this.overlayWrapper = this.overlayManager.overlayWrapper;
 
     // Initialize the text annotation manager
     this.textAnnotationManager = new TextAnnotationManager(
-      chartDiv,
+      this.chartEl,
       this.svgOverlay,
       this.coordinateConverter,
       this.handleTextCreated.bind(this)
@@ -47,7 +47,8 @@ class DrawingTools {
 
     // Initialize the toolbar manager
     this.toolbarManager = new ToolbarManager(
-      this.chartDiv,
+      ctx,
+      this.chartEl,
       this.drawingColor,
       this.drawingWidth,
       this.handleToolClick.bind(this),
@@ -58,7 +59,7 @@ class DrawingTools {
     // Initialize the event manager
     this.eventManager = new EventManager(
       this.chart,
-      this.chartDiv,
+      this.chartEl,
       this.svgOverlay,
       this.handleMouseDown.bind(this),
       this.handleMouseMove.bind(this),
@@ -85,7 +86,6 @@ class DrawingTools {
    */
   handleWheelEvent(e) {
     if (this.currentTool) {
-      console.log("Mousewheel detected, deactivating drawing tools");
       this.deactivateAllTools();
     }
     // Allow the event to propagate for chart zooming
@@ -108,8 +108,6 @@ class DrawingTools {
     // Disable drawing overlay
     this.svgOverlay.classList.remove("active-drawing");
     this.svgOverlay.style.pointerEvents = "none";
-
-    console.log("All drawing tools deactivated");
   }
 
   /**
@@ -117,8 +115,6 @@ class DrawingTools {
    * @param {string} toolName - Name of the tool clicked
    */
   handleToolClick(toolName) {
-    console.log("Tool clicked:", toolName);
-
     if (toolName === "clear") {
       this.clearAllDrawings();
       return;
@@ -152,8 +148,6 @@ class DrawingTools {
       this.svgOverlay.classList.remove("active-drawing");
       this.svgOverlay.style.pointerEvents = "none";
     }
-
-    console.log("Current tool set to:", this.currentTool);
   }
 
   /**
@@ -163,21 +157,15 @@ class DrawingTools {
   handleMouseDown(e) {
     if (!this.currentTool) return;
 
-    console.log("Mouse down with tool:", this.currentTool);
-
     // Get mouse position relative to overlay
     const rect = this.overlayWrapper.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    console.log("Mouse position:", x, y);
-
     // Convert screen coordinates to chart data coordinates
     const dataPoint = this.coordinateConverter.screenToData(x, y);
-    console.log("Data point:", dataPoint);
 
     if (!dataPoint) {
-      console.log("Invalid data point, using raw coordinates");
       // Fall back to using screen coordinates
       this.isDrawing = true;
       this.startPoint = { x, y, dataX: x, dataY: y };
