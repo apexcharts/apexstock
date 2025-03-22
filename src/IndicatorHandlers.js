@@ -24,9 +24,9 @@ export default class IndicatorHandlers {
         animations: { enabled: false },
         group: context.groupID,
         events: {
-          zoomed: context.handleZoom.bind(this),
-          scrolled: context.handleScroll.bind(this),
-          beforeResetZoom: context.handleBeforeResetZoom.bind(this),
+          zoomed: context.handleZoom.bind(context),
+          scrolled: context.handleScroll.bind(context),
+          beforeResetZoom: context.handleBeforeResetZoom.bind(context),
         },
         toolbar: {
           show: false,
@@ -65,6 +65,19 @@ export default class IndicatorHandlers {
         padding: {
           left: 0,
           right: 0,
+        },
+      },
+      tooltip: {
+        x: {
+          show: false,
+        },
+        marker: {
+          show: false,
+        },
+        theme: "dark",
+        cssClass: "",
+        style: {
+          fontSize: "11px",
         },
       },
     };

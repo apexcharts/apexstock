@@ -151,6 +151,9 @@ export default class ApexStock {
             right: 0,
           },
         },
+        tooltip: {
+          theme: "dark",
+        },
         yaxis: {
           opposite: true,
           floating: true,
@@ -240,10 +243,10 @@ export default class ApexStock {
   handleZoom(ctx, e) {
     if (e && e.xaxis) {
       this.xaxisRange.min = new Date(
-        ctx.w.config.series[0].data[e.xaxis.min - 1].x
+        ctx.w.config.series[0].data[Math.round(e.xaxis.min - 1)]?.x
       ).getTime();
       this.xaxisRange.max = new Date(
-        ctx.w.config.series[0].data[e.xaxis.max - 1].x
+        ctx.w.config.series[0].data[Math.round(e.xaxis.max - 1)]?.x
       ).getTime();
 
       // Update the custom x-axis if it exists
@@ -261,10 +264,10 @@ export default class ApexStock {
   handleScroll(ctx, e) {
     if (e && e.xaxis) {
       this.xaxisRange.min = new Date(
-        ctx.w.config.series[0].data[e.xaxis.min - 1].x
+        ctx.w.config.series[0].data[Math.round(e.xaxis.min - 1)]?.x
       ).getTime();
       this.xaxisRange.max = new Date(
-        ctx.w.config.series[0].data[e.xaxis.max - 1].x
+        ctx.w.config.series[0].data[Math.round(e.xaxis.max - 1)]?.x
       ).getTime();
 
       // Update the custom x-axis if it exists
@@ -421,9 +424,40 @@ export default class ApexStock {
       optionsContainer.style.display =
         optionsContainer.style.display === "block" ? "none" : "block";
     });
+    // Track dropdown state and timeout for delayed closing
+    let dropdownTimeout = null;
+    const closeDropdown = () => {
+      optionsContainer.style.display = "none";
+    };
+
+    // Add mouseleave event to the wrapper
+    wrapper.addEventListener("mouseleave", () => {
+      // Clear any existing timeout
+      if (dropdownTimeout) {
+        clearTimeout(dropdownTimeout);
+      }
+      // Set new timeout to close dropdown after 2 seconds
+      if (optionsContainer.style.display === "block") {
+        dropdownTimeout = setTimeout(closeDropdown, 1200);
+      }
+    });
+
+    // Cancel the timeout if user returns to the dropdown before it closes
+    wrapper.addEventListener("mouseenter", () => {
+      if (dropdownTimeout) {
+        clearTimeout(dropdownTimeout);
+        dropdownTimeout = null;
+      }
+    });
+
+    // Keep click listener for immediate closing when clicking elsewhere
     document.addEventListener("click", (e) => {
       if (!wrapper.contains(e.target)) {
-        optionsContainer.style.display = "none";
+        closeDropdown();
+        if (dropdownTimeout) {
+          clearTimeout(dropdownTimeout);
+          dropdownTimeout = null;
+        }
       }
     });
 
