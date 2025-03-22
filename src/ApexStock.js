@@ -5,6 +5,7 @@ import apexStockCSS from "ApexStock.css";
 import Export from "./Export";
 import ChartSwitch from "./ChartSwitch"; // Import the new ChartSwitch component
 import IndicatorHandlers from "./IndicatorHandlers"; // Import the indicator handlers
+import XAxis from "./XAxis"; // Import the new XAxis component
 
 export default class ApexStock {
   /**
@@ -25,6 +26,7 @@ export default class ApexStock {
     this.mainChartDiv.id = this.mainChartId;
     this.mainChartDiv.classList.add("apexstock-main-chart");
     this.mainChartDiv.style.height = this.totalHeight + "px";
+    this.mainChartDiv.style.marginBottom = "-20px";
 
     this.indicatorContainer = document.createElement("div");
     this.indicatorContainer.classList.add("apexstock-indicator-container");
@@ -50,6 +52,9 @@ export default class ApexStock {
     const stockChartOptions =
       (chartOptions.plotOptions && chartOptions.plotOptions.stockChart) || {};
     this.series = chartOptions.series[0].data || [];
+
+    // Initialize xaxis range from the series data
+    this.initializeXAxisRange();
 
     // Define overlays and oscillators
     this.overlays = {
@@ -116,19 +121,44 @@ export default class ApexStock {
           height: this.totalHeight,
           id: this.mainChartId,
           group: this.groupID,
+          parentHeightOffset: 0,
           toolbar: {
             show: false,
+            autoSelected: "pan", // accepts -> zoom, pan, selection
+          },
+          zoom: {
+            enabled: true,
+            type: "x",
+            autoScaleYaxis: true,
+            allowMouseWheelZoom: true,
           },
           animations: {
             enabled: false,
           },
+          events: {
+            zoomed: this.handleZoom.bind(this),
+            scrolled: this.handleScroll.bind(this),
+            beforeResetZoom: this.handleBeforeResetZoom.bind(this),
+          },
         },
         series: [{ name: "Price", data: this.series }],
+        grid: {
+          padding: {
+            left: 0,
+            right: 0,
+          },
+        },
         yaxis: {
           opposite: true,
+          floating: true,
           tooltip: {
             enabled: true,
             offsetX: -20,
+          },
+          labels: {
+            align: "right",
+            offsetX: 10,
+            offsetY: -8,
           },
         },
         xaxis: {
@@ -141,6 +171,9 @@ export default class ApexStock {
           axisTicks: {
             show: false,
           },
+          tooltip: {
+            enabled: false,
+          },
         },
         legend: { show: false },
       },
@@ -148,6 +181,95 @@ export default class ApexStock {
     );
 
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
+  }
+
+  /**
+   * Initialize the xaxis range from the series data
+   */
+  initializeXAxisRange() {
+    if (!this.series || this.series.length === 0) {
+      this.xaxisRange = {
+        min: 0,
+        max: 0,
+      };
+      return;
+    }
+
+    // Extract timestamps from the series
+    const timestamps = this.series.map((point) => {
+      // Handle different timestamp formats
+      if (typeof point.x === "number") {
+        return point.x;
+      } else if (point.x instanceof Date) {
+        return point.x.getTime();
+      } else {
+        // Try to parse as date string
+        return new Date(point.x).getTime();
+      }
+    });
+
+    this.xaxisRange = {
+      min: Math.min(...timestamps),
+      max: Math.max(...timestamps),
+    };
+  }
+
+  /**
+   * Handle before reset zoom event from the chart
+   */
+  handleBeforeResetZoom(ctx, e) {
+    // Reset to the original range from the data
+    setTimeout(() => {
+      this.initializeXAxisRange();
+
+      // Update the custom x-axis if it exists
+      if (this.xaxis) {
+        this.xaxis.prepareForTransition();
+        this.xaxis.render();
+      }
+    }, 0);
+  }
+
+  /**
+   * Handle zoom events from the chart
+   * @param {Object} e - The zoom event data
+   */
+  handleZoom(ctx, e) {
+    if (e && e.xaxis) {
+      this.xaxisRange.min = new Date(
+        ctx.w.config.series[0].data[e.xaxis.min - 1].x
+      ).getTime();
+      this.xaxisRange.max = new Date(
+        ctx.w.config.series[0].data[e.xaxis.max - 1].x
+      ).getTime();
+
+      // Update the custom x-axis if it exists
+      if (this.xaxis) {
+        this.xaxis.prepareForTransition();
+        this.xaxis.render();
+      }
+    }
+  }
+
+  /**
+   * Handle scroll events from the chart
+   * @param {Object} e - The scroll event data
+   */
+  handleScroll(ctx, e) {
+    if (e && e.xaxis) {
+      this.xaxisRange.min = new Date(
+        ctx.w.config.series[0].data[e.xaxis.min - 1].x
+      ).getTime();
+      this.xaxisRange.max = new Date(
+        ctx.w.config.series[0].data[e.xaxis.max - 1].x
+      ).getTime();
+
+      // Update the custom x-axis if it exists
+      if (this.xaxis) {
+        this.xaxis.prepareForTransition();
+        this.xaxis.render();
+      }
+    }
   }
 
   render() {
@@ -186,6 +308,9 @@ export default class ApexStock {
     new Export(this, {
       filename: "my-stock-chart.png",
     });
+
+    // Initialize the custom XAxis
+    this.xaxis = new XAxis(this);
   }
 
   randomId() {
@@ -301,8 +426,12 @@ export default class ApexStock {
   }
 
   computeHeights(newIndicatorCount) {
-    const newMainHeight = Math.floor(0.6 * this.totalHeight);
-    const indicatorContainerHeight = Math.floor(0.4 * this.totalHeight);
+    // Save some space for the x-axis (30px)
+    const xAxisHeight = 30;
+    const totalHeightWithoutXAxis = this.totalHeight - xAxisHeight;
+
+    const newMainHeight = Math.floor(0.6 * totalHeightWithoutXAxis);
+    const indicatorContainerHeight = Math.floor(0.4 * totalHeightWithoutXAxis);
     const indicatorHeight = Math.floor(
       indicatorContainerHeight / newIndicatorCount
     );
@@ -311,27 +440,40 @@ export default class ApexStock {
 
   updateAllChartHeights() {
     const indicatorCount = this.indicatorContainer.children.length;
+    const xAxisHeight = 30; // Height reserved for x-axis
+
     if (indicatorCount === 0) {
-      this.mainChartDiv.style.height = this.totalHeight + "px";
+      // Adjust for x-axis height
+      const mainChartHeight = this.totalHeight - xAxisHeight;
+      this.mainChartDiv.style.height = mainChartHeight + "px";
       this.indicatorContainer.style.height = "0px";
       this.chart.updateOptions(
-        { chart: { height: this.totalHeight } },
+        { chart: { height: mainChartHeight } },
         false,
         false,
         false
       );
+
+      // Make sure XAxis is updated
+      if (this.xaxis) {
+        this.xaxis.updateHeight();
+      }
       return;
     }
+
     const { newMainHeight, indicatorContainerHeight, indicatorHeight } =
       this.computeHeights(indicatorCount);
+
     this.mainChartDiv.style.height = newMainHeight + "px";
     this.indicatorContainer.style.height = indicatorContainerHeight + "px";
+
     this.chart.updateOptions(
       { chart: { height: newMainHeight } },
       false,
       false,
       false
     );
+
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
       indicatorDiv.style.height = indicatorHeight + "px";
@@ -347,6 +489,11 @@ export default class ApexStock {
           false
         );
       }
+    }
+
+    // Update XAxis position and height
+    if (this.xaxis) {
+      this.xaxis.updateHeight();
     }
   }
 

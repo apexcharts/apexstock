@@ -216,14 +216,6 @@ export default class ChartSwitch {
       (s) => s.name !== "Price" && s.name !== undefined
     );
 
-    console.log(
-      newSeries,
-      indicators,
-      [...newSeries, ...indicators],
-      type,
-      "newseries"
-    );
-
     // Update the chart with new series type
     this.chart.updateOptions(
       {

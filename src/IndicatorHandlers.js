@@ -16,6 +16,59 @@ export default class IndicatorHandlers {
       return;
     }
 
+    // Define common chart properties for all indicator charts
+    const commonChartOptions = {
+      chart: {
+        toolbar: { show: false },
+        parentHeightOffset: 0,
+        animations: { enabled: false },
+        group: context.groupID,
+        events: {
+          zoomed: context.handleZoom.bind(this),
+          scrolled: context.handleScroll.bind(this),
+          beforeResetZoom: context.handleBeforeResetZoom.bind(this),
+        },
+        toolbar: {
+          show: false,
+          autoSelected: "pan", // accepts -> zoom, pan, selection
+        },
+        zoom: {
+          enabled: true,
+          type: "x",
+          autoScaleYaxis: true,
+          allowMouseWheelZoom: true,
+        },
+      },
+      xaxis: {
+        labels: { show: false },
+        axisTicks: { show: false },
+        tooltip: {
+          enabled: false,
+        },
+      },
+      yaxis: {
+        opposite: true,
+        floating: true,
+        tooltip: {
+          enabled: true,
+        },
+        labels: {
+          align: "right",
+          offsetX: 10,
+          offsetY: -7,
+        },
+      },
+      stroke: { width: 1 },
+      legend: { show: false },
+      dataLabels: { enabled: false },
+      grid: {
+        padding: {
+          left: 0,
+          right: 0,
+        },
+      },
+    };
+
     let indicatorChartOptions = {};
 
     // For overlays that are drawn on the main chart
@@ -156,22 +209,21 @@ export default class IndicatorHandlers {
       }
       const defaultSeries = [{ name: "Volumes", data: context.volumesData }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "area",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "volume" + context.groupID,
-          group: context.groupID,
-          animations: { enabled: false },
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "Volume" },
         },
-        yaxis: { title: { text: "Volume" } },
-        stroke: { curve: "linestep", width: 1 },
-        dataLabels: { enabled: false },
+        stroke: {
+          ...commonChartOptions.stroke,
+          curve: "linestep",
+        },
         fill: { type: "solid", opacity: 0.2 },
       };
       if (context.indicators.volumes?.chartOptions) {
@@ -195,20 +247,23 @@ export default class IndicatorHandlers {
         },
       ];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "rsi" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          min: 0,
+          max: 100,
+          title: { text: "RSI" },
         },
-        yaxis: { min: 0, max: 100, title: { text: "RSI" } },
-        stroke: { width: 1, colors: "#7D57C2" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#7D57C2",
+        },
       };
       if (context.indicators.rsi?.chartOptions) {
         indicatorChartOptions = Object.assign(
@@ -250,21 +305,21 @@ export default class IndicatorHandlers {
         },
       ];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "macd" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "MACD" },
         },
-        yaxis: { title: { text: "MACD" } },
-        stroke: { width: [1, 1, 0] },
-        legend: { show: false },
+        stroke: {
+          ...commonChartOptions.stroke,
+          width: [1, 1, 0],
+        },
         plotOptions: {
           bar: {
             colors: {
@@ -289,20 +344,21 @@ export default class IndicatorHandlers {
       const pvtData = context.calculatePVT(context.series);
       const defaultSeries = [{ name: "PVT", data: pvtData }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "pvt" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "PVT" },
         },
-        yaxis: { title: { text: "PVT" } },
-        stroke: { width: 1, colors: "#0099CC" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#0099CC",
+        },
       };
     } else if (indicatorKey === "stochastic oscillator") {
       const { k, d } = context.calculateStochastic(context.series, 14, 3);
@@ -311,134 +367,141 @@ export default class IndicatorHandlers {
         { name: "Stochastic %D", data: d },
       ];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "stochastic" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "Stochastic" },
         },
-        yaxis: { title: { text: "Stochastic" } },
-        stroke: { width: 1, colors: ["#33CC33", "#FF9933"] },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: ["#33CC33", "#FF9933"],
+        },
       };
     } else if (indicatorKey === "standard deviation indicator") {
       const stdData = context.calculateStdDevIndicator(context.series, 14);
       const defaultSeries = [{ name: "Std Dev", data: stdData }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "stddev" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "Std Dev" },
         },
-        yaxis: { title: { text: "Std Dev" } },
-        stroke: { width: 1, colors: "#CC33FF" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#CC33FF",
+        },
       };
     } else if (indicatorKey === "average directional index") {
       const adxData = context.calculateADX(context.series, 14);
       const defaultSeries = [{ name: "ADX", data: adxData }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "adx" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "ADX" },
         },
-        yaxis: { title: { text: "ADX" } },
-        stroke: { width: 1, colors: "#9900CC" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#9900CC",
+        },
       };
     } else if (indicatorKey === "chaikin oscillator") {
       const chaikin = context.calculateChaikinOsc(context.series);
       const defaultSeries = [{ name: "Chaikin Osc", data: chaikin }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "chaikin" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "Chaikin" },
         },
-        yaxis: { title: { text: "Chaikin" } },
-        stroke: { width: 1, colors: "#CC3333" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#CC3333",
+        },
       };
     } else if (indicatorKey === "commodity channel index") {
       const cciData = context.calculateCCI(context.series, 20);
       const defaultSeries = [{ name: "CCI", data: cciData }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "cci" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "CCI" },
         },
-        yaxis: { title: { text: "CCI" } },
-        stroke: { width: 1, colors: "#FF6600" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#FF6600",
+        },
       };
     } else if (indicatorKey === "trend strength index") {
       const tsiData = context.calculateTSI(context.series, 25, 13);
       const defaultSeries = [{ name: "TSI", data: tsiData.tsi }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "tsi" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "TSI" },
         },
-        yaxis: { title: { text: "TSI" } },
-        stroke: { width: 1, colors: "#0066CC" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#0066CC",
+        },
       };
     } else if (indicatorKey === "accelerator oscillator") {
       const acData = context.calculateAcceleratorOsc(context.series);
       const defaultSeries = [{ name: "AC", data: acData }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "ac" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "AC" },
         },
-        yaxis: { title: { text: "AC" } },
-        stroke: { width: 1, colors: "#009900" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#009900",
+        },
       };
     } else if (indicatorKey === "bollinger bands %b") {
       const bb = context.calculateBollingerBands(context.series, 20, 2);
@@ -449,20 +512,21 @@ export default class IndicatorHandlers {
       );
       const defaultSeries = [{ name: "Bollinger %B", data: bBPercent }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "bbb" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "%B" },
         },
-        yaxis: { title: { text: "%B" } },
-        stroke: { width: 1, colors: "#6600CC" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#6600CC",
+        },
       };
     } else if (indicatorKey === "bollinger bands width") {
       const bb = context.calculateBollingerBands(context.series, 20, 2);
@@ -474,20 +538,21 @@ export default class IndicatorHandlers {
       );
       const defaultSeries = [{ name: "Bollinger Width", data: bBWidth }];
       indicatorChartOptions = {
+        ...commonChartOptions,
         chart: {
+          ...commonChartOptions.chart,
           type: "line",
-          toolbar: { show: false },
-          parentHeightOffset: 0,
           id: "bbw" + context.groupID,
-          group: context.groupID,
         },
         series: defaultSeries,
-        xaxis: {
-          labels: { show: false },
-          axisTicks: { show: false },
+        yaxis: {
+          ...commonChartOptions.yaxis,
+          title: { text: "Width" },
         },
-        yaxis: { title: { text: "Width" } },
-        stroke: { width: 1, colors: "#CC0066" },
+        stroke: {
+          ...commonChartOptions.stroke,
+          colors: "#CC0066",
+        },
       };
     }
 
