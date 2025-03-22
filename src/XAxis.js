@@ -542,7 +542,7 @@ export default class XAxis {
         this.context.indicatorContainer.offsetTop +
         this.context.indicatorContainer.offsetHeight;
 
-      this.axisElement.style.top = `${top - 37}px`;
+      this.axisElement.style.top = `${top - 20}px`;
     }
 
     // Ensure the axis is visible

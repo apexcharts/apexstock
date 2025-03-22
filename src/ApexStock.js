@@ -3,9 +3,9 @@ import Utils from "./utils/Utils";
 import DrawingTools from "./DrawingTools";
 import apexStockCSS from "ApexStock.css";
 import Export from "./Export";
-import ChartSwitch from "./ChartSwitch"; // Import the new ChartSwitch component
-import IndicatorHandlers from "./IndicatorHandlers"; // Import the indicator handlers
-import XAxis from "./XAxis"; // Import the new XAxis component
+import ChartSwitch from "./ChartSwitch";
+import IndicatorHandlers from "./IndicatorHandlers";
+import XAxis from "./XAxis";
 
 export default class ApexStock {
   /**
@@ -16,6 +16,7 @@ export default class ApexStock {
     this.chartEl = chartEl;
     this.totalHeight = chartOptions.chart.height || 350;
     this.Utils = Utils;
+    this.xAxisHeight = 30; // Define xAxisHeight as a constant property
 
     chartOptions.chart.id = this.randomId();
     this.groupID = "group" + this.randomId();
@@ -25,8 +26,10 @@ export default class ApexStock {
     this.mainChartDiv = document.createElement("div");
     this.mainChartDiv.id = this.mainChartId;
     this.mainChartDiv.classList.add("apexstock-main-chart");
-    this.mainChartDiv.style.height = this.totalHeight + "px";
-    this.mainChartDiv.style.marginBottom = "-20px";
+
+    // Apply correct height initially, accounting for xAxisHeight
+    const initialMainChartHeight = this.totalHeight - this.xAxisHeight;
+    this.mainChartDiv.style.height = initialMainChartHeight + "px";
 
     this.indicatorContainer = document.createElement("div");
     this.indicatorContainer.classList.add("apexstock-indicator-container");
@@ -118,7 +121,7 @@ export default class ApexStock {
       {
         chart: {
           type: "candlestick",
-          height: this.totalHeight,
+          height: initialMainChartHeight,
           id: this.mainChartId,
           group: this.groupID,
           parentHeightOffset: 0,
@@ -311,6 +314,9 @@ export default class ApexStock {
 
     // Initialize the custom XAxis
     this.xaxis = new XAxis(this);
+
+    // Initial update to ensure consistent heights
+    this.updateAllChartHeights();
   }
 
   randomId() {
@@ -426,27 +432,38 @@ export default class ApexStock {
   }
 
   computeHeights(newIndicatorCount) {
-    // Save some space for the x-axis (30px)
-    const xAxisHeight = 30;
-    const totalHeightWithoutXAxis = this.totalHeight - xAxisHeight;
+    // Get the total available height without the xAxis
+    const totalHeightWithoutXAxis = this.totalHeight - this.xAxisHeight;
 
+    // For main chart, calculate 60% of available height
     const newMainHeight = Math.floor(0.6 * totalHeightWithoutXAxis);
+
+    // For indicators, calculate 40% of available height
     const indicatorContainerHeight = Math.floor(0.4 * totalHeightWithoutXAxis);
-    const indicatorHeight = Math.floor(
-      indicatorContainerHeight / newIndicatorCount
-    );
-    return { newMainHeight, indicatorContainerHeight, indicatorHeight };
+
+    // Divide indicator area by number of indicators
+    const indicatorHeight =
+      newIndicatorCount > 0
+        ? Math.floor(indicatorContainerHeight / newIndicatorCount)
+        : 0;
+
+    return {
+      newMainHeight: newMainHeight,
+      indicatorContainerHeight,
+      indicatorHeight,
+    };
   }
 
   updateAllChartHeights() {
     const indicatorCount = this.indicatorContainer.children.length;
-    const xAxisHeight = 30; // Height reserved for x-axis
 
     if (indicatorCount === 0) {
-      // Adjust for x-axis height
-      const mainChartHeight = this.totalHeight - xAxisHeight;
+      // No indicators - give full height to main chart minus xAxisHeight
+      const mainChartHeight = this.totalHeight - this.xAxisHeight;
+
       this.mainChartDiv.style.height = mainChartHeight + "px";
       this.indicatorContainer.style.height = "0px";
+
       this.chart.updateOptions(
         { chart: { height: mainChartHeight } },
         false,
@@ -454,30 +471,39 @@ export default class ApexStock {
         false
       );
 
-      // Make sure XAxis is updated
+      // Update XAxis position
       if (this.xaxis) {
         this.xaxis.updateHeight();
       }
       return;
     }
 
+    // Calculate heights with indicators
     const { newMainHeight, indicatorContainerHeight, indicatorHeight } =
       this.computeHeights(indicatorCount);
 
-    this.mainChartDiv.style.height = newMainHeight + "px";
+    const INDICATOR_CHART_TOP_OFFSET = 18;
+    // Update main chart height
+    this.mainChartDiv.style.height =
+      newMainHeight + INDICATOR_CHART_TOP_OFFSET * 2 + "px";
     this.indicatorContainer.style.height = indicatorContainerHeight + "px";
 
     this.chart.updateOptions(
-      { chart: { height: newMainHeight } },
+      { chart: { height: newMainHeight + INDICATOR_CHART_TOP_OFFSET * 2 } },
       false,
       false,
       false
     );
 
+    // Update each indicator's height
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
       indicatorDiv.style.height = indicatorHeight + "px";
+      indicatorDiv.style.top = INDICATOR_CHART_TOP_OFFSET + "px";
+      indicatorDiv.style.marginTop = INDICATOR_CHART_TOP_OFFSET * -2 + "px";
+      indicatorDiv.style.position = "relative";
       const key = indicatorDiv.dataset.indicator;
+
       if (
         this.indicatorChartMap[key] &&
         typeof this.indicatorChartMap[key].updateOptions === "function"
@@ -491,7 +517,7 @@ export default class ApexStock {
       }
     }
 
-    // Update XAxis position and height
+    // Update XAxis position
     if (this.xaxis) {
       this.xaxis.updateHeight();
     }
