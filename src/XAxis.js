@@ -11,7 +11,9 @@ export default class XAxis {
     this.context = context;
     this.axisElement = null;
     this.ticksContainer = null;
+    this.tooltipElement = null;
     this.resizeObserver = null;
+    this.mouseTracker = null;
 
     // Create the axis container
     this.createAxisElement();
@@ -21,6 +23,9 @@ export default class XAxis {
 
     // Add resize listener for repositioning
     this.setupResizeListener();
+
+    // Setup mouse tracking for tooltip
+    this.setupMouseTracking();
   }
 
   /**
@@ -61,26 +66,261 @@ export default class XAxis {
   }
 
   /**
+   * Sets up mouse tracking for the tooltip
+   */
+  setupMouseTracking() {
+    if (!this.context.chartEl) return;
+
+    // Find the main chart area to attach mouse events
+    const chartElement = document.getElementById(this.context.mainChartId);
+    if (!chartElement) return;
+
+    // Create tooltip element that stays at the bottom of the axis
+    this.tooltipElement = document.createElement("div");
+    this.tooltipElement.style.position = "absolute";
+    this.tooltipElement.style.display = "none";
+    this.tooltipElement.style.background = "rgba(0, 0, 0, 0.7)";
+    this.tooltipElement.style.color = "#fff";
+    this.tooltipElement.style.padding = "8px 8px";
+    this.tooltipElement.style.borderRadius = "4px";
+    this.tooltipElement.style.fontSize = "11px";
+    this.tooltipElement.style.pointerEvents = "none";
+    this.tooltipElement.style.zIndex = "1000";
+    this.tooltipElement.style.whiteSpace = "nowrap";
+    this.tooltipElement.style.transform = "translateX(-50%) translateY(1px)"; // Center horizontally
+
+    // Add tooltip to the axis element
+    this.axisElement.appendChild(this.tooltipElement);
+
+    // Bind the event handlers to preserve 'this' context
+    this.handleMouseMove = this.handleMouseMove.bind(this);
+    this.handleMouseLeave = () => {
+      this.tooltipElement.style.display = "none";
+    };
+
+    // Track mouse movement
+    chartElement.addEventListener("mousemove", this.handleMouseMove);
+
+    // Hide tooltip when mouse leaves the chart
+    chartElement.addEventListener("mouseleave", this.handleMouseLeave);
+  }
+
+  /**
+   * Handles mouse movement and updates tooltip position and content
+   * @param {MouseEvent} e - Mouse event
+   */
+  handleMouseMove(e) {
+    if (!this.context.xaxisRange) return;
+
+    const chartElement = document.getElementById(this.context.mainChartId);
+    if (!chartElement) return;
+
+    // Get the xcrosshairs element from ApexCharts, which follows the cursor position
+    const xcrosshair = chartElement.querySelector(".apexcharts-xcrosshairs");
+    if (!xcrosshair) {
+      this.tooltipElement.style.display = "none";
+      return;
+    }
+
+    // Check if crosshair is visible (ApexCharts hides it when outside the chart area)
+    const crosshairDisplay = window.getComputedStyle(xcrosshair).display;
+    if (crosshairDisplay === "none") {
+      this.tooltipElement.style.display = "none";
+      return;
+    }
+
+    // Get the x1 attribute directly - this is the exact pixel position of the crosshair
+    const crosshairX = parseFloat(xcrosshair.getAttribute("x1"));
+
+    // Calculate relative position for finding data point
+    const graphicalElement = chartElement.querySelector(
+      ".apexcharts-inner.apexcharts-graphical"
+    );
+    if (!graphicalElement) return;
+
+    const graphicalRect = graphicalElement.getBoundingClientRect();
+    const relativePercent =
+      (e.clientX - graphicalRect.left) / graphicalRect.width;
+
+    // Get the data point index directly from ApexCharts context if available
+    let dataPointIndex = this.findNearestDataPointIndex(relativePercent);
+    let timestamp, formattedDate;
+
+    if (dataPointIndex !== null) {
+      // Use the data point's x value
+      timestamp = this.getDataPointTimestamp(dataPointIndex);
+
+      // If timestamp is valid, format it
+      if (timestamp) {
+        const date = new Date(timestamp);
+        if (!isNaN(date.getTime())) {
+          formattedDate = this.formatDate(date, "MMM DD, YYYY HH:mm");
+        } else {
+          formattedDate = "Invalid date";
+        }
+      } else {
+        formattedDate = "No data";
+      }
+    } else {
+      // Fallback to mouse position if no data point found
+      const rangeMin = this.context.xaxisRange.min;
+      const rangeMax = this.context.xaxisRange.max;
+      timestamp = rangeMin + (rangeMax - rangeMin) * relativePercent;
+      const date = new Date(timestamp);
+      formattedDate = this.formatDate(date, "MMM DD, YYYY HH:mm");
+    }
+
+    // Update tooltip content
+    this.tooltipElement.textContent = formattedDate;
+    this.tooltipElement.style.display = "block";
+
+    // Get tooltip width to calculate boundaries
+    const tooltipWidth = this.tooltipElement.offsetWidth;
+    const tooltipHalfWidth = tooltipWidth / 2;
+
+    // Get the chart area width to determine boundaries
+    const chartRect = graphicalElement.getBoundingClientRect();
+    const chartWidth = chartRect.width;
+
+    // Calculate the min and max allowed positions for the tooltip center
+    // to prevent it from being cut off at the edges
+    const minPosition = tooltipHalfWidth;
+    const maxPosition = chartWidth - tooltipHalfWidth;
+
+    // Constrain the tooltip position within the bounds
+    let tooltipLeft = crosshairX;
+    if (tooltipLeft < minPosition) tooltipLeft = minPosition;
+    if (tooltipLeft > maxPosition) tooltipLeft = maxPosition;
+
+    // Position tooltip with the adjusted value
+    this.tooltipElement.style.left = `${tooltipLeft}px`;
+  }
+
+  /**
+   * Finds the data point index that the user is currently hovering over
+   * @param {number} relativePercent - Mouse position as percentage of chart width
+   * @returns {number|null} - Data point index or null if not found
+   */
+  findNearestDataPointIndex(relativePercent) {
+    try {
+      // Try to access ApexCharts global context to get the captured data point index
+      if (
+        this.context.chart &&
+        this.context.chart.w &&
+        typeof this.context.chart.w.globals.capturedDataPointIndex !==
+          "undefined"
+      ) {
+        // Use the index directly from ApexCharts
+        const capturedIndex =
+          this.context.chart.w.globals.capturedDataPointIndex;
+
+        // Check if the index is valid
+        if (capturedIndex !== null && capturedIndex >= 0) {
+          return capturedIndex;
+        }
+      }
+
+      // Fallback to previous implementation if ApexCharts context is not available
+      if (!this.context.series || !this.context.series.length) return null;
+
+      // Get chart series
+      const series = this.context.series[0];
+      if (!series || !series.data || !series.data.length) return null;
+
+      // Get first and last x values to calculate the range
+      const firstPoint = series.data[0];
+      const lastPoint = series.data[series.data.length - 1];
+
+      if (!firstPoint || !lastPoint) return null;
+
+      // Get x values (timestamps)
+      const firstX =
+        firstPoint.x instanceof Date ? firstPoint.x.getTime() : firstPoint.x;
+      const lastX =
+        lastPoint.x instanceof Date ? lastPoint.x.getTime() : lastPoint.x;
+
+      if (isNaN(firstX) || isNaN(lastX)) return null;
+
+      // Calculate the approximate x value based on relative position
+      const targetX = firstX + (lastX - firstX) * relativePercent;
+
+      // Find the closest data point
+      let closestIndex = 0;
+      let closestDistance = Number.MAX_VALUE;
+
+      for (let i = 0; i < series.data.length; i++) {
+        const point = series.data[i];
+        if (!point) continue;
+
+        const pointX = point.x instanceof Date ? point.x.getTime() : point.x;
+        if (isNaN(pointX)) continue;
+
+        const distance = Math.abs(pointX - targetX);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = i;
+        }
+      }
+
+      return closestIndex;
+    } catch (error) {
+      console.warn("Error finding nearest data point:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Gets the timestamp for a data point
+   * @param {number} index - Data point index
+   * @returns {number} - Timestamp in milliseconds
+   */
+  getDataPointTimestamp(index) {
+    try {
+      if (!this.context.series || !this.context.series.length) {
+        return this.context.xaxisRange.min;
+      }
+
+      const series = this.context.series;
+
+      if (!series[index]) {
+        return this.context.xaxisRange.min;
+      }
+
+      const point = series[index];
+
+      if (!point) return this.context.xaxisRange.min;
+
+      if (typeof point.x !== "undefined") {
+        return new Date(point.x).getTime();
+      }
+    } catch (error) {
+      console.warn("Error getting data point timestamp:", error);
+      return this.context.xaxisRange.min;
+    }
+  }
+
+  /**
    * Creates the DOM elements for the x-axis
    */
   createAxisElement() {
-    // Add custom styles
-    this.addStyles();
-
     // Create the axis container
     this.axisElement = document.createElement("div");
-    this.axisElement.classList.add("apexstock-xaxis");
     this.axisElement.style.width = "100%";
     this.axisElement.style.height = "30px";
     this.axisElement.style.position = "absolute";
-    this.axisElement.style.overflow = "hidden"; // Prevent scrollbars
+    this.axisElement.style.overflow = "hidden";
+    this.axisElement.style.borderTop = "1px solid #eee";
+    this.axisElement.style.marginTop = "5px";
+    this.axisElement.style.fontFamily =
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    this.axisElement.style.boxSizing = "border-box";
 
     // Create the ticks container
     this.ticksContainer = document.createElement("div");
-    this.ticksContainer.classList.add("apexstock-xaxis-ticks");
     this.ticksContainer.style.position = "absolute";
     this.ticksContainer.style.height = "100%";
-    this.ticksContainer.style.overflow = "hidden"; // Prevent scrollbars
+    this.ticksContainer.style.overflow = "hidden";
+    this.ticksContainer.style.boxSizing = "border-box";
     // We'll set width and position in updatePosition()
 
     this.axisElement.appendChild(this.ticksContainer);
@@ -140,53 +380,6 @@ export default class XAxis {
         this.ticksContainer.style.transform = "";
       }
     }
-  }
-
-  /**
-   * Adds CSS styles for the X-axis
-   */
-  addStyles() {
-    const styleId = "apexstock-xaxis-styles";
-    if (document.getElementById(styleId)) return;
-
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `
-      .apexstock-xaxis {
-        position: absolute;
-        border-top: 1px solid #eee;
-        margin-top: 5px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        box-sizing: border-box;
-      }
-      
-      .apexstock-xaxis-ticks {
-        box-sizing: border-box;
-      }
-      
-      .apexstock-xaxis-tick {
-        position: absolute;
-        transform: translateX(-50%);
-        text-align: center;
-        white-space: nowrap;
-        top: 0;
-      }
-      
-      .apexstock-xaxis-tickmark {
-        width: 1px;
-        height: 6px;
-        margin: 0 auto 4px;
-        background-color: #888;
-      }
-      
-      .apexstock-xaxis-label {
-        font-size: 11px;
-        color: #666;
-        padding: 0 4px;
-      }
-    `;
-
-    document.head.appendChild(style);
   }
 
   /**
@@ -478,6 +671,11 @@ export default class XAxis {
     const ticks = this.calculateTicks();
     if (!ticks.length) return; // Skip if no ticks
 
+    // Prevent duplicate labels
+    const usedLabels = new Set();
+    const minSpacing = 30; // Minimum spacing between ticks in pixels
+    let lastPixelPosition = -minSpacing * 2; // Initialize with a negative position
+
     // Create and position ticks
     ticks.forEach((tick) => {
       // Skip ticks outside the valid position range
@@ -492,15 +690,39 @@ export default class XAxis {
         return;
       }
 
+      // Skip if this tick is too close to the previous one
+      if (pixelPosition - lastPixelPosition < minSpacing) {
+        return;
+      }
+
+      // Skip if this label has already been used
+      if (usedLabels.has(tick.label)) {
+        return;
+      }
+
+      // Track this label and position
+      usedLabels.add(tick.label);
+      lastPixelPosition = pixelPosition;
+
+      // Create tick element with inline styles
       const tickElement = document.createElement("div");
-      tickElement.classList.add("apexstock-xaxis-tick");
+      tickElement.style.position = "absolute";
+      tickElement.style.transform = "translateX(-50%)";
+      tickElement.style.textAlign = "center";
+      tickElement.style.whiteSpace = "nowrap";
+      tickElement.style.top = "0";
       tickElement.style.left = `${tick.position}%`;
 
       const tickMark = document.createElement("div");
-      tickMark.classList.add("apexstock-xaxis-tickmark");
+      tickMark.style.width = "1px";
+      tickMark.style.height = "6px";
+      tickMark.style.margin = "0 auto 4px";
+      tickMark.style.backgroundColor = "#888";
 
       const tickLabel = document.createElement("div");
-      tickLabel.classList.add("apexstock-xaxis-label");
+      tickLabel.style.fontSize = "11px";
+      tickLabel.style.color = "#666";
+      tickLabel.style.padding = "0 4px";
       tickLabel.textContent = tick.label;
 
       tickElement.appendChild(tickMark);
@@ -516,14 +738,23 @@ export default class XAxis {
       const middleTick = ticks[Math.floor(ticks.length / 2)];
 
       const tickElement = document.createElement("div");
-      tickElement.classList.add("apexstock-xaxis-tick");
+      tickElement.style.position = "absolute";
+      tickElement.style.transform = "translateX(-50%)";
+      tickElement.style.textAlign = "center";
+      tickElement.style.whiteSpace = "nowrap";
+      tickElement.style.top = "0";
       tickElement.style.left = "50%";
 
       const tickMark = document.createElement("div");
-      tickMark.classList.add("apexstock-xaxis-tickmark");
+      tickMark.style.width = "1px";
+      tickMark.style.height = "6px";
+      tickMark.style.margin = "0 auto 4px";
+      tickMark.style.backgroundColor = "#888";
 
       const tickLabel = document.createElement("div");
-      tickLabel.classList.add("apexstock-xaxis-label");
+      tickLabel.style.fontSize = "11px";
+      tickLabel.style.color = "#666";
+      tickLabel.style.padding = "0 4px";
       tickLabel.textContent = middleTick.label;
 
       tickElement.appendChild(tickMark);
@@ -570,7 +801,20 @@ export default class XAxis {
       this.axisElement.parentNode.removeChild(this.axisElement);
     }
 
+    // Remove tooltip element if it exists
+    if (this.tooltipElement && this.tooltipElement.parentNode) {
+      this.tooltipElement.parentNode.removeChild(this.tooltipElement);
+    }
+
+    // Remove any event listeners we added to the chart
+    const chartElement = document.getElementById(this.context.mainChartId);
+    if (chartElement) {
+      chartElement.removeEventListener("mousemove", this.handleMouseMove);
+      chartElement.removeEventListener("mouseleave", this.handleMouseLeave);
+    }
+
     this.axisElement = null;
     this.ticksContainer = null;
+    this.tooltipElement = null;
   }
 }
