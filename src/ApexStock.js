@@ -191,8 +191,18 @@ export default class ApexStock {
 
   /**
    * Initialize the xaxis range from the series data
+   * @param {boolean} useCurrentZoom - Whether to use current zoom state if available
    */
-  initializeXAxisRange() {
+  initializeXAxisRange(useCurrentZoom = false) {
+    // If useCurrentZoom is true and there's a valid zoom state, preserve it
+    if (useCurrentZoom) {
+      const zoomState = this.getCurrentZoomState();
+      if (zoomState && this.xaxisRange) {
+        // Keep existing zoom state
+        return;
+      }
+    }
+
     if (!this.series || this.series.length === 0) {
       this.xaxisRange = {
         min: 0,
@@ -482,7 +492,7 @@ export default class ApexStock {
         : 0;
 
     return {
-      newMainHeight: newMainHeight,
+      newMainHeight,
       indicatorContainerHeight,
       indicatorHeight,
     };
@@ -561,12 +571,94 @@ export default class ApexStock {
     return Object.keys(this.overlays).includes(indicatorKey.toLowerCase());
   }
 
+  /**
+   * Get the current zoom state to apply to new charts
+   * @returns {Object} Object containing min and max indices for the x-axis
+   */
+  getCurrentZoomState() {
+    // If chart is not rendered yet, return null
+    if (!this.chart || !this.chart.w) {
+      return null;
+    }
+
+    const w = this.chart.w;
+
+    // Get the current visible range
+    let minX = 0;
+    let maxX = w.globals.dataPoints - 1;
+
+    // If chart is zoomed, use those values
+    if (
+      w.globals.isRangeBar ||
+      w.globals.isTimelineBar ||
+      w.config.chart.type === "rangeBar" ||
+      w.config.chart.type === "candlestick"
+    ) {
+      minX = w.globals.minX;
+      maxX = w.globals.maxX;
+    } else if (
+      w.globals.dataPoints > 0 &&
+      w.globals.selectedDataPoints &&
+      w.globals.selectedDataPoints[0] &&
+      w.globals.selectedDataPoints[0].length
+    ) {
+      // In case of selection
+      minX = Math.min(...w.globals.selectedDataPoints[0]);
+      maxX = Math.max(...w.globals.selectedDataPoints[0]);
+    } else if (w.globals.minX !== Infinity && w.globals.maxX !== -Infinity) {
+      // For zoomed charts
+      minX = w.globals.minX;
+      maxX = w.globals.maxX;
+    }
+
+    return {
+      minX,
+      maxX,
+    };
+  }
+
   updateIndicator(indicatorKey) {
+    // Store current zoom state before updating
+    const zoomState = this.getCurrentZoomState();
+
+    // Update the indicator
     IndicatorHandlers.updateIndicator(indicatorKey, this);
+
+    // Apply zoom state to all charts if we have valid zoom information
+    if (zoomState) {
+      this.applyZoomToAllCharts(zoomState);
+    }
   }
 
   removeIndicator(indicatorKey) {
+    // Store current zoom state before removing
+    const zoomState = this.getCurrentZoomState();
+
+    // Remove the indicator
     IndicatorHandlers.removeIndicator(indicatorKey, this);
+
+    // Apply zoom state to remaining charts if we have valid zoom information
+    if (zoomState) {
+      this.applyZoomToAllCharts(zoomState);
+    }
+  }
+
+  /**
+   * Apply saved zoom state to all charts
+   * @param {Object} zoomState - The zoom state with minX and maxX
+   */
+  applyZoomToAllCharts(zoomState) {
+    // First apply to main chart
+    if (this.chart && zoomState) {
+      this.chart.zoomX(zoomState.minX, zoomState.maxX);
+    }
+
+    // Then apply to all indicator charts
+    Object.values(this.indicatorChartMap).forEach((chart) => {
+      if (chart && typeof chart.zoomX === "function") {
+        chart.zoomX(zoomState.minX, zoomState.maxX);
+      }
+    });
   }
 
   // Helper methods to delegate to the Indicators class
