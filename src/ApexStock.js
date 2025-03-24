@@ -166,6 +166,11 @@ export default class ApexStock {
             offsetX: 10,
             offsetY: -8,
           },
+          crosshairs: {
+            stroke: {
+              dashArray: 3,
+            },
+          },
         },
         xaxis: {
           show: false,
@@ -628,6 +633,11 @@ export default class ApexStock {
     if (zoomState) {
       this.applyZoomToAllCharts(zoomState);
     }
+
+    // Update XAxis event listeners to include the new indicator chart
+    if (this.xaxis && typeof this.xaxis.updateEventListeners === "function") {
+      this.xaxis.updateEventListeners();
+    }
   }
 
   removeIndicator(indicatorKey) {
@@ -640,6 +650,11 @@ export default class ApexStock {
     // Apply zoom state to remaining charts if we have valid zoom information
     if (zoomState) {
       this.applyZoomToAllCharts(zoomState);
+    }
+
+    // Update XAxis event listeners to reflect removed indicator chart
+    if (this.xaxis && typeof this.xaxis.updateEventListeners === "function") {
+      this.xaxis.updateEventListeners();
     }
   }
 

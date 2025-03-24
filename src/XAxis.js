@@ -71,9 +71,9 @@ export default class XAxis {
   setupMouseTracking() {
     if (!this.context.chartEl) return;
 
-    // Find the main chart area to attach mouse events
-    const chartElement = document.getElementById(this.context.mainChartId);
-    if (!chartElement) return;
+    // Find the main chart
+    const mainChartElement = document.getElementById(this.context.mainChartId);
+    if (!mainChartElement) return;
 
     // Create tooltip element that stays at the bottom of the axis
     this.tooltipElement = document.createElement("div");
@@ -97,12 +97,76 @@ export default class XAxis {
     this.handleMouseLeave = () => {
       this.tooltipElement.style.display = "none";
     };
+    this.handleMouseLeave = this.handleMouseLeave.bind(this);
 
-    // Track mouse movement
-    chartElement.addEventListener("mousemove", this.handleMouseMove);
+    // Set up initial event listeners
+    this.updateEventListeners();
+  }
 
-    // Hide tooltip when mouse leaves the chart
-    chartElement.addEventListener("mouseleave", this.handleMouseLeave);
+  /**
+   * Updates event listeners for all charts when indicators change
+   * This method should be called whenever indicators are added or removed
+   */
+  updateEventListeners() {
+    // First, remove all existing event listeners to avoid duplicates
+    this.removeAllEventListeners();
+
+    // Re-add event listeners to main chart
+    const mainChartElement = document.getElementById(this.context.mainChartId);
+    if (mainChartElement) {
+      mainChartElement.addEventListener("mousemove", this.handleMouseMove);
+      mainChartElement.addEventListener("mouseleave", this.handleMouseLeave);
+    }
+
+    // Add event listeners to all current indicator charts
+    if (
+      this.context.indicatorChartMap &&
+      Object.keys(this.context.indicatorChartMap).length
+    ) {
+      Object.keys(this.context.indicatorChartMap).forEach((key) => {
+        const chart = this.context.indicatorChartMap[key];
+        console.log(chart, "chart");
+
+        if (chart && chart.opts && chart.opts.chart && chart.opts.chart.id) {
+          const indicatorElement = document.getElementById(
+            `apexcharts${chart.opts.chart.id}`
+          );
+          if (indicatorElement) {
+            indicatorElement.addEventListener(
+              "mousemove",
+              this.handleMouseMove
+            );
+            indicatorElement.addEventListener(
+              "mouseleave",
+              this.handleMouseLeave
+            );
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Removes all event listeners from main chart and indicator charts
+   */
+  removeAllEventListeners() {
+    // Remove from main chart
+    const mainChartElement = document.getElementById(this.context.mainChartId);
+    if (mainChartElement) {
+      mainChartElement.removeEventListener("mousemove", this.handleMouseMove);
+      mainChartElement.removeEventListener("mouseleave", this.handleMouseLeave);
+    }
+
+    // Remove from all indicator charts
+    // Note: We need to check all chart elements in the DOM that might have our listeners
+    // since the indicatorChartMap might have changed
+    const chartElements = document.querySelectorAll('[id^="apexcharts"]');
+    chartElements.forEach((element) => {
+      if (element.id !== this.context.mainChartId) {
+        element.removeEventListener("mousemove", this.handleMouseMove);
+        element.removeEventListener("mouseleave", this.handleMouseLeave);
+      }
+    });
   }
 
   /**
@@ -796,6 +860,9 @@ export default class XAxis {
       this.resizeObserver = null;
     }
 
+    // Remove all event listeners
+    this.removeAllEventListeners();
+
     // Remove the axis element from the DOM
     if (this.axisElement && this.axisElement.parentNode) {
       this.axisElement.parentNode.removeChild(this.axisElement);
@@ -804,13 +871,6 @@ export default class XAxis {
     // Remove tooltip element if it exists
     if (this.tooltipElement && this.tooltipElement.parentNode) {
       this.tooltipElement.parentNode.removeChild(this.tooltipElement);
-    }
-
-    // Remove any event listeners we added to the chart
-    const chartElement = document.getElementById(this.context.mainChartId);
-    if (chartElement) {
-      chartElement.removeEventListener("mousemove", this.handleMouseMove);
-      chartElement.removeEventListener("mouseleave", this.handleMouseLeave);
     }
 
     this.axisElement = null;

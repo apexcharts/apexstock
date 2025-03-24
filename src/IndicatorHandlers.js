@@ -46,27 +46,11 @@ export default class IndicatorHandlers {
           enabled: false,
         },
       },
-      yaxis: {
-        opposite: true,
-        floating: true,
-        tooltip: {
-          enabled: true,
-        },
-        labels: {
-          align: "right",
-          offsetX: 10,
-          offsetY: -7,
-        },
-      },
+      yaxis: context.mainChartOptions.yaxis[0],
       stroke: { width: 1 },
       legend: { show: false },
       dataLabels: { enabled: false },
-      grid: {
-        padding: {
-          left: 0,
-          right: 0,
-        },
-      },
+      grid: context.mainChartOptions.grid,
       tooltip: {
         x: {
           show: false,
