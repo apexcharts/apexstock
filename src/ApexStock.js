@@ -342,17 +342,17 @@ export default class ApexStock {
   }
 
   addCustomIndicatorDropdowns() {
-    // Create Overlays dropdown
-    this.createIndicatorDropdown("Overlays", this.overlays, false);
+    // Create a single Indicators dropdown combining both overlays and oscillators
+    this.createIndicatorDropdown("Indicators", {
+      ...this.overlays,
+      ...this.oscillators,
+    });
 
-    // Create Oscillators dropdown
-    this.createIndicatorDropdown("Oscillators", this.oscillators, true);
-
-    // Add the dropdowns to the toolbar
+    // Add the dropdown to the toolbar
     this.chartEl.parentNode.insertBefore(this.primaryToolbar, this.chartEl);
   }
 
-  createIndicatorDropdown(title, indicators, isOscillator) {
+  createIndicatorDropdown(title, indicators) {
     const wrapper = document.createElement("div");
     wrapper.classList.add("apexstock-custom-select-wrapper");
 
@@ -374,7 +374,11 @@ export default class ApexStock {
       const option = document.createElement("div");
       option.classList.add("apexstock-custom-option");
       option.dataset.value = key;
+
+      // Determine if this is an oscillator or overlay
+      const isOscillator = Object.keys(this.oscillators).includes(key);
       option.dataset.type = isOscillator ? "oscillator" : "overlay";
+
       option.innerText = displayName;
       optionsContainer.appendChild(option);
 
@@ -385,7 +389,6 @@ export default class ApexStock {
 
         if (isOscillatorOption) {
           // For oscillators, implement radio button behavior
-
           if (e.currentTarget.classList.contains("selected")) {
             // If clicking on already selected oscillator, deselect it
             e.currentTarget.classList.remove("selected");
@@ -439,6 +442,7 @@ export default class ApexStock {
       optionsContainer.style.display =
         optionsContainer.style.display === "block" ? "none" : "block";
     });
+
     // Track dropdown state and timeout for delayed closing
     let dropdownTimeout = null;
     const closeDropdown = () => {

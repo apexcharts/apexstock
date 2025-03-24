@@ -1,6 +1,6 @@
 /**
  * ChartSwitch component for ApexStock
- * Allows switching between different chart types (line, area, candle, column)
+ * Allows switching between different chart types (line, area, candle, column, heikin-ashi)
  */
 export default class ChartSwitch {
   /**
@@ -15,13 +15,62 @@ export default class ChartSwitch {
     this.series = ctx.series;
     this.chartTypes = [
       { id: "candlestick", name: "Candlestick", icon: "💹" },
+      { id: "heikinashi", name: "Heikin-Ashi", icon: "🕯️" },
       { id: "line", name: "Line", icon: "📈" },
       { id: "area", name: "Area", icon: "🏔️" },
       { id: "bar", name: "Column", icon: "📊" },
     ];
     this.currentType = "candlestick";
+    this.originalSeries = [...this.series]; // Store original data
 
     this.init();
+  }
+
+  /**
+   * Convert regular candle data to Heikin-Ashi format
+   * @param {Array} series - Array of candlestick data points
+   * @returns {Array} - Transformed Heikin-Ashi data
+   */
+  _convertToHeikinAshi(series) {
+    if (!series || series.length === 0) return [];
+
+    const result = [];
+    let prevHA = null;
+
+    for (let i = 0; i < series.length; i++) {
+      const curr = series[i];
+      const timestamp = curr.x;
+      const [open, high, low, close] = curr.y;
+
+      let haOpen, haClose, haHigh, haLow;
+
+      // Calculate Heikin-Ashi values
+      if (prevHA === null) {
+        // First candle
+        haOpen = (open + close) / 2;
+        haClose = (open + high + low + close) / 4;
+        haHigh = Math.max(high, haOpen, haClose);
+        haLow = Math.min(low, haOpen, haClose);
+      } else {
+        // Subsequent candles
+        haOpen = (prevHA.open + prevHA.close) / 2;
+        haClose = (open + high + low + close) / 4;
+        haHigh = Math.max(high, haOpen, haClose);
+        haLow = Math.min(low, haOpen, haClose);
+      }
+
+      const haPoint = {
+        x: timestamp,
+        y: [haOpen, haHigh, haLow, haClose],
+        open: haOpen,
+        close: haClose,
+      };
+
+      result.push(haPoint);
+      prevHA = haPoint;
+    }
+
+    return result;
   }
 
   _getBoxTooltip(w, seriesIndex, dataPointIndex, labels, chartType) {
@@ -46,19 +95,21 @@ export default class ChartSwitch {
       return (
         `<div class="apexcharts-tooltip-box apexcharts-tooltip-${w.config.chart.type}">` +
         `<div>${labels[0]}: <span class="value">` +
-        o +
+        o.toFixed(2) +
         "</span></div>" +
         `<div>${labels[1]}: <span class="value">` +
-        h +
+        h.toFixed(2) +
         "</span></div>" +
         (m
-          ? `<div>${labels[2]}: <span class="value">` + m + "</span></div>"
+          ? `<div>${labels[2]}: <span class="value">` +
+            m.toFixed(2) +
+            "</span></div>"
           : "") +
         `<div>${labels[3]}: <span class="value">` +
-        l +
+        l.toFixed(2) +
         "</span></div>" +
         `<div>${labels[4]}: <span class="value">` +
-        c +
+        c.toFixed(2) +
         "</span></div>" +
         "</div>"
       );
@@ -170,7 +221,17 @@ export default class ChartSwitch {
         {
           name: "Price",
           type: "candlestick",
-          data: this.series,
+          data: this.originalSeries,
+        },
+      ];
+    } else if (type === "heikinashi") {
+      // Convert to Heikin-Ashi and use candlestick type for rendering
+      const heikinAshiData = this._convertToHeikinAshi(this.originalSeries);
+      newSeries = [
+        {
+          name: "Heikin-Ashi",
+          type: "candlestick",
+          data: heikinAshiData,
         },
       ];
     } else if (type === "line") {
@@ -179,7 +240,7 @@ export default class ChartSwitch {
         {
           name: "Price",
           type: "line",
-          data: this.series.map((point) => ({
+          data: this.originalSeries.map((point) => ({
             x: point.x,
             y: point.y[3], // Close price
           })),
@@ -191,7 +252,7 @@ export default class ChartSwitch {
         {
           name: "Price",
           type: "area",
-          data: this.series.map((point) => ({
+          data: this.originalSeries.map((point) => ({
             x: point.x,
             y: point.y[3], // Close price
           })),
@@ -203,7 +264,7 @@ export default class ChartSwitch {
         {
           name: "Price",
           type: "bar",
-          data: this.series.map((point) => ({
+          data: this.originalSeries.map((point) => ({
             x: point.x,
             y: point.y[3], // Close price
           })),
@@ -213,37 +274,56 @@ export default class ChartSwitch {
 
     // Filter out any indicators that might be in the series
     const indicators = this.chart.w.config.series.filter(
-      (s) => s.name !== "Price" && s.name !== undefined
+      (s) =>
+        s.name !== "Price" && s.name !== "Heikin-Ashi" && s.name !== undefined
     );
+
+    // Custom tooltip labels for Heikin-Ashi
+    const tooltipLabels =
+      type === "heikinashi"
+        ? ["HA-Open", "HA-High", "", "HA-Low", "HA-Close"]
+        : ["Open", "High", "", "Low", "Close"];
 
     // Update the chart with new series type
     this.chart.updateOptions(
       {
         series: [...newSeries, ...indicators],
         chart: {
-          type: type === "candlestick" ? "candlestick" : type,
+          type:
+            type === "candlestick" || type === "heikinashi"
+              ? "candlestick"
+              : type,
         },
         tooltip: {
           custom: ({ seriesIndex, dataPointIndex, w }) => {
-            const value = w.config.series[seriesIndex].data[dataPointIndex].y;
-
-            return type === "candlestick"
-              ? this._getBoxTooltip(
-                  w,
-                  seriesIndex,
-                  dataPointIndex,
-                  ["Open", "High", "", "Low", "Close"],
-                  "candlestick"
-                )
-              : `<div class="apexcharts-custom-tooltip">
-              ${
-                w.config.series[seriesIndex].name
-                  ? w.config.series[seriesIndex].name
-                  : "series-" + (seriesIndex + 1)
-              }: <strong>${
-                  w.globals.series[seriesIndex][dataPointIndex]
-                }</strong>
-               </div>`;
+            if (type === "candlestick" || type === "heikinashi") {
+              return this._getBoxTooltip(
+                w,
+                seriesIndex,
+                dataPointIndex,
+                tooltipLabels,
+                "candlestick"
+              );
+            } else {
+              return `<div class="apexcharts-custom-tooltip">
+                ${
+                  w.config.series[seriesIndex].name
+                    ? w.config.series[seriesIndex].name
+                    : "series-" + (seriesIndex + 1)
+                }: <strong>${
+                w.globals.series[seriesIndex][dataPointIndex]
+              }</strong>
+                </div>`;
+            }
+          },
+        },
+        // Add custom colors for Heikin-Ashi candles to make them distinct
+        plotOptions: {
+          candlestick: {
+            colors: {
+              upward: type === "heikinashi" ? "#34D399" : "#00B746", // Different green for Heikin-Ashi
+              downward: type === "heikinashi" ? "#F87171" : "#EF403C", // Different red for Heikin-Ashi
+            },
           },
         },
       },
