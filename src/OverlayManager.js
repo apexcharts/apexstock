@@ -81,7 +81,6 @@ class OverlayManager {
       // Update overlay wrapper dimensions and position to match the chart
       this.overlayWrapper.style.width = chartRect.width + "px";
       this.overlayWrapper.style.height = chartRect.height + "px";
-      this.overlayWrapper.style.top = chartRect.top - parentRect.top + "px";
       this.overlayWrapper.style.left = chartRect.left - parentRect.left + "px";
     } catch (err) {
       console.error("Error syncing overlay position:", err);
