@@ -290,7 +290,6 @@ export default class ApexStock {
 
       // Update the custom x-axis if it exists
       if (this.xaxis) {
-        this.xaxis.prepareForTransition();
         this.xaxis.render();
       }
     }, 0);
@@ -311,7 +310,6 @@ export default class ApexStock {
 
       // Update the custom x-axis if it exists
       if (this.xaxis) {
-        this.xaxis.prepareForTransition();
         this.xaxis.render();
       }
     }
@@ -332,7 +330,6 @@ export default class ApexStock {
 
       // Update the custom x-axis if it exists
       if (this.xaxis) {
-        this.xaxis.prepareForTransition();
         this.xaxis.render();
       }
     }
