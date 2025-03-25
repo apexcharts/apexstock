@@ -38,6 +38,10 @@ export default class IndicatorHandlers {
           autoScaleYaxis: true,
           allowMouseWheelZoom: true,
         },
+        // Apply theme setting
+        theme: {
+          mode: context.theme,
+        },
       },
       xaxis: {
         labels: { show: false },
@@ -50,7 +54,11 @@ export default class IndicatorHandlers {
       stroke: { width: 1 },
       legend: { show: false },
       dataLabels: { enabled: false },
-      grid: context.mainChartOptions.grid,
+      grid: {
+        ...context.mainChartOptions.grid,
+        borderColor: context.isDarkTheme ? "#404040" : "#e9ecef",
+      },
+      theme: context.mainChartOptions.theme,
       tooltip: {
         x: {
           show: false,
@@ -58,7 +66,7 @@ export default class IndicatorHandlers {
         marker: {
           show: false,
         },
-        theme: "dark",
+        theme: context.theme,
         cssClass: "",
         style: {
           fontSize: "11px",
@@ -84,7 +92,7 @@ export default class IndicatorHandlers {
           x: context.series[index].x,
           y: [lower[index], value],
         })),
-        color: "rgba(0, 114, 255, 0.08)",
+        color: context.colors.indicators.bollingerBands,
       };
       if (context.indicators["bollinger bands"]?.chartOptions) {
         bbSeries = Object.assign(
@@ -108,7 +116,7 @@ export default class IndicatorHandlers {
           x: context.series[index].x,
           y: value,
         })),
-        color: "#7D57C2",
+        color: context.colors.indicators.movingAverage,
       };
       const currentSeries = context.chart.w.config.series.filter(
         (s) => s.name !== "Moving Average"
@@ -125,7 +133,7 @@ export default class IndicatorHandlers {
           x: context.series[index].x,
           y: value,
         })),
-        color: "#FF9900",
+        color: context.colors.indicators.ema,
       };
       const currentSeries = context.chart.w.config.series.filter(
         (s) => s.name !== "EMA"
@@ -138,7 +146,7 @@ export default class IndicatorHandlers {
       const annotations = levels.map((level, l) => ({
         id: "fib-anno-" + context.FIBLEVELS[l].toString().replace(/\./g, ""),
         y: level,
-        borderColor: "#FF9900",
+        borderColor: context.colors.indicators.fibonacci,
         label: {
           text: `${Math.round(
             ((level - Math.min(...context.series.map((pt) => pt.y[2]))) /
@@ -161,7 +169,7 @@ export default class IndicatorHandlers {
           x: context.series[index].x,
           y: value.y,
         })),
-        color: "#0099FF",
+        color: context.colors.indicators.linearRegression,
       };
       const currentSeries = context.chart.w.config.series.filter(
         (s) => s.name !== "Linear Regression"
@@ -179,7 +187,7 @@ export default class IndicatorHandlers {
           x: context.series[index].x,
           y: value.y,
         })),
-        color: "#FF6600",
+        color: context.colors.indicators.tenkanSen,
       };
       const kijunSeries = {
         name: "Kijun-sen",
@@ -188,7 +196,7 @@ export default class IndicatorHandlers {
           x: context.series[index].x,
           y: value,
         })),
-        color: "#0066FF",
+        color: context.colors.indicators.kijunSen,
       };
       const currentSeries = context.chart.w.config.series.filter(
         (s) => s.name !== "Tenkan-sen" && s.name !== "Kijun-sen"
@@ -204,7 +212,13 @@ export default class IndicatorHandlers {
         console.warn("No volumes data available.");
         return;
       }
-      const defaultSeries = [{ name: "Volumes", data: context.volumesData }];
+      const defaultSeries = [
+        {
+          name: "Volumes",
+          data: context.volumesData,
+          color: context.colors.indicators.volume,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -216,10 +230,16 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "Volume" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
           curve: "linestep",
+          colors: [context.colors.indicators.volume],
         },
         fill: { type: "solid", opacity: 0.2 },
       };
@@ -241,6 +261,7 @@ export default class IndicatorHandlers {
             x: context.series[index].x,
             y: value,
           })),
+          color: context.colors.indicators.rsi,
         },
       ];
       indicatorChartOptions = {
@@ -256,10 +277,15 @@ export default class IndicatorHandlers {
           min: 0,
           max: 100,
           title: { text: "RSI" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#7D57C2",
+          colors: [context.colors.indicators.rsi],
         },
       };
       if (context.indicators.rsi?.chartOptions) {
@@ -281,7 +307,7 @@ export default class IndicatorHandlers {
             x: context.series[index].x,
             y: context.Utils.truncateNumber(value),
           })),
-          color: "#008FFB",
+          color: context.colors.indicators.macd,
         },
         {
           name: "Signal",
@@ -290,7 +316,7 @@ export default class IndicatorHandlers {
             x: context.series[index].x,
             y: context.Utils.truncateNumber(value),
           })),
-          color: "#FF4560",
+          color: context.colors.indicators.signal,
         },
         {
           name: "Histogram",
@@ -312,17 +338,34 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "MACD" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
           width: [1, 1, 0],
+          colors: [
+            context.colors.indicators.macd,
+            context.colors.indicators.signal,
+          ],
         },
         plotOptions: {
           bar: {
             colors: {
               ranges: [
-                { from: 0.1, to: 100, color: "#00E396" },
-                { from: -100, to: 0, color: "#FF4560" },
+                {
+                  from: 0.1,
+                  to: 100,
+                  color: context.colors.indicators.histogramPositive,
+                },
+                {
+                  from: -100,
+                  to: 0,
+                  color: context.colors.indicators.histogramNegative,
+                },
               ],
             },
           },
@@ -339,7 +382,13 @@ export default class IndicatorHandlers {
       }
     } else if (indicatorKey === "price volume trend") {
       const pvtData = context.calculatePVT(context.series);
-      const defaultSeries = [{ name: "PVT", data: pvtData }];
+      const defaultSeries = [
+        {
+          name: "PVT",
+          data: pvtData,
+          color: context.colors.indicators.pvt,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -351,17 +400,30 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "PVT" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#0099CC",
+          colors: [context.colors.indicators.pvt],
         },
       };
     } else if (indicatorKey === "stochastic oscillator") {
       const { k, d } = context.calculateStochastic(context.series, 14, 3);
       const defaultSeries = [
-        { name: "Stochastic %K", data: k },
-        { name: "Stochastic %D", data: d },
+        {
+          name: "Stochastic %K",
+          data: k,
+          color: context.colors.indicators.stochasticK,
+        },
+        {
+          name: "Stochastic %D",
+          data: d,
+          color: context.colors.indicators.stochasticD,
+        },
       ];
       indicatorChartOptions = {
         ...commonChartOptions,
@@ -374,15 +436,29 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "Stochastic" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: ["#33CC33", "#FF9933"],
+          colors: [
+            context.colors.indicators.stochasticK,
+            context.colors.indicators.stochasticD,
+          ],
         },
       };
     } else if (indicatorKey === "standard deviation indicator") {
       const stdData = context.calculateStdDevIndicator(context.series, 14);
-      const defaultSeries = [{ name: "Std Dev", data: stdData }];
+      const defaultSeries = [
+        {
+          name: "Std Dev",
+          data: stdData,
+          color: context.colors.indicators.stdDev,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -394,15 +470,26 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "Std Dev" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#CC33FF",
+          colors: [context.colors.indicators.stdDev],
         },
       };
     } else if (indicatorKey === "average directional index") {
       const adxData = context.calculateADX(context.series, 14);
-      const defaultSeries = [{ name: "ADX", data: adxData }];
+      const defaultSeries = [
+        {
+          name: "ADX",
+          data: adxData,
+          color: context.colors.indicators.adx,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -414,15 +501,26 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "ADX" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#9900CC",
+          colors: [context.colors.indicators.adx],
         },
       };
     } else if (indicatorKey === "chaikin oscillator") {
       const chaikin = context.calculateChaikinOsc(context.series);
-      const defaultSeries = [{ name: "Chaikin Osc", data: chaikin }];
+      const defaultSeries = [
+        {
+          name: "Chaikin Osc",
+          data: chaikin,
+          color: context.colors.indicators.chaikin,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -434,15 +532,26 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "Chaikin" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#CC3333",
+          colors: [context.colors.indicators.chaikin],
         },
       };
     } else if (indicatorKey === "commodity channel index") {
       const cciData = context.calculateCCI(context.series, 20);
-      const defaultSeries = [{ name: "CCI", data: cciData }];
+      const defaultSeries = [
+        {
+          name: "CCI",
+          data: cciData,
+          color: context.colors.indicators.cci,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -454,15 +563,26 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "CCI" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#FF6600",
+          colors: [context.colors.indicators.cci],
         },
       };
     } else if (indicatorKey === "trend strength index") {
       const tsiData = context.calculateTSI(context.series, 25, 13);
-      const defaultSeries = [{ name: "TSI", data: tsiData.tsi }];
+      const defaultSeries = [
+        {
+          name: "TSI",
+          data: tsiData.tsi,
+          color: context.colors.indicators.tsi,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -474,15 +594,26 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "TSI" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#0066CC",
+          colors: [context.colors.indicators.tsi],
         },
       };
     } else if (indicatorKey === "accelerator oscillator") {
       const acData = context.calculateAcceleratorOsc(context.series);
-      const defaultSeries = [{ name: "AC", data: acData }];
+      const defaultSeries = [
+        {
+          name: "AC",
+          data: acData,
+          color: context.colors.indicators.ac,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -494,10 +625,15 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "AC" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#009900",
+          colors: [context.colors.indicators.ac],
         },
       };
     } else if (indicatorKey === "bollinger bands %b") {
@@ -507,7 +643,13 @@ export default class IndicatorHandlers {
         bb.lower,
         bb.upper
       );
-      const defaultSeries = [{ name: "Bollinger %B", data: bBPercent }];
+      const defaultSeries = [
+        {
+          name: "Bollinger %B",
+          data: bBPercent,
+          color: context.colors.indicators.bPercent,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -519,10 +661,15 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "%B" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#6600CC",
+          colors: [context.colors.indicators.bPercent],
         },
       };
     } else if (indicatorKey === "bollinger bands width") {
@@ -533,7 +680,13 @@ export default class IndicatorHandlers {
         bb.upper,
         bb.lower
       );
-      const defaultSeries = [{ name: "Bollinger Width", data: bBWidth }];
+      const defaultSeries = [
+        {
+          name: "Bollinger Width",
+          data: bBWidth,
+          color: context.colors.indicators.bWidth,
+        },
+      ];
       indicatorChartOptions = {
         ...commonChartOptions,
         chart: {
@@ -545,12 +698,35 @@ export default class IndicatorHandlers {
         yaxis: {
           ...commonChartOptions.yaxis,
           title: { text: "Width" },
+          labels: {
+            style: {
+              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+          },
         },
         stroke: {
           ...commonChartOptions.stroke,
-          colors: "#CC0066",
+          colors: [context.colors.indicators.bWidth],
         },
       };
+    }
+
+    // Additional theme settings for all indicator charts
+    if (indicatorChartOptions) {
+      // Apply theme settings to tooltip
+      indicatorChartOptions.tooltip = {
+        ...indicatorChartOptions.tooltip,
+        theme: context.theme,
+      };
+
+      // Apply grid color adjustments for dark theme
+      if (context.isDarkTheme) {
+        indicatorChartOptions.grid = {
+          ...indicatorChartOptions.grid,
+          borderColor: "#404040",
+          strokeDashArray: 3,
+        };
+      }
     }
 
     // For oscillators (non-overlays), create a separate chart

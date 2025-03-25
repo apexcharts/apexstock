@@ -65,7 +65,7 @@ class ToolbarManager {
     // Create width selector
     const widthSelector = document.createElement("select");
     widthSelector.style.marginRight = "5px";
-    widthSelector.style.height = "24px";
+    widthSelector.style.height = "30px";
     widthSelector.title = "Line Width";
     [1, 2, 3, 5, 8].forEach((width) => {
       const option = document.createElement("option");

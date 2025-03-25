@@ -11,7 +11,7 @@ export default class Export {
     this.options = {
       filename: "apexstock-chart",
       quality: 1,
-      scale: 2, // Higher scale for better resolution
+      scale: 1, // Higher scale for better resolution
       ...options,
     };
 
@@ -32,28 +32,11 @@ export default class Export {
     // Create button container
     const buttonContainer = document.createElement("div");
     buttonContainer.className = "apexstock-export-btn-container";
-    buttonContainer.style.cssText = `
-      position: relative;
-      z-index: 100;
-    `;
 
     // Create button
     const exportButton = document.createElement("button");
     exportButton.className = "apexstock-export-btn";
     exportButton.title = "Download Chart as PNG";
-    exportButton.style.cssText = `
-      background-color: rgba(255, 255, 255, 0.8);
-      border: 1px solid #ddd;
-      border-radius: 3px;
-      padding: 5px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 0.2s;
-      width: 30px;
-      height: 30px;
-    `;
 
     // Add download icon (SVG)
     exportButton.innerHTML = `
@@ -63,15 +46,6 @@ export default class Export {
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
     `;
-
-    // Add hover effect
-    exportButton.addEventListener("mouseover", () => {
-      exportButton.style.backgroundColor = "rgba(255, 255, 255, 1)";
-    });
-
-    exportButton.addEventListener("mouseout", () => {
-      exportButton.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
-    });
 
     // Append to container
     buttonContainer.appendChild(exportButton);
@@ -188,15 +162,21 @@ export default class Export {
         <svg xmlns="http://www.w3.org/2000/svg" 
           version="1.1" 
           xmlns:xlink="http://www.w3.org/1999/xlink" 
-          class="apexcharts-svg" 
-          xmlns:data="ApexChartsNS" 
+          class="apexstock-svg" 
+          xmlns:data="ApexStockNS" 
           transform="translate(0, 0)" 
-          width="${width}px" height="${height}px">
+          width="${width}px" height="${height + this.ctx.xAxisHeight}px">
           <foreignObject width="100%" height="100%">
             <div xmlns="http://www.w3.org/1999/xhtml" style="width:${scaledWidth}px; height:${scaledHeight}px;">
               <style type="text/css">
                 .apexcharts-tooltip, .apexcharts-toolbar, .apexcharts-xaxistooltip, .apexcharts-yaxistooltip, .apexcharts-xcrosshairs, .apexcharts-ycrosshairs, .apexcharts-zoom-rect, .apexcharts-selection-rect {
                   display: none;
+                }
+                [class^=apexstock-] * {
+                  font-family: ${
+                    this.ctx.chartOptions.chart.fontFamily ||
+                    "Helvetica, Arial, sans-serif"
+                  }
                 }
               </style>
               ${serializedNode}
@@ -364,20 +344,5 @@ export default class Export {
         document.body.removeChild(notification);
       }, 300);
     }, 3000);
-  }
-
-  // Utility method to set custom filename
-  setFilename(filename) {
-    this.options.filename = filename;
-    return this;
-  }
-
-  // Method to update export options
-  updateOptions(options) {
-    this.options = {
-      ...this.options,
-      ...options,
-    };
-    return this;
   }
 }

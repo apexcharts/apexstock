@@ -6,6 +6,7 @@ import Export from "./Export";
 import ChartSwitch from "./ChartSwitch";
 import IndicatorHandlers from "./IndicatorHandlers";
 import XAxis from "./XAxis";
+import ThemeManager from "./ThemeManager";
 
 export default class ApexStock {
   /**
@@ -14,6 +15,7 @@ export default class ApexStock {
    */
   constructor(chartEl, chartOptions) {
     this.chartEl = chartEl;
+    this.chartOptions = chartOptions;
     this.totalHeight = chartOptions.chart.height || 350;
     this.Utils = Utils;
     this.xAxisHeight = 30; // Define xAxisHeight as a constant property
@@ -51,6 +53,23 @@ export default class ApexStock {
     this.indicatorChartMap = {};
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
+
+    // Initialize theme manager
+    const themeName =
+      (chartOptions.theme && chartOptions.theme.mode) || "light";
+    this.themeManager = new ThemeManager(this, themeName);
+
+    this.theme = this.themeManager.getTheme();
+    this.isDarkTheme = this.theme === "dark";
+    this.colors = this.themeManager.getColors();
+    this.chartEl.parentNode.classList.add(`apexstock-theme-${this.theme}`);
+
+    this.chartEl.parentNode.style.backgroundColor = this.isDarkTheme
+      ? this.colors.toolbar.background
+      : this.colors.toolbar.background;
+    this.chartEl.style.backgroundColor = this.isDarkTheme
+      ? this.colors.toolbar.background
+      : this.colors.toolbar.background;
 
     const stockChartOptions =
       (chartOptions.plotOptions && chartOptions.plotOptions.stockChart) || {};
@@ -117,6 +136,10 @@ export default class ApexStock {
       .map((point) => (point.v ? { x: point.x, y: point.v } : null))
       .filter((x) => x !== null);
 
+    const newChartOptions = Utils.extend(
+      this.themeManager.getChartConfig(),
+      chartOptions
+    );
     this.mainChartOptions = Utils.extend(
       {
         chart: {
@@ -125,9 +148,10 @@ export default class ApexStock {
           id: this.mainChartId,
           group: this.groupID,
           parentHeightOffset: 0,
+          background: "transparent",
           toolbar: {
             show: false,
-            autoSelected: "pan", // accepts -> zoom, pan, selection
+            autoSelected: "pan",
           },
           zoom: {
             enabled: true,
@@ -143,6 +167,9 @@ export default class ApexStock {
             scrolled: this.handleScroll.bind(this),
             beforeResetZoom: this.handleBeforeResetZoom.bind(this),
           },
+          theme: {
+            mode: this.theme,
+          },
         },
         series: [{ name: "Price", data: this.series }],
         grid: {
@@ -150,9 +177,11 @@ export default class ApexStock {
             left: 0,
             right: 0,
           },
+          borderColor: this.isDarkTheme ? "#404040" : "#e9ecef",
+          strokeDashArray: 3,
         },
         tooltip: {
-          theme: "dark",
+          theme: this.theme,
         },
         yaxis: {
           opposite: true,
@@ -165,10 +194,17 @@ export default class ApexStock {
             align: "right",
             offsetX: 10,
             offsetY: -8,
+            style: {
+              colors: this.isDarkTheme ? "#e0e0e0" : "#333",
+            },
+            formatter: (val) => {
+              return Number(val).toFixed(2);
+            },
           },
           crosshairs: {
             stroke: {
               dashArray: 3,
+              color: this.isDarkTheme ? "#6c757d" : "#90A4AE",
             },
           },
         },
@@ -186,9 +222,18 @@ export default class ApexStock {
             enabled: false,
           },
         },
+        // Add candlestick colors for dark/light themes
+        plotOptions: {
+          candlestick: {
+            colors: {
+              upward: this.isDarkTheme ? "#26A69A" : "#00B746",
+              downward: this.isDarkTheme ? "#EF5350" : "#EF403C",
+            },
+          },
+        },
         legend: { show: false },
       },
-      chartOptions
+      newChartOptions
     );
 
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
@@ -316,6 +361,9 @@ export default class ApexStock {
       }
     }
 
+    // Apply theme to chart container and toolbars
+    this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
+
     this.chart.render();
     this.addCustomIndicatorDropdowns();
 
@@ -359,10 +407,17 @@ export default class ApexStock {
     const trigger = document.createElement("div");
     trigger.classList.add("apexstock-custom-select-trigger");
     trigger.innerText = `Select ${title}`;
+
+    // Apply theme styles to trigger
+    this.themeManager.applyElementStyle(trigger, "dropdown");
+
     wrapper.appendChild(trigger);
 
     const optionsContainer = document.createElement("div");
     optionsContainer.classList.add("apexstock-custom-options");
+
+    // Apply theme styles to options container
+    this.themeManager.applyElementStyle(optionsContainer, "dropdown");
 
     Object.keys(indicators).forEach((key) => {
       const displayName =
@@ -374,6 +429,9 @@ export default class ApexStock {
       const option = document.createElement("div");
       option.classList.add("apexstock-custom-option");
       option.dataset.value = key;
+
+      // Apply theme styles to option
+      this.themeManager.applyElementStyle(option, "option");
 
       // Determine if this is an oscillator or overlay
       const isOscillator = Object.keys(this.oscillators).includes(key);
@@ -392,6 +450,7 @@ export default class ApexStock {
           if (e.currentTarget.classList.contains("selected")) {
             // If clicking on already selected oscillator, deselect it
             e.currentTarget.classList.remove("selected");
+            e.currentTarget.style.backgroundColor = "";
             this.removeIndicator(optionValue);
             this.activeOscillator = null;
           } else {
@@ -403,12 +462,17 @@ export default class ApexStock {
             allOscillatorOptions.forEach((opt) => {
               if (opt.classList.contains("selected")) {
                 opt.classList.remove("selected");
+                opt.style.backgroundColor = "";
                 this.removeIndicator(opt.dataset.value);
               }
             });
 
             // Select new oscillator
             e.currentTarget.classList.add("selected");
+            this.themeManager.applyElementStyle(
+              e.currentTarget,
+              "optionSelected"
+            );
             this.activeOscillator = optionValue;
             this.updateIndicator(optionValue);
           }
@@ -416,9 +480,14 @@ export default class ApexStock {
           // For overlays, keep checkbox behavior
           if (e.currentTarget.classList.contains("selected")) {
             e.currentTarget.classList.remove("selected");
+            e.currentTarget.style.backgroundColor = "";
             this.removeIndicator(optionValue);
           } else {
             e.currentTarget.classList.add("selected");
+            this.themeManager.applyElementStyle(
+              e.currentTarget,
+              "optionSelected"
+            );
             this.updateIndicator(optionValue);
           }
         }
@@ -434,6 +503,19 @@ export default class ApexStock {
                 .map((opt) => opt.innerText)
                 .join(", ")}`
             : `Select ${title}`;
+      });
+
+      // Add hover effect
+      option.addEventListener("mouseenter", () => {
+        if (!option.classList.contains("selected")) {
+          option.style.backgroundColor = this.colors.dropdown.hover;
+        }
+      });
+
+      option.addEventListener("mouseleave", () => {
+        if (!option.classList.contains("selected")) {
+          option.style.backgroundColor = "";
+        }
       });
     });
 
@@ -680,7 +762,85 @@ export default class ApexStock {
     });
   }
 
-  // Helper methods to delegate to the Indicators class
+  /**
+   * Updates the chart theme
+   * @param {string} newTheme - The new theme ('light' or 'dark')
+   */
+  updateTheme(newTheme) {
+    if (newTheme !== "light" && newTheme !== "dark") {
+      console.warn('Invalid theme. Use "light" or "dark".');
+      return;
+    }
+
+    if (this.theme === newTheme) return;
+
+    this.themeManager.setTheme(newTheme);
+    this.theme = this.themeManager.getTheme();
+    this.isDarkTheme = this.theme === "dark";
+    this.colors = this.themeManager.getColors();
+    this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
+    this.chart.updateOptions(
+      this.themeManager.getChartConfig(),
+      false,
+      false,
+      false
+    );
+
+    // Update all indicators by re-adding them with new theme colors
+    const activeIndicators = Object.keys(this.indicatorChartMap);
+    const activeOscillator = this.activeOscillator;
+
+    // Remove all indicators
+    activeIndicators.forEach((indicator) => {
+      this.removeIndicator(indicator);
+    });
+
+    // Re-add indicators with updated theme
+    activeIndicators.forEach((indicator) => {
+      this.updateIndicator(indicator);
+    });
+
+    // Restore active oscillator state
+    this.activeOscillator = activeOscillator;
+
+    // Re-apply zoom state
+    const zoomState = this.getCurrentZoomState();
+    if (zoomState) {
+      this.applyZoomToAllCharts(zoomState);
+    }
+
+    // Update XAxis theme
+    if (this.xaxis && typeof this.xaxis.updateTheme === "function") {
+      this.xaxis.updateTheme(this.theme);
+    }
+  }
+
+  /**
+   * Gets the current theme
+   * @returns {string} Current theme ('light' or 'dark')
+   */
+  getTheme() {
+    return this.themeManager.getTheme();
+  }
+
+  /**
+   * Updates chart options and applies theme changes if needed
+   * @param {Object} newOptions - New chart options object
+   */
+  updateChartOptions(newOptions) {
+    if (newOptions.theme && newOptions.theme.mode !== this.theme) {
+      this.updateTheme(newOptions.theme.mode);
+    }
+
+    this.chart.updateOptions(newOptions, false, false, false);
+
+    // Update any other chart-related properties as needed
+    if (newOptions.chart && newOptions.chart.height) {
+      this.totalHeight = newOptions.chart.height;
+      this.updateAllChartHeights();
+    }
+  }
+
   calculateMovingAverage(series, period) {
     return Indicators.calculateMovingAverage(series, period);
   }

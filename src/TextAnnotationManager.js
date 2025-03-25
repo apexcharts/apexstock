@@ -119,8 +119,17 @@ class TextAnnotationManager {
     const familySelect = document.createElement("select");
     [
       "Arial, sans-serif",
-      "Times New Roman, serif",
       "Courier New, monospace",
+      "Helvetica, Arial, sans-serif",
+      "Verdana, Geneva, sans-serif",
+      "Tahoma, Geneva, sans-serif",
+      "Trebuchet MS, Helvetica, sans-serif",
+      "Segoe UI, Helvetica, sans-serif",
+      "Consolas, Monaco, monospace",
+      "Menlo, Consolas, monospace",
+      "Times New Roman, serif",
+      "Georgia, Times New Roman, serif",
+      "Cambria, Georgia, serif",
     ].forEach((family) => {
       const option = document.createElement("option");
       option.value = family;

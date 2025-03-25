@@ -8,6 +8,7 @@
   width: 100%;
   position: relative;
   margin-bottom: 5px;
+  border-bottom: 2px solid #000;
 }
 
 /* Left side container */
@@ -34,6 +35,19 @@
   border: 1px solid rgb(206, 212, 218);
   border-radius: 3px;
 }
+
+.apexstock-theme-dark .apexstock-chart-type-wrapper,
+.apexstock-theme-dark .apexstock-export-btn-container button,
+.apexstock-theme-dark .apexstock-chart-type-wrapper:hover button {
+  background-color: rgba(44, 33, 44, 0.5);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-wrapper svg,
+.apexstock-theme-dark .apexstock-export-btn-container svg {
+  stroke: #fff;
+}
+
+
 
 .apexstock-chart-type-trigger {
   background: transparent;
@@ -81,11 +95,18 @@
   font-weight: bold;
 }
 
+.apexstock-theme-dark .apexstock-chart-type-option {
+  background-color: #343A3F;
+}
+
+.apexstock-theme-dark .apexstock-chart-type-option.active {
+  background-color: #495057;
+}
+
 /* Indicator dropdown */
 .apexstock-custom-select-wrapper {
   position: relative;
   width: 200px;
-  font-family: Arial, sans-serif;
   user-select: none;
   box-sizing: border-box;
   font-size: 14px;
@@ -101,7 +122,7 @@
   width: 100%;
   padding: 7px;
   background: #fff;
-  border: 1px solid #ccc;
+  border: 1px solid rgb(206, 212, 218) !important;
   border-radius: 3px;
   cursor: pointer;
   white-space: nowrap;
@@ -176,6 +197,20 @@
   font-size: 16px;
 }
 
+
+.apexstock-drawing-toolbar select {
+  border: 1px solid rgb(206, 212, 218);
+}
+
+.apexstock-theme-dark select,
+.apexstock-theme-dark input,
+.apexstock-theme-dark .apexstock-drawing-tool {
+  background-color: rgba(44, 33, 44, 0.5);
+  color: #fff;
+  border: 1px solid rgb(206, 212, 218);
+  border-radius: 3px;
+}
+
 .apexstock-drawing-tool[data-tool="brush"] {
   font-size: 30px;
   align-items: self-end;
@@ -199,11 +234,12 @@
 /* Export button */
 .apexstock-export-btn-container {
   z-index: 100;
+  position: relative;
 }
 
 .apexstock-export-btn {
-  background-color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgb(221, 221, 221);
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgb(206, 212, 218);
   border-radius: 3px;
   padding: 5px;
   cursor: pointer;

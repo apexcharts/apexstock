@@ -147,20 +147,7 @@ export default class ChartSwitch {
       // Highlight the currently selected chart type
       if (type.id === this.currentType) {
         option.classList.add("active");
-        option.style.backgroundColor = "#f0f0f0";
       }
-
-      // Add hover effect
-      option.addEventListener("mouseover", () => {
-        option.style.backgroundColor = "#f5f5f5";
-      });
-      option.addEventListener("mouseout", () => {
-        if (type.id !== this.currentType) {
-          option.style.backgroundColor = "";
-        } else {
-          option.style.backgroundColor = "#f0f0f0";
-        }
-      });
 
       // Add click event to change chart type
       option.addEventListener("click", () => {
@@ -172,10 +159,8 @@ export default class ChartSwitch {
           .querySelectorAll(".apexstock-chart-type-option")
           .forEach((el) => {
             el.classList.remove("active");
-            el.style.backgroundColor = "";
           });
         option.classList.add("active");
-        option.style.backgroundColor = "#f0f0f0";
       });
 
       dropdown.appendChild(option);
@@ -328,6 +313,7 @@ export default class ChartSwitch {
         },
       },
       true,
+      false,
       false
     );
   }

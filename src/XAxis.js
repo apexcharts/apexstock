@@ -125,7 +125,6 @@ export default class XAxis {
     ) {
       Object.keys(this.context.indicatorChartMap).forEach((key) => {
         const chart = this.context.indicatorChartMap[key];
-        console.log(chart, "chart");
 
         if (chart && chart.opts && chart.opts.chart && chart.opts.chart.id) {
           const indicatorElement = document.getElementById(
@@ -226,12 +225,8 @@ export default class XAxis {
         formattedDate = "No data";
       }
     } else {
-      // Fallback to mouse position if no data point found
-      const rangeMin = this.context.xaxisRange.min;
-      const rangeMax = this.context.xaxisRange.max;
-      timestamp = rangeMin + (rangeMax - rangeMin) * relativePercent;
-      const date = new Date(timestamp);
-      formattedDate = this.formatDate(date, "MMM DD, YYYY HH:mm");
+      this.handleMouseLeave();
+      return;
     }
 
     // Update tooltip content
@@ -369,15 +364,17 @@ export default class XAxis {
   createAxisElement() {
     // Create the axis container
     this.axisElement = document.createElement("div");
-    this.axisElement.style.width = "100%";
+    this.axisElement.classList.add("apexstock-xaxis");
+    const chartWidth = this.context.chartEl.offsetWidth;
+    this.axisElement.style.width = `${chartWidth}px`;
     this.axisElement.style.height = "30px";
     this.axisElement.style.position = "absolute";
     this.axisElement.style.overflow = "hidden";
     this.axisElement.style.borderTop = "1px solid #eee";
     this.axisElement.style.marginTop = "5px";
-    this.axisElement.style.fontFamily =
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     this.axisElement.style.boxSizing = "border-box";
+    this.axisElement.style.backgroundColor =
+      this.context.colors.toolbar.background;
 
     // Create the ticks container
     this.ticksContainer = document.createElement("div");
@@ -701,13 +698,6 @@ export default class XAxis {
   }
 
   /**
-   * Prepare for rendering - legacy method kept for API compatibility
-   */
-  prepareForTransition() {
-    // This method is kept for API compatibility but no longer does any fading
-  }
-
-  /**
    * Renders the x-axis with tick marks
    */
   render() {
@@ -785,7 +775,8 @@ export default class XAxis {
 
       const tickLabel = document.createElement("div");
       tickLabel.style.fontSize = "11px";
-      tickLabel.style.color = "#666";
+      tickLabel.style.color = this.context.colors.toolbar.text;
+
       tickLabel.style.padding = "0 4px";
       tickLabel.textContent = tick.label;
 
