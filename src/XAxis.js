@@ -14,6 +14,7 @@ export default class XAxis {
     this.tooltipElement = null;
     this.resizeObserver = null;
     this.mouseTracker = null;
+    this.isPanning = false;
 
     // Create the axis container
     this.createAxisElement();
@@ -94,10 +95,9 @@ export default class XAxis {
 
     // Bind the event handlers to preserve 'this' context
     this.handleMouseMove = this.handleMouseMove.bind(this);
-    this.handleMouseLeave = () => {
-      this.tooltipElement.style.display = "none";
-    };
     this.handleMouseLeave = this.handleMouseLeave.bind(this);
+    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handleMouseUp = this.handleMouseUp.bind(this);
 
     // Set up initial event listeners
     this.updateEventListeners();
@@ -115,6 +115,8 @@ export default class XAxis {
     const mainChartElement = document.getElementById(this.context.mainChartId);
     if (mainChartElement) {
       mainChartElement.addEventListener("mousemove", this.handleMouseMove);
+      mainChartElement.addEventListener("mousedown", this.handleMouseDown);
+      mainChartElement.addEventListener("mouseup", this.handleMouseUp);
       mainChartElement.addEventListener("mouseleave", this.handleMouseLeave);
     }
 
@@ -139,6 +141,11 @@ export default class XAxis {
               "mouseleave",
               this.handleMouseLeave
             );
+            indicatorElement.addEventListener(
+              "mousedown",
+              this.handleMouseDown
+            );
+            indicatorElement.addEventListener("mouseup", this.handleMouseUp);
           }
         }
       });
@@ -154,6 +161,8 @@ export default class XAxis {
     if (mainChartElement) {
       mainChartElement.removeEventListener("mousemove", this.handleMouseMove);
       mainChartElement.removeEventListener("mouseleave", this.handleMouseLeave);
+      mainChartElement.removeEventListener("mousedown", this.handleMouseDown);
+      mainChartElement.removeEventListener("mouseup", this.handleMouseUp);
     }
 
     // Remove from all indicator charts
@@ -164,6 +173,8 @@ export default class XAxis {
       if (element.id !== this.context.mainChartId) {
         element.removeEventListener("mousemove", this.handleMouseMove);
         element.removeEventListener("mouseleave", this.handleMouseLeave);
+        element.removeEventListener("mousedown", this.handleMouseDown);
+        element.removeEventListener("mouseup", this.handleMouseUp);
       }
     });
   }
@@ -187,7 +198,7 @@ export default class XAxis {
 
     // Check if crosshair is visible (ApexCharts hides it when outside the chart area)
     const crosshairDisplay = window.getComputedStyle(xcrosshair).display;
-    if (crosshairDisplay === "none") {
+    if (crosshairDisplay === "none" || this.isPanning) {
       this.tooltipElement.style.display = "none";
       return;
     }
@@ -253,6 +264,18 @@ export default class XAxis {
 
     // Position tooltip with the adjusted value
     this.tooltipElement.style.left = `${tooltipLeft}px`;
+  }
+
+  handleMouseDown(e) {
+    this.isPanning = true;
+  }
+
+  handleMouseUp(e) {
+    this.isPanning = false;
+  }
+
+  handleMouseLeave() {
+    this.tooltipElement.style.display = "none";
   }
 
   /**
