@@ -1,9 +1,9 @@
 // DrawingTools.js - Core class for the drawing tools
-import EventManager from "./EventManager";
-import OverlayManager from "./OverlayManager";
-import ToolbarManager from "./ToolbarManager";
-import DrawingElementFactory from "./DrawingElementFactory";
-import CoordinateConverter from "./utils/CoordinateConverter";
+import EventManager from "../../core/EventManager";
+import OverlayManager from "../drawing/OverlayManager";
+import ToolbarManager from "../../core/ToolbarManager";
+import DrawingElementFactory from "../drawing/DrawingElementFactory";
+import CoordinateConverter from "../../utils/CoordinateConverter";
 import TextAnnotationManager from "./TextAnnotationManager";
 
 class DrawingTools {

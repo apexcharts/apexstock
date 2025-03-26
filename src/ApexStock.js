@@ -1,6 +1,6 @@
-import Indicators from "./Indicators";
+import Indicators from "./indicators/Indicators";
 import Utils from "./utils/Utils";
-import DrawingTools from "./DrawingTools";
+import DrawingTools from "./tools/drawing/DrawingTools";
 import apexStockCSS from "ApexStock.css";
 import Export from "./tools/export/Export";
 import ChartSwitch from "./core/ChartSwitch";
@@ -881,12 +881,24 @@ export default class ApexStock {
     this.isDarkTheme = this.theme === "dark";
     this.colors = this.themeManager.getColors();
     this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
-    this.chart.updateOptions(
-      this.themeManager.getChartConfig(),
-      false,
-      false,
-      false
-    );
+
+    // Save current yaxis configuration
+    const currentYaxisConfig = this.chart.w.config.yaxis;
+
+    // Get theme configuration with preserved axis settings
+    const themeConfig = this.themeManager.getChartConfig();
+
+    // Preserve yaxis configuration from before theme change
+    themeConfig.yaxis = {
+      ...themeConfig.yaxis,
+      ...currentYaxisConfig,
+      opposite: currentYaxisConfig.opposite, // Explicitly preserve 'opposite' setting
+      floating: currentYaxisConfig.floating, // Explicitly preserve 'floating' setting
+      position: currentYaxisConfig.position, // Explicitly preserve 'position' setting
+    };
+
+    // Update chart with preserved configurations
+    this.chart.updateOptions(themeConfig, false, false, false);
 
     // Update all indicators by re-adding them with new theme colors
     const activeIndicators = Object.keys(this.indicatorChartMap);
