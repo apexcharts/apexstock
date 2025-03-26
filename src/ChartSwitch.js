@@ -14,11 +14,76 @@ export default class ChartSwitch {
     this.chartEl = ctx.chartEl;
     this.series = ctx.series;
     this.chartTypes = [
-      { id: "candlestick", name: "Candlestick", icon: "💹" },
-      { id: "heikinashi", name: "Heikin-Ashi", icon: "🕯️" },
-      { id: "line", name: "Line", icon: "📈" },
-      { id: "area", name: "Area", icon: "🏔️" },
-      { id: "bar", name: "Column", icon: "📊" },
+      {
+        id: "candlestick",
+        name: "Candlestick",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="6" y1="5" x2="6" y2="19" />
+          <rect x="4" y="7" width="4" height="6" fill="currentColor" />
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <rect x="10" y="12" width="4" height="4" fill="currentColor" />
+          <line x1="18" y1="5" x2="18" y2="19" />
+          <rect x="16" y="9" width="4" height="5" fill="currentColor" />
+        </svg>`,
+      },
+      {
+        id: "heikinashi",
+        name: "Heikin-Ashi",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="6" x2="5" y2="13" />
+          <rect x="10" y="7" width="4" height="5" fill="currentColor" />
+          <line x1="12" y1="8" x2="12" y2="15" />
+          <rect x="3" y="9" width="4" height="5" fill="currentColor" />
+          <line x1="19" y1="10" x2="19" y2="17" />
+          <rect x="17" y="11" width="4" height="5" fill="currentColor" />
+        </svg>`,
+      },
+      {
+        id: "ohlc",
+        name: "OHLC",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="6" y1="5" x2="6" y2="19" />
+          <line x1="4" y1="7" x2="6" y2="7" />
+          <line x1="6" y1="13" x2="8" y2="13" />
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="10" y1="10" x2="12" y2="10" />
+          <line x1="12" y1="16" x2="14" y2="16" />
+          <line x1="18" y1="5" x2="18" y2="19" />
+          <line x1="16" y1="8" x2="18" y2="8" />
+          <line x1="18" y1="14" x2="20" y2="14" />
+        </svg>`,
+      },
+      {
+        id: "stepline",
+        name: "Step Line",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 13h4v-4h4v-4h4v8h6" />
+        </svg>`,
+      },
+      {
+        id: "line",
+        name: "Line",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17l6-6 4 4 8-8"/>
+        </svg>`,
+      },
+      {
+        id: "area",
+        name: "Area",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17l6-6 4 4 8-8v10H3z" fill="currentColor" fill-opacity="0.2"/>
+          <path d="M3 17l6-6 4 4 8-8"/>
+        </svg>`,
+      },
+      {
+        id: "bar",
+        name: "Column",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="8" width="4" height="8" fill="currentColor" stroke="none"/>
+          <rect x="10" y="7" width="4" height="9" fill="currentColor" stroke="none"/>
+          <rect x="16" y="11" width="4" height="5" fill="currentColor" stroke="none"/>
+        </svg>`,
+      },
     ];
     this.currentType = "candlestick";
     this.originalSeries = [...this.series]; // Store original data
@@ -142,7 +207,7 @@ export default class ChartSwitch {
       const option = document.createElement("div");
       option.classList.add("apexstock-chart-type-option");
       option.dataset.type = type.id;
-      option.innerHTML = `${type.icon} ${type.name}`;
+      option.innerHTML = `<span class="chart-icon">${type.icon}</span><span class="chart-text">${type.name}</span>`;
 
       // Highlight the currently selected chart type
       if (type.id === this.currentType) {
@@ -200,7 +265,7 @@ export default class ChartSwitch {
     let newSeries = [];
 
     // Prepare the data for the selected chart type
-    if (type === "candlestick") {
+    if (type === "candlestick" || type === "ohlc") {
       // Use the original candlestick data
       newSeries = [
         {
@@ -219,7 +284,7 @@ export default class ChartSwitch {
           data: heikinAshiData,
         },
       ];
-    } else if (type === "line") {
+    } else if (type === "line" || type === "stepline") {
       // Use close prices for line chart
       newSeries = [
         {
@@ -274,14 +339,23 @@ export default class ChartSwitch {
       {
         series: [...newSeries, ...indicators],
         chart: {
-          type:
-            type === "candlestick" || type === "heikinashi"
-              ? "candlestick"
-              : type,
+          type: (() => {
+            if (["candlestick", "heikinashi", "ohlc"].includes(type)) {
+              return "candlestick";
+            } else if (["line", "stepline"].includes(type)) {
+              return "line";
+            } else {
+              return type;
+            }
+          })(),
         },
         tooltip: {
           custom: ({ seriesIndex, dataPointIndex, w }) => {
-            if (type === "candlestick" || type === "heikinashi") {
+            if (
+              type === "candlestick" ||
+              type === "heikinashi" ||
+              type === "ohlc"
+            ) {
               return this._getBoxTooltip(
                 w,
                 seriesIndex,
@@ -305,11 +379,15 @@ export default class ChartSwitch {
         // Add custom colors for Heikin-Ashi candles to make them distinct
         plotOptions: {
           candlestick: {
+            type,
             colors: {
               upward: type === "heikinashi" ? "#34D399" : "#00B746", // Different green for Heikin-Ashi
               downward: type === "heikinashi" ? "#F87171" : "#EF403C", // Different red for Heikin-Ashi
             },
           },
+        },
+        stroke: {
+          curve: type === "stepline" ? "stepline" : "monotoneCubic",
         },
       },
       true,
