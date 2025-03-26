@@ -15,7 +15,6 @@ class DrawingTools {
   constructor(ctx) {
     this.chart = ctx.chart;
     this.chartEl = ctx.chartEl;
-    this.series = ctx.series;
     this.isDrawing = false;
     this.currentTool = null;
     this.elements = [];

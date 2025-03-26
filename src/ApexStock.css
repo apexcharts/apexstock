@@ -39,7 +39,7 @@
 .apexstock-theme-dark .apexstock-chart-type-wrapper,
 .apexstock-theme-dark .apexstock-export-btn-container button,
 .apexstock-theme-dark .apexstock-chart-type-wrapper:hover button {
-  background-color: rgba(44, 33, 44, 0.5);
+  background-color: rgba(1, 1, 1, 0.65) !important;
 }
 
 .apexstock-theme-dark .apexstock-chart-type-wrapper svg,
@@ -81,9 +81,26 @@
 }
 
 .apexstock-chart-type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+
+.apexstock-chart-type-option .chart-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  /* Fixed width for all icons */
+}
+
+.apexstock-chart-type-option .chart-text {
+  font-size: 16px;
+  line-height: 24px;
+  /* Match height of icons */
 }
 
 .apexstock-chart-type-option:hover {
@@ -99,8 +116,12 @@
   background-color: #343A3F;
 }
 
+.apexstock-theme-dark .apexstock-chart-type-option:hover {
+  background-color: #555;
+}
+
 .apexstock-theme-dark .apexstock-chart-type-option.active {
-  background-color: #495057;
+  background-color: #555;
 }
 
 /* Indicator dropdown */
@@ -147,7 +168,7 @@
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid rgb(206, 212, 218);
+  border: 1px solid #fff;
   border-top: none;
   z-index: 999;
   max-height: 200px;
@@ -205,7 +226,7 @@
 .apexstock-theme-dark select,
 .apexstock-theme-dark input,
 .apexstock-theme-dark .apexstock-drawing-tool {
-  background-color: rgba(44, 33, 44, 0.5);
+  background-color: rgba(1, 1, 1, 0.65) !important;
   color: #fff;
   border: 1px solid rgb(206, 212, 218);
   border-radius: 3px;
@@ -226,9 +247,13 @@
   cursor: pointer;
 }
 
-.apexstock-drawing-tool.active {
+.apexstock-theme-light .apexstock-drawing-tool.active {
   background: #f0f0f0;
   box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.apexstock-theme-dark .apexstock-drawing-tool.active {
+  background: #646464;
 }
 
 /* Export button */

@@ -382,6 +382,144 @@ export default class ApexStock {
     this.updateAllChartHeights();
   }
 
+  /**
+   * Updates the chart with new options, particularly new series data
+   * @param {Object} newOptions - New options object which can include series and other chart options
+   */
+  update(newOptions) {
+    // Store current state
+    const activeIndicators = Object.keys(this.indicatorChartMap);
+    const activeOscillator = this.activeOscillator;
+    let currentZoomState = this.getCurrentZoomState();
+
+    // Handle theme if it's being updated
+    if (
+      newOptions.theme &&
+      newOptions.theme.mode &&
+      newOptions.theme.mode !== this.theme
+    ) {
+      // Update theme manager
+      this.themeManager.setTheme(newOptions.theme.mode);
+      this.theme = this.themeManager.getTheme();
+      this.isDarkTheme = this.theme === "dark";
+      this.colors = this.themeManager.getColors();
+
+      // Apply theme styles to DOM elements
+      this.chartEl.parentNode.classList.remove(
+        `apexstock-theme-dark`,
+        `apexstock-theme-light`
+      );
+      this.chartEl.parentNode.classList.add(`apexstock-theme-${this.theme}`);
+
+      this.chartEl.parentNode.style.backgroundColor = this.isDarkTheme
+        ? this.colors.toolbar.background
+        : this.colors.toolbar.background;
+      this.chartEl.style.backgroundColor = this.isDarkTheme
+        ? this.colors.toolbar.background
+        : this.colors.toolbar.background;
+
+      // Apply theme to all UI elements
+      this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
+    }
+
+    // Update internal series data if new series is provided
+    if (
+      newOptions.series &&
+      newOptions.series[0] &&
+      newOptions.series[0].data
+    ) {
+      this.series = newOptions.series[0].data;
+
+      // Update volumes data if available in the new series
+      this.volumesData = this.series
+        .map((point) => (point.v ? { x: point.x, y: point.v } : null))
+        .filter((x) => x !== null);
+    }
+
+    // Merge options with theme configuration
+    const updatedOptions = Utils.extend(
+      this.themeManager.getChartConfig(),
+      newOptions
+    );
+
+    // Update candlestick colors for dark/light themes if not specified in newOptions
+    if (
+      !newOptions.plotOptions ||
+      !newOptions.plotOptions.candlestick ||
+      !newOptions.plotOptions.candlestick.colors
+    ) {
+      if (!updatedOptions.plotOptions) updatedOptions.plotOptions = {};
+      if (!updatedOptions.plotOptions.candlestick)
+        updatedOptions.plotOptions.candlestick = {};
+
+      updatedOptions.plotOptions.candlestick.colors = {
+        upward: this.isDarkTheme ? "#26A69A" : "#00B746",
+        downward: this.isDarkTheme ? "#EF5350" : "#EF403C",
+      };
+    }
+
+    // Update the chart with new options
+    this.chart.updateOptions(updatedOptions, true, true, true);
+
+    // Reinitialize xaxis range with new data
+    this.initializeXAxisRange();
+
+    // Remove all indicators temporarily
+    activeIndicators.forEach((indicator) => {
+      this.removeIndicator(indicator);
+    });
+
+    // Re-add indicators with updated data
+    activeIndicators.forEach((indicator) => {
+      this.updateIndicator(indicator);
+    });
+
+    // Restore active oscillator state
+    this.activeOscillator = activeOscillator;
+
+    // Apply zoom if there was an active zoom state and preserve it if possible
+    if (
+      currentZoomState &&
+      currentZoomState.minX !== undefined &&
+      currentZoomState.maxX !== undefined
+    ) {
+      // Check if the new data range is compatible with the previous zoom
+      const dataLength = this.series.length;
+      if (currentZoomState.maxX < dataLength) {
+        this.applyZoomToAllCharts(currentZoomState);
+      } else {
+        // If previous zoom is out of bounds for new data, adjust to fit
+        const adjustedZoom = {
+          minX: Math.min(currentZoomState.minX, dataLength - 1),
+          maxX: Math.min(currentZoomState.maxX, dataLength - 1),
+        };
+        this.applyZoomToAllCharts(adjustedZoom);
+      }
+    }
+
+    // Update XAxis with new theme if applicable
+    if (this.xaxis) {
+      if (newOptions.theme && newOptions.theme.mode) {
+        // Store reference to the old xaxis instance
+        const oldXAxis = this.xaxis;
+
+        // Create a new XAxis instance with updated theme context
+        this.xaxis = new XAxis(this);
+
+        // Clean up old instance if possible
+        if (oldXAxis && typeof oldXAxis.destroy === "function") {
+          oldXAxis.destroy();
+        }
+      }
+
+      // Render the XAxis (either existing or newly created)
+      this.xaxis.render();
+    }
+
+    // Update heights to ensure consistent layout
+    this.updateAllChartHeights();
+  }
+
   randomId() {
     return (Math.random() + 1).toString(36).substring(4);
   }
@@ -405,16 +543,10 @@ export default class ApexStock {
     trigger.classList.add("apexstock-custom-select-trigger");
     trigger.innerText = `Select ${title}`;
 
-    // Apply theme styles to trigger
-    this.themeManager.applyElementStyle(trigger, "dropdown");
-
     wrapper.appendChild(trigger);
 
     const optionsContainer = document.createElement("div");
     optionsContainer.classList.add("apexstock-custom-options");
-
-    // Apply theme styles to options container
-    this.themeManager.applyElementStyle(optionsContainer, "dropdown");
 
     Object.keys(indicators).forEach((key) => {
       const displayName =
@@ -426,9 +558,6 @@ export default class ApexStock {
       const option = document.createElement("div");
       option.classList.add("apexstock-custom-option");
       option.dataset.value = key;
-
-      // Apply theme styles to option
-      this.themeManager.applyElementStyle(option, "option");
 
       // Determine if this is an oscillator or overlay
       const isOscillator = Object.keys(this.oscillators).includes(key);
@@ -447,7 +576,6 @@ export default class ApexStock {
           if (e.currentTarget.classList.contains("selected")) {
             // If clicking on already selected oscillator, deselect it
             e.currentTarget.classList.remove("selected");
-            e.currentTarget.style.backgroundColor = "";
             this.removeIndicator(optionValue);
             this.activeOscillator = null;
           } else {
@@ -459,17 +587,12 @@ export default class ApexStock {
             allOscillatorOptions.forEach((opt) => {
               if (opt.classList.contains("selected")) {
                 opt.classList.remove("selected");
-                opt.style.backgroundColor = "";
                 this.removeIndicator(opt.dataset.value);
               }
             });
 
             // Select new oscillator
             e.currentTarget.classList.add("selected");
-            this.themeManager.applyElementStyle(
-              e.currentTarget,
-              "optionSelected"
-            );
             this.activeOscillator = optionValue;
             this.updateIndicator(optionValue);
           }
@@ -477,14 +600,9 @@ export default class ApexStock {
           // For overlays, keep checkbox behavior
           if (e.currentTarget.classList.contains("selected")) {
             e.currentTarget.classList.remove("selected");
-            e.currentTarget.style.backgroundColor = "";
             this.removeIndicator(optionValue);
           } else {
             e.currentTarget.classList.add("selected");
-            this.themeManager.applyElementStyle(
-              e.currentTarget,
-              "optionSelected"
-            );
             this.updateIndicator(optionValue);
           }
         }
@@ -500,19 +618,6 @@ export default class ApexStock {
                 .map((opt) => opt.innerText)
                 .join(", ")}`
             : `Select ${title}`;
-      });
-
-      // Add hover effect
-      option.addEventListener("mouseenter", () => {
-        if (!option.classList.contains("selected")) {
-          option.style.backgroundColor = this.colors.dropdown.hover;
-        }
-      });
-
-      option.addEventListener("mouseleave", () => {
-        if (!option.classList.contains("selected")) {
-          option.style.backgroundColor = "";
-        }
       });
     });
 

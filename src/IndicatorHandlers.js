@@ -23,6 +23,7 @@ export default class IndicatorHandlers {
         parentHeightOffset: 0,
         animations: { enabled: false },
         group: context.groupID,
+        background: "transparent",
         events: {
           zoomed: context.handleZoom.bind(context),
           scrolled: context.handleScroll.bind(context),

@@ -81,7 +81,7 @@ export default class ThemeManager {
       },
       dark: {
         toolbar: {
-          background: "#424242",
+          background: "#343A3F",
           text: "#f8f9fa",
           border: "#343a40",
         },
