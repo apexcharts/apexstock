@@ -2,11 +2,11 @@ import Indicators from "./Indicators";
 import Utils from "./utils/Utils";
 import DrawingTools from "./DrawingTools";
 import apexStockCSS from "ApexStock.css";
-import Export from "./Export";
-import ChartSwitch from "./ChartSwitch";
-import IndicatorHandlers from "./IndicatorHandlers";
-import XAxis from "./XAxis";
-import ThemeManager from "./ThemeManager";
+import Export from "./tools/export/Export";
+import ChartSwitch from "./core/ChartSwitch";
+import IndicatorHandlers from "./indicators/IndicatorHandlers";
+import XAxis from "./components/XAxis";
+import ThemeManager from "./core/ThemeManager";
 
 export default class ApexStock {
   /**
