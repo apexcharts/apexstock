@@ -228,15 +228,6 @@ export default class IndicatorHandlers {
           id: "volume" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "Volume" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           curve: "linestep",
@@ -277,12 +268,6 @@ export default class IndicatorHandlers {
           ...commonChartOptions.yaxis,
           min: 0,
           max: 100,
-          title: { text: "RSI" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
         },
         stroke: {
           ...commonChartOptions.stroke,
@@ -336,15 +321,6 @@ export default class IndicatorHandlers {
           id: "macd" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "MACD" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           width: [1, 1, 0],
@@ -398,15 +374,6 @@ export default class IndicatorHandlers {
           id: "pvt" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "PVT" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.pvt],
@@ -434,15 +401,6 @@ export default class IndicatorHandlers {
           id: "stochastic" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "Stochastic" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [
@@ -468,15 +426,6 @@ export default class IndicatorHandlers {
           id: "stddev" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "Std Dev" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.stdDev],
@@ -499,15 +448,6 @@ export default class IndicatorHandlers {
           id: "adx" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "ADX" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.adx],
@@ -530,15 +470,6 @@ export default class IndicatorHandlers {
           id: "chaikin" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "Chaikin" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.chaikin],
@@ -561,15 +492,6 @@ export default class IndicatorHandlers {
           id: "cci" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "CCI" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.cci],
@@ -592,15 +514,6 @@ export default class IndicatorHandlers {
           id: "tsi" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "TSI" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.tsi],
@@ -623,15 +536,6 @@ export default class IndicatorHandlers {
           id: "ac" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "AC" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.ac],
@@ -659,15 +563,6 @@ export default class IndicatorHandlers {
           id: "bbb" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "%B" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.bPercent],
@@ -696,15 +591,6 @@ export default class IndicatorHandlers {
           id: "bbw" + context.groupID,
         },
         series: defaultSeries,
-        yaxis: {
-          ...commonChartOptions.yaxis,
-          title: { text: "Width" },
-          labels: {
-            style: {
-              colors: context.isDarkTheme ? "#e0e0e0" : "#333",
-            },
-          },
-        },
         stroke: {
           ...commonChartOptions.stroke,
           colors: [context.colors.indicators.bWidth],
