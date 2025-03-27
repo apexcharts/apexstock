@@ -261,6 +261,9 @@ export default class ChartSwitch {
   changeChartType(type) {
     if (type === this.currentType) return;
 
+    // Save current zoom state before changing chart type
+    const zoomState = this.ctx.getCurrentZoomState();
+
     this.currentType = type;
     let newSeries = [];
 
@@ -335,64 +338,68 @@ export default class ChartSwitch {
         : ["Open", "High", "", "Low", "Close"];
 
     // Update the chart with new series type
-    this.chart.updateOptions(
-      {
-        series: [...newSeries, ...indicators],
-        chart: {
-          type: (() => {
-            if (["candlestick", "heikinashi", "ohlc"].includes(type)) {
-              return "candlestick";
-            } else if (["line", "stepline"].includes(type)) {
-              return "line";
-            } else {
-              return type;
-            }
-          })(),
-        },
-        tooltip: {
-          custom: ({ seriesIndex, dataPointIndex, w }) => {
-            if (
-              type === "candlestick" ||
-              type === "heikinashi" ||
-              type === "ohlc"
-            ) {
-              return this._getBoxTooltip(
-                w,
-                seriesIndex,
-                dataPointIndex,
-                tooltipLabels,
-                "candlestick"
-              );
-            } else {
-              return `<div class="apexcharts-custom-tooltip">
+    this.chart
+      .updateOptions(
+        {
+          series: [...newSeries, ...indicators],
+          chart: {
+            type: (() => {
+              if (["candlestick", "heikinashi", "ohlc"].includes(type)) {
+                return "candlestick";
+              } else if (["line", "stepline"].includes(type)) {
+                return "line";
+              } else {
+                return type;
+              }
+            })(),
+          },
+          tooltip: {
+            custom: ({ seriesIndex, dataPointIndex, w }) => {
+              if (
+                type === "candlestick" ||
+                type === "heikinashi" ||
+                type === "ohlc"
+              ) {
+                return this._getBoxTooltip(
+                  w,
+                  seriesIndex,
+                  dataPointIndex,
+                  tooltipLabels,
+                  "candlestick"
+                );
+              } else {
+                return `<div class="apexcharts-custom-tooltip">
                 ${
                   w.config.series[seriesIndex].name
                     ? w.config.series[seriesIndex].name
                     : "series-" + (seriesIndex + 1)
                 }: <strong>${
-                w.globals.series[seriesIndex][dataPointIndex]
-              }</strong>
+                  w.globals.series[seriesIndex][dataPointIndex]
+                }</strong>
                 </div>`;
-            }
-          },
-        },
-        // Add custom colors for Heikin-Ashi candles to make them distinct
-        plotOptions: {
-          candlestick: {
-            type,
-            colors: {
-              upward: type === "heikinashi" ? "#34D399" : "#00B746", // Different green for Heikin-Ashi
-              downward: type === "heikinashi" ? "#F87171" : "#EF403C", // Different red for Heikin-Ashi
+              }
             },
           },
+          // Add custom colors for Heikin-Ashi candles to make them distinct
+          plotOptions: {
+            candlestick: {
+              type,
+              colors: {
+                upward: type === "heikinashi" ? "#34D399" : "#00B746", // Different green for Heikin-Ashi
+                downward: type === "heikinashi" ? "#F87171" : "#EF403C", // Different red for Heikin-Ashi
+              },
+            },
+          },
+          stroke: {
+            curve: type === "stepline" ? "stepline" : "monotoneCubic",
+          },
         },
-        stroke: {
-          curve: type === "stepline" ? "stepline" : "monotoneCubic",
-        },
-      },
-      true,
-      false,
-      false
-    );
+        true,
+        false,
+        false
+      )
+      .then(() => {
+        this.ctx.applyZoomToAllCharts(zoomState);
+      });
   }
 }
