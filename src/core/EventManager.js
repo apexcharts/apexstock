@@ -94,15 +94,6 @@ class EventManager {
           }, 300);
         });
 
-        this.chart.addEventListener("rendered", () => {
-          setTimeout(() => {
-            if (typeof this.syncOverlayPosition === "function") {
-              this.syncOverlayPosition();
-            }
-            this.redrawElements();
-          }, 300);
-        });
-
         this.chart.addEventListener("zoomed", () => {
           this.redrawElements();
         });
