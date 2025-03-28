@@ -393,6 +393,9 @@ export default class ChartSwitch {
           stroke: {
             curve: type === "stepline" ? "stepline" : "monotoneCubic",
           },
+          fill: {
+            opacity: type === "area" ? 0.3 : 1,
+          },
         },
         true,
         false,

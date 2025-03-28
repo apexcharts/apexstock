@@ -387,6 +387,7 @@ export default class ApexStock {
     const activeIndicators = Object.keys(this.indicatorChartMap);
     const activeOscillator = this.activeOscillator;
     let currentZoomState = this.getCurrentZoomState();
+    let themeConfig = this.themeManager.getChartConfig();
 
     // Handle theme if it's being updated
     if (
@@ -399,7 +400,8 @@ export default class ApexStock {
       this.theme = this.themeManager.getTheme();
       this.isDarkTheme = this.theme === "dark";
       this.colors = this.themeManager.getColors();
-      const themeConfig = this.themeManager.getChartConfig();
+
+      themeConfig = this.themeManager.getChartConfig();
 
       // Apply theme styles to DOM elements
       this.chartEl.parentNode.classList.remove(
@@ -417,20 +419,6 @@ export default class ApexStock {
 
       // Apply theme to all UI elements
       this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
-
-      // Force update yaxis label colors based on theme
-      if (!newOptions.yaxis) {
-        newOptions.yaxis = this.chart.w.config.yaxis.map((axis) => ({
-          ...axis,
-          labels: {
-            ...axis.labels,
-            style: {
-              ...axis.labels?.style,
-              colors: themeConfig.yaxis.labels.style.colors,
-            },
-          },
-        }));
-      }
     }
 
     // Update internal series data if new series is provided
@@ -445,6 +433,20 @@ export default class ApexStock {
       this.volumesData = this.series
         .map((point) => (point.v ? { x: point.x, y: point.v } : null))
         .filter((x) => x !== null);
+    }
+
+    // Force update yaxis label colors based on theme
+    if (!newOptions.yaxis) {
+      newOptions.yaxis = this.chart.w.config.yaxis.map((axis) => ({
+        ...axis,
+        labels: {
+          ...axis.labels,
+          style: {
+            ...axis.labels?.style,
+            colors: themeConfig.yaxis.labels.style.colors,
+          },
+        },
+      }));
     }
 
     // Merge options with theme configuration
