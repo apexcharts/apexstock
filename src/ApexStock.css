@@ -196,6 +196,26 @@
   color: #00aaff;
 }
 
+.apexstock-xaxis-tooltip {
+  position: absolute;
+  display: none;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  transform: translateX(-50%) translateY(1px);
+  background-color: #eceff1;
+  border: 1px solid #90a4ae;
+}
+
+.apexstock-theme-dark .apexstock-xaxis-tooltip {
+  background: rgba(0, 0, 0, .8);
+  border: 1px solid rgba(0, 0, 0, .5);
+  color: #fff
+}
+
 /* Drawing toolbar */
 .apexstock-drawing-toolbar {
   display: flex;
@@ -295,4 +315,71 @@
   .apexstock-toolbar-right {
     align-self: flex-end;
   }
+}
+
+/* Drawing overlay wrapper should not block chart interactions */
+.apexstock-drawing-overlay-wrapper,
+.apexstock-drawing-overlay {
+  pointer-events: none;
+}
+
+
+/* Element interaction styles */
+.apexstock-drawing-overlay path,
+.apexstock-drawing-overlay line,
+.apexstock-drawing-overlay rect,
+.apexstock-drawing-overlay circle,
+.apexstock-drawing-overlay ellipse,
+.apexstock-drawing-overlay .apexstock-text-annotation {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+/* When a drawing tool is active, we need to capture events on the drawing area */
+.apexstock-drawing-overlay.active-drawing {
+  pointer-events: all;
+}
+
+/* Popup element styling */
+.apexstock-element-popup {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  background-color: white;
+  min-width: 100px;
+  padding: 4px;
+  position: absolute;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.apexstock-element-delete-btn {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  color: #333;
+  transition: background-color 0.2s;
+}
+
+.apexstock-element-delete-btn:hover {
+  background-color: #f0f0f0;
+}
+
+/* Dark mode styles */
+.apexstock-theme-dark .apexstock-element-popup {
+  background-color: #2c2c2c;
+  border: 1px solid #444;
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn {
+  color: #e0e0e0;
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn:hover {
+  background-color: #3a3a3a;
 }

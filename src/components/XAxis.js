@@ -78,17 +78,7 @@ export default class XAxis {
 
     // Create tooltip element that stays at the bottom of the axis
     this.tooltipElement = document.createElement("div");
-    this.tooltipElement.style.position = "absolute";
-    this.tooltipElement.style.display = "none";
-    this.tooltipElement.style.background = "rgba(0, 0, 0, 0.7)";
-    this.tooltipElement.style.color = "#fff";
-    this.tooltipElement.style.padding = "8px 8px";
-    this.tooltipElement.style.borderRadius = "4px";
-    this.tooltipElement.style.fontSize = "11px";
-    this.tooltipElement.style.pointerEvents = "none";
-    this.tooltipElement.style.zIndex = "1000";
-    this.tooltipElement.style.whiteSpace = "nowrap";
-    this.tooltipElement.style.transform = "translateX(-50%) translateY(1px)"; // Center horizontally
+    this.tooltipElement.classList.add("apexstock-xaxis-tooltip");
 
     // Add tooltip to the axis element
     this.axisElement.appendChild(this.tooltipElement);

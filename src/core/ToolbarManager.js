@@ -37,14 +37,14 @@ class ToolbarManager {
 
     // Define tools
     const tools = [
-      { name: "line", icon: "╱", tooltip: "Line" }, // Diagonal line
-      { name: "brush", icon: "∿", tooltip: "Brush" }, // Paintbrush
-      { name: "highlighter", icon: "🖌️", tooltip: "Highlighter" }, // Crayon
-      { name: "rectangle", icon: "▢", tooltip: "Rectangle" }, // Hollow square
-      { name: "circle", icon: "◯", tooltip: "Circle" }, // Hollow circle with dot
-      { name: "ellipse", icon: "⬭", tooltip: "Ellipse" }, // Ellipse
-      { name: "text", icon: "T", tooltip: "Text Annotation" }, // Text annotation
-      { name: "clear", icon: "🗑", tooltip: "Clear All" }, // Trash bin
+      { name: "line", icon: "╱", tooltip: "Line" },
+      { name: "brush", icon: "∿", tooltip: "Brush" },
+      { name: "highlighter", icon: "🖌️", tooltip: "Highlighter" },
+      { name: "rectangle", icon: "▢", tooltip: "Rectangle" },
+      { name: "circle", icon: "◯", tooltip: "Circle" },
+      { name: "ellipse", icon: "⬭", tooltip: "Ellipse" },
+      { name: "text", icon: "T", tooltip: "Text Annotation" },
+      { name: "clear", icon: "🗑", tooltip: "Clear All" },
     ];
 
     // Create color picker
@@ -91,6 +91,11 @@ class ToolbarManager {
       button.dataset.tool = tool.name;
       button.textContent = tool.icon;
       button.title = tool.tooltip;
+
+      // Add special style for selection tool
+      if (tool.name === "select") {
+        button.style.backgroundColor = "#f0f0f0";
+      }
 
       if (tool.name === "clear") {
         button.style.marginLeft = "2px";

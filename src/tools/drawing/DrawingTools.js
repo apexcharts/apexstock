@@ -5,6 +5,7 @@ import ToolbarManager from "../../core/ToolbarManager";
 import DrawingElementFactory from "../drawing/DrawingElementFactory";
 import CoordinateConverter from "../../utils/CoordinateConverter";
 import TextAnnotationManager from "./TextAnnotationManager";
+import ElementInteractionManager from "../../core/ElementInteractionManager";
 
 class DrawingTools {
   /**
@@ -77,6 +78,16 @@ class DrawingTools {
     this.toolbarManager.onWidthChange = (width) => {
       this.drawingWidth = width;
     };
+
+    // Initialize the element interaction manager (always on)
+    this.elementInteractionManager = new ElementInteractionManager(
+      this.chartEl,
+      this.svgOverlay,
+      this.drawingGroup,
+      this.elements,
+      this.redrawElements.bind(this),
+      this.coordinateConverter
+    );
   }
 
   /**
@@ -91,70 +102,23 @@ class DrawingTools {
   }
 
   /**
-   * Deactivates all drawing tools and hides the overlay
-   */
-  deactivateAllTools() {
-    // Deselect all tool buttons
-    this.toolbarContainer
-      .querySelectorAll(".apexstock-drawing-tool")
-      .forEach((btn) => {
-        btn.classList.remove("active");
-      });
-
-    // Reset the current tool
-    this.currentTool = null;
-
-    // Disable drawing overlay
-    this.svgOverlay.classList.remove("active-drawing");
-    this.svgOverlay.style.pointerEvents = "none";
-  }
-
-  /**
-   * Handles tool button clicks
-   * @param {string} toolName - Name of the tool clicked
-   */
-  handleToolClick(toolName) {
-    if (toolName === "clear") {
-      this.clearAllDrawings();
-      return;
-    }
-
-    // If the same tool is clicked again, deactivate it
-    if (this.currentTool === toolName) {
-      this.deactivateAllTools();
-      return;
-    }
-
-    // Highlight the active tool button
-    this.toolbarContainer
-      .querySelectorAll(".apexstock-drawing-tool")
-      .forEach((btn) => {
-        if (btn.dataset.tool === toolName) {
-          btn.classList.add("active");
-        } else if (["clear"].indexOf(btn.dataset.tool) === -1) {
-          btn.classList.remove("active");
-        }
-      });
-
-    // Set the current tool
-    this.currentTool = toolName;
-
-    // Make sure the SVG overlay allows pointer events ONLY when drawing
-    if (this.currentTool) {
-      this.svgOverlay.classList.add("active-drawing");
-      this.svgOverlay.style.pointerEvents = "all";
-    } else {
-      this.svgOverlay.classList.remove("active-drawing");
-      this.svgOverlay.style.pointerEvents = "none";
-    }
-  }
-
-  /**
    * Handles mouse down event to start drawing
    * @param {MouseEvent} e - Mouse event
    */
   handleMouseDown(e) {
-    if (!this.currentTool) return;
+    // Check if we're in drawing mode
+    if (!this.currentTool || this.svgOverlay.dataset.drawingMode !== "true")
+      return;
+
+    // If we're clicking on an existing element, let the interaction manager handle it
+    if (e.target !== this.svgOverlay) {
+      // Check if the target is one of our drawing elements
+      for (const item of this.elements) {
+        if (item.element === e.target || item.element.contains(e.target)) {
+          return; // Let element interaction manager handle it
+        }
+      }
+    }
 
     // Get mouse position relative to overlay
     const rect = this.overlayWrapper.getBoundingClientRect();
@@ -210,6 +174,25 @@ class DrawingTools {
   }
 
   /**
+   * Creates a new SVG element based on the current tool
+   */
+  createNewElement() {
+    const factory = new DrawingElementFactory(
+      this.startPoint,
+      this.drawingColor,
+      this.drawingWidth
+    );
+
+    const result = factory.createElement(this.currentTool);
+
+    if (result) {
+      this.currentElement = result.element;
+      this.currentElementData = result.data;
+      this.drawingGroup.appendChild(this.currentElement);
+    }
+  }
+
+  /**
    * Handles mouse move event for drawing
    * @param {MouseEvent} e - Mouse event
    */
@@ -235,79 +218,12 @@ class DrawingTools {
       this.updateElement(x, y, dataPoint);
     }
 
-    // Only prevent default and stop propagation during actual drawing
-    // to avoid interfering with chart zooming/panning
+    // Prevent default to avoid text selection during drawing
     e.preventDefault();
 
     // Only stop propagation for specific tools that should block chart interaction
-    // For tools like brush/highlighter, we always want to prevent chart zoom/pan
     if (this.currentTool === "brush" || this.currentTool === "highlighter") {
       e.stopPropagation();
-    }
-  }
-
-  /**
-   * Handles mouse up event to finish drawing
-   */
-  handleMouseUp() {
-    if (!this.isDrawing) return;
-
-    this.isDrawing = false;
-
-    // For text tool, the elements are handled by TextAnnotationManager
-    // and added to the elements array via the handleTextCreated callback
-    if (this.currentElement && this.currentTool !== "text") {
-      this.elements.push({
-        element: this.currentElement,
-        data: this.currentElementData,
-      });
-
-      this.currentElement = null;
-      this.currentElementData = null;
-
-      // Keep the overlay active for more drawing with the same tool
-      // The overlay will be deactivated only on wheel event or tool deselection
-    }
-  }
-
-  /**
-   * Callback for when text is created and confirmed by TextAnnotationManager
-   * @param {SVGElement} element - The text element
-   * @param {Object} data - The text data
-   */
-  handleTextCreated(element, data) {
-    if (element && data) {
-      this.elements.push({
-        element: element,
-        data: data,
-      });
-    }
-  }
-
-  /**
-   * Handles window resize to adjust the SVG overlay
-   */
-  handleResize() {
-    // Redraw all elements when the window is resized
-    this.redrawElements();
-  }
-
-  /**
-   * Creates a new SVG element based on the current tool
-   */
-  createNewElement() {
-    const factory = new DrawingElementFactory(
-      this.startPoint,
-      this.drawingColor,
-      this.drawingWidth
-    );
-
-    const result = factory.createElement(this.currentTool);
-
-    if (result) {
-      this.currentElement = result.element;
-      this.currentElementData = result.data;
-      this.drawingGroup.appendChild(this.currentElement);
     }
   }
 
@@ -398,6 +314,58 @@ class DrawingTools {
         this.currentElementData.ry = dataRy;
         break;
     }
+  }
+
+  /**
+   * Handles mouse up event to finish drawing
+   */
+  handleMouseUp() {
+    if (!this.isDrawing) return;
+
+    this.isDrawing = false;
+
+    // For text tool, the elements are handled by TextAnnotationManager
+    if (this.currentElement && this.currentTool !== "text") {
+      this.elements.push({
+        element: this.currentElement,
+        data: this.currentElementData,
+      });
+
+      this.currentElement = null;
+      this.currentElementData = null;
+
+      // Update element interaction manager with the new element
+      if (this.elementInteractionManager) {
+        this.elementInteractionManager.updateElementEventListeners();
+      }
+    }
+  }
+
+  /**
+   * Callback for when text is created and confirmed by TextAnnotationManager
+   * @param {SVGElement} element - The text element
+   * @param {Object} data - The text data
+   */
+  handleTextCreated(element, data) {
+    if (element && data) {
+      this.elements.push({
+        element: element,
+        data: data,
+      });
+
+      // Update element interaction manager with the new element
+      if (this.elementInteractionManager) {
+        this.elementInteractionManager.updateElementEventListeners();
+      }
+    }
+  }
+
+  /**
+   * Handles window resize to adjust the SVG overlay
+   */
+  handleResize() {
+    // Redraw all elements when the window is resized
+    this.redrawElements();
   }
 
   /**
@@ -548,6 +516,76 @@ class DrawingTools {
         item.element = element;
       }
     });
+
+    // Recreate the visual elements for the element interaction manager
+    if (this.elementInteractionManager) {
+      this.elementInteractionManager.createVisualElements();
+      this.elementInteractionManager.updateElementEventListeners();
+    }
+  }
+
+  /**
+   * Handles tool button clicks
+   * @param {string} toolName - Name of the tool clicked
+   */
+  handleToolClick(toolName) {
+    if (toolName === "clear") {
+      this.clearAllDrawings();
+      return;
+    }
+
+    // If the same tool is clicked again, deactivate it
+    if (this.currentTool === toolName) {
+      this.deactivateAllTools();
+      return;
+    }
+
+    // Highlight the active tool button
+    this.toolbarContainer
+      .querySelectorAll(".apexstock-drawing-tool")
+      .forEach((btn) => {
+        if (btn.dataset.tool === toolName) {
+          btn.classList.add("active");
+        } else if (["clear"].indexOf(btn.dataset.tool) === -1) {
+          btn.classList.remove("active");
+        }
+      });
+
+    // Set the current tool
+    this.currentTool = toolName;
+
+    // When a drawing tool is active, we need to capture all events on the SVG overlay
+    this.svgOverlay.classList.add("active-drawing");
+
+    // Enable pointer events for drawing
+    this.svgOverlay.style.pointerEvents = "all";
+    this.overlayWrapper.style.pointerEvents = "all";
+
+    this.svgOverlay.dataset.drawingMode = "true";
+  }
+
+  /**
+   * Deactivates all drawing tools and hides the overlay
+   */
+  deactivateAllTools() {
+    // Deselect all tool buttons
+    this.toolbarContainer
+      .querySelectorAll(".apexstock-drawing-tool")
+      .forEach((btn) => {
+        btn.classList.remove("active");
+      });
+
+    // Reset the current tool
+    this.currentTool = null;
+
+    // Disable drawing mode
+    this.svgOverlay.classList.remove("active-drawing");
+
+    // Disable pointer events to allow chart zooming/panning
+    this.svgOverlay.style.pointerEvents = "none";
+    this.overlayWrapper.style.pointerEvents = "none";
+
+    this.svgOverlay.dataset.drawingMode = "false";
   }
 
   /**
@@ -561,6 +599,28 @@ class DrawingTools {
     while (this.drawingGroup.firstChild) {
       this.drawingGroup.removeChild(this.drawingGroup.firstChild);
     }
+
+    // Recreate element interaction manager
+    if (this.elementInteractionManager) {
+      // First, destroy the current instance
+      this.elementInteractionManager.destroy();
+
+      // Then create a new instance with the cleared elements array
+      this.elementInteractionManager = new ElementInteractionManager(
+        this.chartEl,
+        this.svgOverlay,
+        this.drawingGroup,
+        this.elements,
+        this.redrawElements.bind(this),
+        this.coordinateConverter
+      );
+    }
+
+    // Make sure the chart can be zoomed/panned if no tool is currently active
+    if (!this.currentTool) {
+      this.svgOverlay.style.pointerEvents = "none";
+      this.overlayWrapper.style.pointerEvents = "none";
+    }
   }
 
   /**
@@ -572,6 +632,11 @@ class DrawingTools {
 
     // Clean up text annotation manager
     this.textAnnotationManager.destroy();
+
+    // Clean up element interaction manager
+    if (this.elementInteractionManager) {
+      this.elementInteractionManager.destroy();
+    }
 
     // Remove the SVG overlay wrapper
     if (this.overlayWrapper && this.overlayWrapper.parentNode) {

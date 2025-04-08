@@ -25,8 +25,10 @@ class OverlayManager {
     this.overlayWrapper.style.left = "0";
     this.overlayWrapper.style.width = "100%";
     this.overlayWrapper.style.height = "100%";
+
     this.overlayWrapper.style.pointerEvents = "none";
-    this.overlayWrapper.style.zIndex = "10";
+
+    this.overlayWrapper.style.zIndex = "9";
 
     // Place the wrapper directly on the chart's parent to avoid being removed on chart updates
     this.chartDiv.appendChild(this.overlayWrapper);

@@ -188,7 +188,7 @@ export default class ApexStock {
           floating: true,
           tooltip: {
             enabled: true,
-            offsetX: -20,
+            offsetX: -5,
           },
           labels: {
             align: "right",
