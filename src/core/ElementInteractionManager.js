@@ -246,12 +246,7 @@ class ElementInteractionManager {
 
     // Position and show the popup
     if (this.elementPopup) {
-      // Use the actual event coordinates for better positioning
-      // Add a small offset to avoid covering the element and provide visual separation
-      const popupX = e.clientX + 10;
-      const popupY = e.clientY - 10;
-
-      this.elementPopup.show(popupX, popupY);
+      this.elementPopup.show(e.clientX + 10, e.clientY - 10);
     }
 
     e.stopPropagation();
@@ -492,11 +487,7 @@ class ElementInteractionManager {
 
     // After moving, show the popup again
     if (this.selectedElement && this.elementPopup) {
-      // Use the event coordinates for better positioning
-      const popupX = e.clientX + 10;
-      const popupY = e.clientY - 10;
-
-      this.elementPopup.show(popupX, popupY);
+      this.elementPopup.show(e.clientX + 10, e.clientY - 10);
     }
 
     e.stopPropagation();
