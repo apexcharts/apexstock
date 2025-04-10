@@ -453,7 +453,3 @@
   background-color: #3a3a3a;
   color: #ff6b6b;
 }
-
-.apexstock-tooltip-annotation * {
-  pointer-events: none;
-}

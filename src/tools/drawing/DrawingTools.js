@@ -145,6 +145,22 @@ export default class DrawingTools {
       y,
       { x: dataPoint.x, y: dataPoint.y }
     );
+
+    // Add the tooltip to the drawingGroup
+    if (tooltipResult && tooltipResult.element) {
+      this.drawingGroup.appendChild(tooltipResult.element);
+
+      // Now add to elements array
+      this.elements.push({
+        element: tooltipResult.element,
+        data: tooltipResult.data,
+      });
+
+      // Update element interaction manager
+      if (this.elementInteractionManager) {
+        this.elementInteractionManager.updateElementEventListeners();
+      }
+    }
   }
 
   /**

@@ -605,8 +605,6 @@ class ElementInteractionManager {
   deleteSelectedElement() {
     if (!this.selectedElementId) return;
 
-    console.log(this.selectedElementId);
-
     // Find the element by ID
     const index = this.getElementIndexById(this.selectedElementId);
     if (index === -1) {
@@ -622,15 +620,26 @@ class ElementInteractionManager {
     // Special handling for tooltip elements
     if (item && item.data && item.data.type === "tooltip") {
       // Use the ID to find the exact element in the DOM
-      const selector = `.apexstock-tooltip-annotation[data-element-id="${this.selectedElementId}"]`;
-      const domElement = document.querySelector(selector);
+      let selectors = [
+        `.apexstock-tooltip-annotation[data-element-id="${this.selectedElementId}"]`,
+        `.apexstock-tooltip-annotation[data-tooltip-id="${this.selectedElementId}"]`,
+      ];
 
-      if (domElement && domElement.parentNode) {
-        console.log(`Removing tooltip with ID: ${this.selectedElementId}`);
-        domElement.parentNode.removeChild(domElement);
-      } else if (item.element && item.element.parentNode) {
-        console.log(`Removing tooltip element reference`);
-        item.element.parentNode.removeChild(item.element);
+      selectors.forEach((selector) => {
+        const domElements = document.querySelectorAll(selector);
+        domElements.forEach((element) => {
+          if (element && element.parentNode) {
+            console.log(`Removing tooltip with ID: ${this.selectedElementId}`);
+            element.parentNode.removeChild(element);
+          }
+        });
+      });
+
+      // Also remove from the tooltip manager's Map
+      if (this.context && this.context.tooltipAnnotationManager) {
+        this.context.tooltipAnnotationManager.tooltipElements.delete(
+          this.selectedElementId
+        );
       }
     } else {
       // Standard removal for non-tooltip elements

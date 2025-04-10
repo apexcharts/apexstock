@@ -51,17 +51,6 @@ export default class TooltipAnnotationManager {
     // Create SVG elements
     this.createSvgTooltip(group, tooltipData);
 
-    // Add to SVG
-    this.svgOverlay.appendChild(group);
-
-    // Store reference to this tooltip element
-    this.tooltipElements.set(id, group);
-
-    // Notify parent
-    if (this.onTooltipCreated) {
-      this.onTooltipCreated(group, tooltipData);
-    }
-
     return {
       element: group,
       data: tooltipData,
@@ -138,9 +127,11 @@ export default class TooltipAnnotationManager {
     // Preserve tooltip ID if it exists
     if (data.id) {
       group.dataset.tooltipId = data.id;
+      group.dataset.elementId = data.id; // Add both attributes
     } else {
       const tooltipId = Utils.generateUniqueId("tooltip");
       group.dataset.tooltipId = tooltipId;
+      group.dataset.elementId = tooltipId; // Add both attributes
       data.id = tooltipId;
     }
 
