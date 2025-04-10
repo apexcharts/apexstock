@@ -1,10 +1,7 @@
+import Utils from "../../utils/Utils";
+
 // DrawingElementFactory.js - Factory for creating different drawing elements
 class DrawingElementFactory {
-  /**
-   * @param {Object} startPoint - Starting point coordinates
-   * @param {string} color - Drawing color
-   * @param {number} width - Drawing width
-   */
   constructor(startPoint, color, width) {
     this.startPoint = startPoint;
     this.color = color;
@@ -52,7 +49,11 @@ class DrawingElementFactory {
     element.setAttribute("stroke", this.color);
     element.setAttribute("stroke-width", this.width);
 
+    const id = Utils.generateUniqueId("line");
+    element.dataset.elementId = id;
+
     const data = {
+      id,
       type: "line",
       x1: this.startPoint.dataX,
       y1: this.startPoint.dataY,
@@ -81,7 +82,11 @@ class DrawingElementFactory {
     element.setAttribute("stroke-linecap", "round");
     element.setAttribute("stroke-linejoin", "round");
 
+    const id = Utils.generateUniqueId("brush");
+    element.dataset.elementId = id;
+
     const data = {
+      id,
       type: "brush",
       points: [{ x: this.startPoint.dataX, y: this.startPoint.dataY }],
       color: this.color,
@@ -108,7 +113,11 @@ class DrawingElementFactory {
     element.setAttribute("stroke-linejoin", "round");
     element.setAttribute("stroke-opacity", "0.3");
 
+    const id = Utils.generateUniqueId("highlighter");
+    element.dataset.elementId = id;
+
     const data = {
+      id,
       type: "highlighter",
       points: [{ x: this.startPoint.dataX, y: this.startPoint.dataY }],
       color: this.color,
@@ -136,7 +145,11 @@ class DrawingElementFactory {
     element.setAttribute("stroke-width", this.width);
     element.setAttribute("fill", "none");
 
+    const id = Utils.generateUniqueId("rectangle");
+    element.dataset.elementId = id;
+
     const data = {
+      id,
       type: "rectangle",
       x: this.startPoint.dataX,
       y: this.startPoint.dataY,
@@ -165,7 +178,11 @@ class DrawingElementFactory {
     element.setAttribute("stroke-width", this.width);
     element.setAttribute("fill", "none");
 
+    const id = Utils.generateUniqueId("circle");
+    element.dataset.elementId = id;
+
     const data = {
+      id,
       type: "circle",
       cx: this.startPoint.dataX,
       cy: this.startPoint.dataY,
@@ -194,7 +211,11 @@ class DrawingElementFactory {
     element.setAttribute("stroke-width", this.width);
     element.setAttribute("fill", "none");
 
+    const id = Utils.generateUniqueId("ellipse");
+    element.dataset.elementId = id;
+
     const data = {
+      id,
       type: "ellipse",
       cx: this.startPoint.dataX,
       cy: this.startPoint.dataY,

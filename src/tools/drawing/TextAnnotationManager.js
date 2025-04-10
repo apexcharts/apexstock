@@ -1,4 +1,4 @@
-// TextAnnotationManager.js - Simple version with add-only functionality
+import Utils from "../../utils/Utils";
 
 class TextAnnotationManager {
   constructor(chartDiv, svgOverlay, coordinateConverter, onTextCreated) {
@@ -42,9 +42,14 @@ class TextAnnotationManager {
 
     // Create a simple group as placeholder
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.classList.add("apexstock-text-annotation");
+
+    const id = Utils.generateUniqueId();
+    group.dataset.elementId = id;
 
     // Create initial data object
     this.currentData = {
+      id,
       type: "text",
       x: dataPoint.x,
       y: dataPoint.y,
@@ -320,6 +325,11 @@ class TextAnnotationManager {
         "g"
       );
       this.currentGroup.classList.add("apexstock-text-annotation");
+
+      // Set element ID as data attribute
+      if (this.currentData.id) {
+        this.currentGroup.dataset.elementId = this.currentData.id;
+      }
     }
 
     // Make sure group is in the DOM
@@ -466,6 +476,15 @@ class TextAnnotationManager {
     // Create new group
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     group.classList.add("apexstock-text-annotation");
+
+    // Set the element ID as a data attribute
+    if (data.id) {
+      group.dataset.elementId = data.id;
+    } else {
+      const id = Utils.generateUniqueId();
+      group.dataset.elementId = id;
+      data.id = id;
+    }
 
     // Store original position from data or calculate from coordinates
     const x =

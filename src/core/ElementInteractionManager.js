@@ -1,5 +1,6 @@
 // ElementInteractionManager.js - Manages hovering, selection, and interaction with drawing elements
 import SelectedElementPopup from "../components/SelectedElementPopup";
+import Utils from "../utils/Utils";
 
 class ElementInteractionManager {
   /**
@@ -27,9 +28,9 @@ class ElementInteractionManager {
 
     // Interaction state
     this.hoveredElement = null;
-    this.hoveredElementIndex = -1;
+    this.hoveredElementId = null;
     this.selectedElement = null;
-    this.selectedElementIndex = -1;
+    this.selectedElementId = null;
     this.isMoving = false;
     this.moveStartX = 0;
     this.moveStartY = 0;
@@ -59,6 +60,45 @@ class ElementInteractionManager {
     );
     this.attachEventListeners();
     this.activateInteraction();
+
+    // Ensure all elements have IDs (for existing elements)
+    this.ensureElementIds();
+  }
+
+  /**
+   * Ensures all elements in the elements array have unique IDs
+   */
+  ensureElementIds() {
+    this.elements.forEach((item) => {
+      if (!item.data.id) {
+        item.data.id = Utils.generateUniqueId(item.data.type || "element");
+
+        // Also set ID on DOM element for reference
+        if (item.element) {
+          item.element.dataset.elementId = item.data.id;
+        }
+      }
+    });
+  }
+
+  /**
+   * Finds an element in the elements array by ID
+   * @param {string} id - The element ID to find
+   * @returns {Object|null} - The element object or null if not found
+   */
+  getElementById(id) {
+    if (!id) return null;
+    return this.elements.find((item) => item.data && item.data.id === id);
+  }
+
+  /**
+   * Finds the index of an element in the elements array by ID
+   * @param {string} id - The element ID to find
+   * @returns {number} - The element index or -1 if not found
+   */
+  getElementIndexById(id) {
+    if (!id) return -1;
+    return this.elements.findIndex((item) => item.data && item.data.id === id);
   }
 
   /**
@@ -103,12 +143,16 @@ class ElementInteractionManager {
    * Activate interaction for all drawing elements
    */
   activateInteraction() {
+    // Ensure all elements have IDs before adding event listeners
+    this.ensureElementIds();
+
     // Add hover and click event listeners to each drawing element
-    for (let i = 0; i < this.elements.length; i++) {
-      const item = this.elements[i];
+    for (const item of this.elements) {
       if (item.element) {
-        // Store the index in the element for easier lookup
-        item.element.dataset.elementIndex = i;
+        // Ensure the element has an ID attribute for quick reference
+        if (item.data && item.data.id) {
+          item.element.dataset.elementId = item.data.id;
+        }
 
         // Add mouse event listeners
         item.element.addEventListener("mouseover", this.handleElementMouseOver);
@@ -164,16 +208,16 @@ class ElementInteractionManager {
     // If we're already moving an element, ignore hover events
     if (this.isMoving) return;
 
-    // Get the element index from the dataset
+    // Get the element ID from the dataset
     const targetElement = e.currentTarget;
-    const elementIndex = parseInt(targetElement.dataset.elementIndex);
+    const elementId = targetElement.dataset.elementId;
 
     // Ignore if the element is already selected
-    if (elementIndex === this.selectedElementIndex) return;
+    if (elementId === this.selectedElementId) return;
 
     // Set hover state
     this.hoveredElement = targetElement;
-    this.hoveredElementIndex = elementIndex;
+    this.hoveredElementId = elementId;
 
     // Show hover outline
     this.updateHoverOutline();
@@ -213,7 +257,7 @@ class ElementInteractionManager {
    */
   clearHover() {
     this.hoveredElement = null;
-    this.hoveredElementIndex = -1;
+    this.hoveredElementId = null;
     this.hoverOutline.style.display = "none";
   }
 
@@ -224,10 +268,15 @@ class ElementInteractionManager {
   handleElementClick(e) {
     // Get the target element
     const targetElement = e.currentTarget;
-    const elementIndex = parseInt(targetElement.dataset.elementIndex);
+    const elementId = targetElement.dataset.elementId;
+
+    if (!elementId) {
+      console.warn("Clicked element has no ID:", targetElement);
+      return;
+    }
 
     // If clicking on the already selected element, treat as a move
-    if (elementIndex === this.selectedElementIndex) {
+    if (elementId === this.selectedElementId) {
       this.handleMouseDown(e);
       return;
     }
@@ -239,7 +288,7 @@ class ElementInteractionManager {
 
     // Set selection state
     this.selectedElement = targetElement;
-    this.selectedElementIndex = elementIndex;
+    this.selectedElementId = elementId;
 
     // Show selection outline
     this.updateSelectionOutline();
@@ -278,7 +327,7 @@ class ElementInteractionManager {
    */
   clearSelection() {
     this.selectedElement = null;
-    this.selectedElementIndex = -1;
+    this.selectedElementId = null;
     this.selectionOutline.style.display = "none";
 
     // Hide the popup
@@ -292,15 +341,24 @@ class ElementInteractionManager {
    * @param {MouseEvent} e - Mouse event
    */
   handleMouseDown(e) {
-    if (!this.selectedElement) return;
+    if (!this.selectedElement || !this.selectedElementId) return;
 
     const rect = this.svgOverlay.getBoundingClientRect();
     this.moveStartX = e.clientX - rect.left;
     this.moveStartY = e.clientY - rect.top;
 
+    // Get the element data using the ID
+    const elementItem = this.getElementById(this.selectedElementId);
+    if (!elementItem || !elementItem.data) {
+      console.warn(
+        "Could not find element data for ID:",
+        this.selectedElementId
+      );
+      return;
+    }
+
     // Store the initial position of the element for relative movement
-    const elementData = this.elements[this.selectedElementIndex].data;
-    this.storeElementStartPosition(elementData);
+    this.storeElementStartPosition(elementItem.data);
 
     this.isMoving = true;
 
@@ -376,7 +434,8 @@ class ElementInteractionManager {
    * @param {MouseEvent} e - Mouse event
    */
   handleMouseMove(e) {
-    if (!this.isMoving || !this.selectedElement) return;
+    if (!this.isMoving || !this.selectedElement || !this.selectedElementId)
+      return;
 
     const rect = this.svgOverlay.getBoundingClientRect();
     const currentX = e.clientX - rect.left;
@@ -404,8 +463,24 @@ class ElementInteractionManager {
     const dataSpaceDeltaX = currentDataPoint.x - startDataPoint.x;
     const dataSpaceDeltaY = currentDataPoint.y - startDataPoint.y;
 
+    // Get the element data using the ID
+    const elementItem = this.getElementById(this.selectedElementId);
+    if (!elementItem || !elementItem.data) {
+      console.warn(
+        "Could not find element data for ID:",
+        this.selectedElementId
+      );
+      return;
+    }
+
     // Update the element data based on its type
-    this.moveElement(dataSpaceDeltaX, dataSpaceDeltaY, deltaX, deltaY);
+    this.moveElement(
+      elementItem.data,
+      dataSpaceDeltaX,
+      dataSpaceDeltaY,
+      deltaX,
+      deltaY
+    );
 
     // Redraw all elements with the updated positions
     this.redrawElements();
@@ -419,19 +494,20 @@ class ElementInteractionManager {
 
   /**
    * Move the selected element based on its type
+   * @param {Object} elementData - The element data to update
    * @param {number} dataSpaceDeltaX - X change in data space
    * @param {number} dataSpaceDeltaY - Y change in data space
    * @param {number} screenDeltaX - X change in screen space
    * @param {number} screenDeltaY - Y change in screen space
    */
-  moveElement(dataSpaceDeltaX, dataSpaceDeltaY, screenDeltaX, screenDeltaY) {
-    if (
-      this.selectedElementIndex < 0 ||
-      !this.elements[this.selectedElementIndex]
-    )
-      return;
-
-    const elementData = this.elements[this.selectedElementIndex].data;
+  moveElement(
+    elementData,
+    dataSpaceDeltaX,
+    dataSpaceDeltaY,
+    screenDeltaX,
+    screenDeltaY
+  ) {
+    if (!elementData) return;
 
     switch (elementData.type) {
       case "line":
@@ -516,7 +592,7 @@ class ElementInteractionManager {
     // Delete or Backspace key
     if (
       (e.key === "Delete" || e.key === "Backspace") &&
-      this.selectedElementIndex >= 0
+      this.selectedElementId
     ) {
       this.deleteSelectedElement();
       e.preventDefault();
@@ -527,25 +603,53 @@ class ElementInteractionManager {
    * Delete the currently selected element
    */
   deleteSelectedElement() {
-    if (this.selectedElementIndex >= 0) {
-      // Remove from SVG if element still exists
-      const item = this.elements[this.selectedElementIndex];
+    if (!this.selectedElementId) return;
+
+    console.log(this.selectedElementId);
+
+    // Find the element by ID
+    const index = this.getElementIndexById(this.selectedElementId);
+    if (index === -1) {
+      console.warn(
+        "Element to delete not found with ID:",
+        this.selectedElementId
+      );
+      return;
+    }
+
+    const item = this.elements[index];
+
+    // Special handling for tooltip elements
+    if (item && item.data && item.data.type === "tooltip") {
+      // Use the ID to find the exact element in the DOM
+      const selector = `.apexstock-tooltip-annotation[data-element-id="${this.selectedElementId}"]`;
+      const domElement = document.querySelector(selector);
+
+      if (domElement && domElement.parentNode) {
+        console.log(`Removing tooltip with ID: ${this.selectedElementId}`);
+        domElement.parentNode.removeChild(domElement);
+      } else if (item.element && item.element.parentNode) {
+        console.log(`Removing tooltip element reference`);
+        item.element.parentNode.removeChild(item.element);
+      }
+    } else {
+      // Standard removal for non-tooltip elements
       if (item && item.element && item.element.parentNode) {
         item.element.parentNode.removeChild(item.element);
       }
-
-      // Remove from the elements array
-      this.elements.splice(this.selectedElementIndex, 1);
-
-      // Clear selection
-      this.clearSelection();
-
-      // Redraw remaining elements
-      this.redrawElements();
-
-      // Update event listeners for the remaining elements
-      this.updateElementEventListeners();
     }
+
+    // Remove from the elements array
+    this.elements.splice(index, 1);
+
+    // Clear selection
+    this.clearSelection();
+
+    // Redraw remaining elements
+    this.redrawElements();
+
+    // Update event listeners for the remaining elements
+    this.updateElementEventListeners();
   }
 
   /**

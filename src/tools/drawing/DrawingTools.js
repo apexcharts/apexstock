@@ -7,6 +7,7 @@ import CoordinateConverter from "../../utils/CoordinateConverter";
 import TextAnnotationManager from "./TextAnnotationManager";
 import TooltipAnnotationManager from "./TooltipAnnotationManager";
 import ElementInteractionManager from "../../core/ElementInteractionManager";
+import Utils from "../../utils/Utils";
 
 export default class DrawingTools {
   /**
@@ -144,19 +145,6 @@ export default class DrawingTools {
       y,
       { x: dataPoint.x, y: dataPoint.y }
     );
-
-    if (tooltipResult) {
-      // Add element to elements array
-      this.elements.push({
-        element: tooltipResult.element,
-        data: tooltipResult.data,
-      });
-
-      // Update element interaction manager with the new element
-      if (this.elementInteractionManager) {
-        this.elementInteractionManager.updateElementEventListeners();
-      }
-    }
   }
 
   /**
@@ -386,7 +374,7 @@ export default class DrawingTools {
   }
 
   /**
-   * Handles mouse up event to finish drawing
+   * Handle mouseup event to finish drawing
    */
   handleMouseUp() {
     if (!this.isDrawing) return;
@@ -395,6 +383,20 @@ export default class DrawingTools {
 
     // For text tool, the elements are handled by TextAnnotationManager
     if (this.currentElement && this.currentTool !== "text") {
+      // Ensure the element has a unique ID in data
+      if (this.currentElementData && !this.currentElementData.id) {
+        const elementId = Utils.generateUniqueId(
+          this.currentElementData.type || "element"
+        );
+        this.currentElementData.id = elementId;
+
+        // Also set ID on DOM element for reference
+        if (this.currentElement) {
+          this.currentElement.dataset.elementId = elementId;
+        }
+      }
+
+      // Add to elements array
       this.elements.push({
         element: this.currentElement,
         data: this.currentElementData,
@@ -417,10 +419,22 @@ export default class DrawingTools {
    */
   handleTextCreated(element, data) {
     if (element && data) {
-      this.elements.push({
-        element: element,
-        data: data,
-      });
+      // Check if element with this ID already exists
+      const existingIndex = this.elements.findIndex(
+        (item) => item.data && item.data.id === data.id
+      );
+
+      if (existingIndex >= 0) {
+        // Update existing element
+        this.elements[existingIndex].element = element;
+        this.elements[existingIndex].data = data;
+      } else {
+        // Add as new element
+        this.elements.push({
+          element: element,
+          data: data,
+        });
+      }
 
       // Update element interaction manager with the new element
       if (this.elementInteractionManager) {
@@ -436,10 +450,22 @@ export default class DrawingTools {
    */
   handleTooltipCreated(element, data) {
     if (element && data) {
-      this.elements.push({
-        element: element,
-        data: data,
-      });
+      // Check if element with this ID already exists
+      const existingIndex = this.elements.findIndex(
+        (item) => item.data && item.data.id === data.id
+      );
+
+      if (existingIndex >= 0) {
+        // Update existing element
+        this.elements[existingIndex].element = element;
+        this.elements[existingIndex].data = data;
+      } else {
+        // Add as new element
+        this.elements.push({
+          element: element,
+          data: data,
+        });
+      }
 
       // Update element interaction manager with the new element
       if (this.elementInteractionManager) {
@@ -604,6 +630,11 @@ export default class DrawingTools {
       }
 
       if (element) {
+        // Ensure element has its ID as a data attribute
+        if (data.id) {
+          element.dataset.elementId = data.id;
+        }
+
         this.drawingGroup.appendChild(element);
         // Update the element reference in the elements array
         item.element = element;
@@ -706,6 +737,13 @@ export default class DrawingTools {
    * Clear all drawings
    */
   clearAllDrawings() {
+    // First, identify all tooltip IDs to ensure they're properly cleaned up
+    const tooltipIds = this.elements
+      .filter(
+        (item) => item.data && item.data.type === "tooltip" && item.data.id
+      )
+      .map((item) => item.data.id);
+
     // Clear the elements array
     this.elements = [];
 
@@ -714,15 +752,18 @@ export default class DrawingTools {
       this.drawingGroup.removeChild(this.drawingGroup.firstChild);
     }
 
-    // Additionally, remove any tooltip annotations that might be outside the drawing group
-    const tooltipAnnotations = this.svgOverlay.querySelectorAll(
-      ".apexstock-tooltip-annotation"
-    );
-    tooltipAnnotations.forEach((tooltip) => {
-      if (tooltip.parentNode) {
-        tooltip.parentNode.removeChild(tooltip);
+    // Find and remove any tooltip annotations that might be outside the drawing group
+    // by using their specific IDs
+    tooltipIds.forEach((id) => {
+      if (this.tooltipAnnotationManager) {
+        this.tooltipAnnotationManager.removeTooltipById(id);
       }
     });
+
+    // Additional cleanup for any remaining tooltips
+    if (this.tooltipAnnotationManager) {
+      this.tooltipAnnotationManager.cleanup();
+    }
 
     // Recreate element interaction manager
     if (this.elementInteractionManager) {
