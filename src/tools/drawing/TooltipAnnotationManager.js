@@ -34,6 +34,7 @@ export default class TooltipAnnotationManager {
     // Generate a truly unique ID for this tooltip using UUID v4-like pattern
     const id = Utils.generateUniqueId("tooltip");
     group.dataset.tooltipId = id;
+    group.dataset.elementId = id; // Add both for consistency
 
     // Create data object
     const tooltipData = {
@@ -51,6 +52,9 @@ export default class TooltipAnnotationManager {
     // Create SVG elements
     this.createSvgTooltip(group, tooltipData);
 
+    // Store in our map
+    this.tooltipElements.set(id, group);
+
     return {
       element: group,
       data: tooltipData,
@@ -63,13 +67,20 @@ export default class TooltipAnnotationManager {
    * @param {Object} data - The tooltip data
    */
   createSvgTooltip(group, data) {
+    // Always recalculate screen coordinates from data coords to ensure correct positioning
+    const screenPos = this.coordinateConverter.dataToScreen(data.x, data.y);
+
+    // Calculate tooltip position - ensure it's centered on the data point
+    const tooltipX = screenPos.x - data.tooltipWidth / 2;
+    const tooltipY = screenPos.y - data.tooltipHeight - 10; // Position above the point with a small gap
+
     // Create background rectangle
     const background = document.createElementNS(
       "http://www.w3.org/2000/svg",
       "rect"
     );
-    background.setAttribute("x", data.clickX);
-    background.setAttribute("y", data.clickY);
+    background.setAttribute("x", tooltipX);
+    background.setAttribute("y", tooltipY);
     background.setAttribute("width", data.tooltipWidth);
     background.setAttribute("height", data.tooltipHeight);
     background.setAttribute("rx", "3");
@@ -83,8 +94,8 @@ export default class TooltipAnnotationManager {
       "http://www.w3.org/2000/svg",
       "foreignObject"
     );
-    foreignObject.setAttribute("x", data.clickX);
-    foreignObject.setAttribute("y", data.clickY);
+    foreignObject.setAttribute("x", tooltipX);
+    foreignObject.setAttribute("y", tooltipY);
     foreignObject.setAttribute("width", data.tooltipWidth);
     foreignObject.setAttribute("height", data.tooltipHeight);
 
@@ -104,21 +115,43 @@ export default class TooltipAnnotationManager {
     group.appendChild(background);
     group.appendChild(foreignObject);
 
-    // Add a timestamp indicator
+    // Add a timestamp indicator (vertical line connecting tooltip to data point)
     const timestampBar = document.createElementNS(
       "http://www.w3.org/2000/svg",
       "line"
     );
-    timestampBar.setAttribute("x1", data.clickX);
-    timestampBar.setAttribute("y1", data.clickY + data.tooltipHeight);
-    timestampBar.setAttribute("x2", data.clickX);
-    timestampBar.setAttribute("y2", data.clickY + data.tooltipHeight + 20);
+    timestampBar.setAttribute("x1", screenPos.x);
+    timestampBar.setAttribute("y1", tooltipY + data.tooltipHeight);
+    timestampBar.setAttribute("x2", screenPos.x);
+    timestampBar.setAttribute("y2", screenPos.y);
     timestampBar.setAttribute("stroke", "#b0bec5");
     timestampBar.setAttribute("stroke-width", "1");
     timestampBar.setAttribute("stroke-dasharray", "2,2");
     group.appendChild(timestampBar);
+
+    // Add a small circle to mark the exact data point
+    const marker = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle"
+    );
+    marker.setAttribute("cx", screenPos.x);
+    marker.setAttribute("cy", screenPos.y);
+    marker.setAttribute("r", "3");
+    marker.setAttribute("fill", "#b0bec5");
+    marker.setAttribute("stroke", "white");
+    marker.setAttribute("stroke-width", "1");
+    group.appendChild(marker);
+
+    // Update data with current screen position for reference
+    data.currentScreenX = screenPos.x;
+    data.currentScreenY = screenPos.y;
   }
 
+  /**
+   * Redraws a tooltip element based on its data coordinates
+   * @param {Object} data - The tooltip data
+   * @returns {SVGElement} - The redrawn tooltip element
+   */
   redrawTooltipElement(data) {
     // Create new group
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -127,34 +160,16 @@ export default class TooltipAnnotationManager {
     // Preserve tooltip ID if it exists
     if (data.id) {
       group.dataset.tooltipId = data.id;
-      group.dataset.elementId = data.id; // Add both attributes
+      group.dataset.elementId = data.id; // Add both attributes for consistency
     } else {
       const tooltipId = Utils.generateUniqueId("tooltip");
       group.dataset.tooltipId = tooltipId;
-      group.dataset.elementId = tooltipId; // Add both attributes
+      group.dataset.elementId = tooltipId;
       data.id = tooltipId;
     }
 
-    // Store original position from data
-    const x =
-      data.clickX !== undefined
-        ? data.clickX
-        : this.coordinateConverter.dataToScreen(data.x, data.y).x;
-
-    const y =
-      data.clickY !== undefined
-        ? data.clickY
-        : this.coordinateConverter.dataToScreen(data.x, data.y).y;
-
-    // Update data with current positions
-    const updatedData = {
-      ...data,
-      clickX: x,
-      clickY: y,
-    };
-
-    // Create SVG elements
-    this.createSvgTooltip(group, updatedData);
+    // Create SVG elements using data coordinates for proper positioning
+    this.createSvgTooltip(group, data);
 
     // Update reference in our Map
     this.tooltipElements.set(data.id, group);
