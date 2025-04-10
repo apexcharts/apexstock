@@ -383,3 +383,73 @@
 .apexstock-theme-dark .apexstock-element-delete-btn:hover {
   background-color: #3a3a3a;
 }
+
+/* Styles for pinned tooltips */
+.apexstock-tooltip-annotation {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.apexstock-tooltip-annotation rect {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* Make sure tooltip content is visible */
+.apexstock-tooltip-annotation foreignObject {
+  overflow: visible;
+}
+
+/* Dark mode styles for pinned tooltips */
+.apexstock-theme-dark .apexstock-tooltip-annotation rect {
+  fill: #343a40;
+  stroke: #495057;
+}
+
+.apexstock-theme-dark .apexstock-tooltip-annotation text,
+.apexstock-theme-dark .apexstock-tooltip-annotation foreignObject div {
+  color: #f8f9fa;
+}
+
+/* Style for pin button */
+.apexstock-drawing-tool[data-tool="pin"] {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+/* Hover effect for pinned tooltips */
+.apexstock-tooltip-annotation:hover rect {
+  filter: brightness(0.95);
+}
+
+.apexstock-theme-dark .apexstock-tooltip-annotation:hover rect {
+  filter: brightness(1.1);
+}
+
+/* Ensure pinned tooltips are visible above chart elements */
+.apexstock-tooltip-annotation {
+  z-index: 2;
+}
+
+/* Selection state for tooltips */
+.apexstock-element-popup {
+  z-index: 1010;
+  /* Ensure the popup appears on top */
+  pointer-events: auto;
+  /* Ensure popup is clickable */
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Added specific selector for element deletion */
+.apexstock-element-delete-btn {
+  transition: background-color 0.2s ease;
+}
+
+.apexstock-element-delete-btn:hover {
+  background-color: #f5f5f5;
+  color: #e74c3c;
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn:hover {
+  background-color: #3a3a3a;
+  color: #ff6b6b;
+}

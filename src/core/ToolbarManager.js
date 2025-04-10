@@ -44,6 +44,7 @@ class ToolbarManager {
       { name: "circle", icon: "◯", tooltip: "Circle" },
       { name: "ellipse", icon: "⬭", tooltip: "Ellipse" },
       { name: "text", icon: "T", tooltip: "Text Annotation" },
+      { name: "pin", icon: "📌", tooltip: "Pin Tooltips" },
       { name: "clear", icon: "🗑", tooltip: "Clear All" },
     ];
 
@@ -97,6 +98,12 @@ class ToolbarManager {
         button.style.backgroundColor = "#f0f0f0";
       }
 
+      // Special styling for pin button
+      if (tool.name === "pin") {
+        button.classList.add("active"); // Pin is enabled by default
+        button.style.marginRight = "2px";
+      }
+
       if (tool.name === "clear") {
         button.style.marginLeft = "2px";
       }
@@ -132,7 +139,7 @@ class ToolbarManager {
       .forEach((btn) => {
         if (btn.dataset.tool === toolName) {
           btn.classList.add("active");
-        } else if (["clear"].indexOf(btn.dataset.tool) === -1) {
+        } else if (["clear", "pin"].indexOf(btn.dataset.tool) === -1) {
           btn.classList.remove("active");
         }
       });

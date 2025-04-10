@@ -5,9 +5,10 @@ import ToolbarManager from "../../core/ToolbarManager";
 import DrawingElementFactory from "../drawing/DrawingElementFactory";
 import CoordinateConverter from "../../utils/CoordinateConverter";
 import TextAnnotationManager from "./TextAnnotationManager";
+import TooltipAnnotationManager from "./TooltipAnnotationManager";
 import ElementInteractionManager from "../../core/ElementInteractionManager";
 
-class DrawingTools {
+export default class DrawingTools {
   /**
    * @param {ApexCharts} chart - The ApexCharts instance
    * @param {HTMLElement} chartEl - The chart container element
@@ -24,6 +25,7 @@ class DrawingTools {
     this.drawingColor = "#008FFB";
     this.drawingWidth = 2;
     this.currentElementData = null;
+    this.tooltipPinningEnabled = true; // Enable tooltip pinning by default
 
     // Initialize the coordinate converter
     this.coordinateConverter = new CoordinateConverter(
@@ -43,6 +45,14 @@ class DrawingTools {
       this.svgOverlay,
       this.coordinateConverter,
       this.handleTextCreated.bind(this)
+    );
+
+    // Initialize the tooltip annotation manager
+    this.tooltipAnnotationManager = new TooltipAnnotationManager(
+      this.chartEl,
+      this.svgOverlay,
+      this.coordinateConverter,
+      this.handleTooltipCreated.bind(this)
     );
 
     // Initialize the toolbar manager
@@ -88,6 +98,65 @@ class DrawingTools {
       this.redrawElements.bind(this),
       this.coordinateConverter
     );
+
+    // Add tooltip click handler
+    this.setupTooltipPinningHandler();
+  }
+
+  /**
+   * Set up handler for pinning tooltips on click
+   */
+  setupTooltipPinningHandler() {
+    // Find the main chart element
+    const mainChartEl = document.getElementById(this.chart.w.globals.chartID);
+    if (!mainChartEl) return;
+
+    // Add click listener to handle tooltip pinning
+    mainChartEl.addEventListener("click", this.handleTooltipPinning.bind(this));
+  }
+
+  /**
+   * Handle click event for pinning tooltips
+   * @param {MouseEvent} e - Click event
+   */
+  handleTooltipPinning(e) {
+    if (!this.tooltipPinningEnabled) return;
+
+    // Check if a tooltip is currently showing
+    const tooltip = document.querySelector(
+      ".apexcharts-tooltip:not(.apexcharts-tooltip-hidden)"
+    );
+    if (!tooltip) return;
+
+    // Get mouse position relative to overlay
+    const rect = this.overlayWrapper.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Convert screen coordinates to chart data coordinates
+    const dataPoint = this.coordinateConverter.screenToData(x, y);
+    if (!dataPoint) return;
+
+    // Create a tooltip annotation
+    const tooltipResult = this.tooltipAnnotationManager.createTooltipAnnotation(
+      tooltip,
+      x,
+      y,
+      { x: dataPoint.x, y: dataPoint.y }
+    );
+
+    if (tooltipResult) {
+      // Add element to elements array
+      this.elements.push({
+        element: tooltipResult.element,
+        data: tooltipResult.data,
+      });
+
+      // Update element interaction manager with the new element
+      if (this.elementInteractionManager) {
+        this.elementInteractionManager.updateElementEventListeners();
+      }
+    }
   }
 
   /**
@@ -361,6 +430,25 @@ class DrawingTools {
   }
 
   /**
+   * Callback for when tooltip is created by TooltipAnnotationManager
+   * @param {SVGElement} element - The tooltip element
+   * @param {Object} data - The tooltip data
+   */
+  handleTooltipCreated(element, data) {
+    if (element && data) {
+      this.elements.push({
+        element: element,
+        data: data,
+      });
+
+      // Update element interaction manager with the new element
+      if (this.elementInteractionManager) {
+        this.elementInteractionManager.updateElementEventListeners();
+      }
+    }
+  }
+
+  /**
    * Handles window resize to adjust the SVG overlay
    */
   handleResize() {
@@ -508,6 +596,11 @@ class DrawingTools {
           // Use TextAnnotationManager to handle text element creation
           element = this.textAnnotationManager.redrawTextElement(data);
           break;
+
+        case "tooltip":
+          // Use TooltipAnnotationManager to handle tooltip element creation
+          element = this.tooltipAnnotationManager.redrawTooltipElement(data);
+          break;
       }
 
       if (element) {
@@ -534,6 +627,25 @@ class DrawingTools {
       return;
     }
 
+    // Toggle tooltip pinning when "pin" tool is clicked
+    if (toolName === "pin") {
+      this.tooltipPinningEnabled = !this.tooltipPinningEnabled;
+
+      // Highlight the pin button if tooltip pinning is enabled
+      this.toolbarContainer
+        .querySelectorAll(".apexstock-drawing-tool")
+        .forEach((btn) => {
+          if (btn.dataset.tool === "pin") {
+            if (this.tooltipPinningEnabled) {
+              btn.classList.add("active");
+            } else {
+              btn.classList.remove("active");
+            }
+          }
+        });
+      return;
+    }
+
     // If the same tool is clicked again, deactivate it
     if (this.currentTool === toolName) {
       this.deactivateAllTools();
@@ -546,7 +658,7 @@ class DrawingTools {
       .forEach((btn) => {
         if (btn.dataset.tool === toolName) {
           btn.classList.add("active");
-        } else if (["clear"].indexOf(btn.dataset.tool) === -1) {
+        } else if (["clear", "pin"].indexOf(btn.dataset.tool) === -1) {
           btn.classList.remove("active");
         }
       });
@@ -568,11 +680,13 @@ class DrawingTools {
    * Deactivates all drawing tools and hides the overlay
    */
   deactivateAllTools() {
-    // Deselect all tool buttons
+    // Deselect all tool buttons except pin
     this.toolbarContainer
       .querySelectorAll(".apexstock-drawing-tool")
       .forEach((btn) => {
-        btn.classList.remove("active");
+        if (btn.dataset.tool !== "pin") {
+          btn.classList.remove("active");
+        }
       });
 
     // Reset the current tool
@@ -595,10 +709,20 @@ class DrawingTools {
     // Clear the elements array
     this.elements = [];
 
-    // Clear the drawing group
+    // Clear the drawing group - remove all child elements
     while (this.drawingGroup.firstChild) {
       this.drawingGroup.removeChild(this.drawingGroup.firstChild);
     }
+
+    // Additionally, remove any tooltip annotations that might be outside the drawing group
+    const tooltipAnnotations = this.svgOverlay.querySelectorAll(
+      ".apexstock-tooltip-annotation"
+    );
+    tooltipAnnotations.forEach((tooltip) => {
+      if (tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+      }
+    });
 
     // Recreate element interaction manager
     if (this.elementInteractionManager) {
@@ -624,6 +748,14 @@ class DrawingTools {
   }
 
   /**
+   * Toggle tooltip pinning functionality
+   * @param {boolean} enabled - Whether tooltip pinning should be enabled
+   */
+  toggleTooltipPinning(enabled) {
+    this.tooltipPinningEnabled = enabled;
+  }
+
+  /**
    * Clean up event listeners and resources
    */
   destroy() {
@@ -638,6 +770,15 @@ class DrawingTools {
       this.elementInteractionManager.destroy();
     }
 
+    // Remove tooltip click handler
+    const mainChartEl = document.getElementById(this.chart.w.globals.chartID);
+    if (mainChartEl) {
+      mainChartEl.removeEventListener(
+        "click",
+        this.handleTooltipPinning.bind(this)
+      );
+    }
+
     // Remove the SVG overlay wrapper
     if (this.overlayWrapper && this.overlayWrapper.parentNode) {
       this.overlayWrapper.parentNode.removeChild(this.overlayWrapper);
@@ -649,5 +790,3 @@ class DrawingTools {
     }
   }
 }
-
-export default DrawingTools;

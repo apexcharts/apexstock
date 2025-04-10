@@ -69,6 +69,7 @@ class SelectedElementPopup {
     this.popupElement.style.left = `${relativeX}px`;
     this.popupElement.style.top = `${relativeY}px`;
     this.popupElement.style.display = "block";
+    this.popupElement.style.zIndex = "1000"; // Ensure popup is above other elements
 
     // Ensure popup is fully visible in the viewport
     const popupRect = this.popupElement.getBoundingClientRect();

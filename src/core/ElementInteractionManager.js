@@ -353,6 +353,13 @@ class ElementInteractionManager {
         this.elementStartDataY = elementData.y;
         break;
 
+      case "tooltip":
+        this.elementStartX = elementData.clickX;
+        this.elementStartY = elementData.clickY;
+        this.elementStartDataX = elementData.x;
+        this.elementStartDataY = elementData.y;
+        break;
+
       case "brush":
       case "highlighter":
         // For path-based elements, store all points
@@ -461,6 +468,14 @@ class ElementInteractionManager {
         elementData.y = this.elementStartDataY + dataSpaceDeltaY;
         break;
 
+      case "tooltip":
+        // Move the tooltip element
+        elementData.clickX = this.elementStartX + screenDeltaX;
+        elementData.clickY = this.elementStartY + screenDeltaY;
+        elementData.x = this.elementStartDataX + dataSpaceDeltaX;
+        elementData.y = this.elementStartDataY + dataSpaceDeltaY;
+        break;
+
       case "brush":
       case "highlighter":
         // Move all points of the path
@@ -513,6 +528,12 @@ class ElementInteractionManager {
    */
   deleteSelectedElement() {
     if (this.selectedElementIndex >= 0) {
+      // Remove from SVG if element still exists
+      const item = this.elements[this.selectedElementIndex];
+      if (item && item.element && item.element.parentNode) {
+        item.element.parentNode.removeChild(item.element);
+      }
+
       // Remove from the elements array
       this.elements.splice(this.selectedElementIndex, 1);
 
