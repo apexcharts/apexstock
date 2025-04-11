@@ -6,12 +6,14 @@
 export default class ThemeManager {
   /**
    * Creates a new ThemeManager
+   * @param {Object} ctx - The ApexStock context
    * @param {string} initialTheme - The initial theme ('light' or 'dark')
    */
   constructor(ctx, initialTheme = "light") {
     this.ctx = ctx;
-    this.setTheme(initialTheme || "light");
     this.themeStylesApplied = false;
+    this.initColorSchemes();
+    this.setTheme(initialTheme || "light");
   }
 
   setTheme(themeName) {
@@ -22,7 +24,6 @@ export default class ThemeManager {
 
     this.theme = themeName;
     this.isDarkTheme = themeName === "dark";
-    this.initColorSchemes();
   }
 
   getTheme() {
@@ -37,6 +38,9 @@ export default class ThemeManager {
     return this.colorSchemes[this.theme];
   }
 
+  /**
+   * Initializes the color schemes for light and dark themes
+   */
   initColorSchemes() {
     this.colorSchemes = {
       light: {
@@ -128,11 +132,12 @@ export default class ThemeManager {
    * @param {HTMLElement} toolbar - The toolbar element
    */
   applyThemeStyles(chartContainer, toolbar) {
+    if (!chartContainer) return;
+
     chartContainer.classList.remove(
       "apexstock-theme-light",
       "apexstock-theme-dark"
     );
-
     chartContainer.classList.add(`apexstock-theme-${this.theme}`);
 
     const colors = this.getColors();
@@ -158,12 +163,15 @@ export default class ThemeManager {
       document.head.appendChild(themeStyles);
     }
 
+    // Font family from chart options or default
+    const fontFamily =
+      this.ctx.chartOptions?.chart?.fontFamily ||
+      "Helvetica, Arial, sans-serif";
+
+    // Generate CSS for the current theme
     themeStyles.textContent = `
       [class^=apexstock-] * {
-        font-family: ${
-          this.ctx.chartOptions.chart.fontFamily ||
-          "Helvetica, Arial, sans-serif"
-        }
+        font-family: ${fontFamily}
       }
 
       .apexstock-theme-${this.theme} .apexstock-toolbar {
@@ -172,12 +180,7 @@ export default class ThemeManager {
         border-color: ${colors.toolbar.border};
       }
       
-      .apexstock-theme-${this.theme} .apexstock-custom-select-trigger {
-        background-color: ${colors.dropdown.background};
-        color: ${colors.dropdown.text};
-        border-color: ${colors.dropdown.border};
-      }
-      
+      .apexstock-theme-${this.theme} .apexstock-custom-select-trigger,
       .apexstock-theme-${this.theme} .apexstock-custom-options {
         background-color: ${colors.dropdown.background};
         color: ${colors.dropdown.text};
@@ -217,7 +220,7 @@ export default class ThemeManager {
   }
 
   /**
-   * Apply theme to an element's style
+   * Apply theme to an element's style based on element type
    * @param {HTMLElement} element - The element to style
    * @param {string} elementType - Type of element ('dropdown', 'option', etc.)
    */
@@ -245,9 +248,6 @@ export default class ThemeManager {
 
       case "optionSelected":
         element.style.backgroundColor = colors.dropdown.selectedBackground;
-        break;
-
-      default:
         break;
     }
   }
