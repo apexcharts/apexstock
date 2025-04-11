@@ -157,6 +157,28 @@ export default class Export {
       clonedNode.style.height = scaledHeight + "px";
       const serializedNode = new XMLSerializer().serializeToString(clonedNode);
 
+      // any styles that need to be attached with the exported svg
+      const exportStyles = `
+        .apexcharts-tooltip, .apexcharts-toolbar, .apexcharts-xaxistooltip, .apexcharts-yaxistooltip, .apexcharts-xcrosshairs, .apexcharts-ycrosshairs, .apexcharts-zoom-rect, .apexcharts-selection-rect {
+          display: none;
+        }
+        .apexcharts-custom-tooltip, .apexcharts-tooltip-box {
+          padding: 4px 8px;
+        }
+        .apexcharts-tooltip-box>div {
+          margin: 4px 0;
+        }
+        .apexcharts-tooltip-box span.value {
+          font-weight: 700;
+        }
+        [class^=apexstock-] * {
+          font-family: ${
+            this.ctx.chartOptions.chart.fontFamily ||
+            "Helvetica, Arial, sans-serif"
+          }
+        }
+      `;
+
       // Create SVG with foreignObject
       let svgString = `
         <svg xmlns="http://www.w3.org/2000/svg" 
@@ -169,15 +191,7 @@ export default class Export {
           <foreignObject width="100%" height="100%">
             <div xmlns="http://www.w3.org/1999/xhtml" style="width:${scaledWidth}px; height:${scaledHeight}px;">
               <style type="text/css">
-                .apexcharts-tooltip, .apexcharts-toolbar, .apexcharts-xaxistooltip, .apexcharts-yaxistooltip, .apexcharts-xcrosshairs, .apexcharts-ycrosshairs, .apexcharts-zoom-rect, .apexcharts-selection-rect {
-                  display: none;
-                }
-                [class^=apexstock-] * {
-                  font-family: ${
-                    this.ctx.chartOptions.chart.fontFamily ||
-                    "Helvetica, Arial, sans-serif"
-                  }
-                }
+                ${exportStyles}
               </style>
               ${serializedNode}
             </div>

@@ -384,6 +384,12 @@
   background-color: #3a3a3a;
 }
 
+/* Style for pin button */
+.apexstock-drawing-tool[data-tool="pin"] {
+  font-size: 18px;
+  line-height: 26px;
+}
+
 /* Styles for pinned tooltips */
 .apexstock-tooltip-annotation {
   pointer-events: all;
@@ -399,22 +405,8 @@
   overflow: visible;
 }
 
-/* Dark mode styles for pinned tooltips */
-.apexstock-theme-dark .apexstock-tooltip-annotation rect {
-  fill: #343a40;
-  stroke: #495057;
-}
 
-.apexstock-theme-dark .apexstock-tooltip-annotation text,
-.apexstock-theme-dark .apexstock-tooltip-annotation foreignObject div {
-  color: #f8f9fa;
-}
 
-/* Style for pin button */
-.apexstock-drawing-tool[data-tool="pin"] {
-  font-size: 18px;
-  line-height: 26px;
-}
 
 /* Hover effect for pinned tooltips */
 .apexstock-tooltip-annotation:hover rect {

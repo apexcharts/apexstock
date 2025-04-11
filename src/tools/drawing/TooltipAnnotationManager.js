@@ -1,6 +1,6 @@
+// TooltipAnnotationManager.js - Manages pinned tooltip annotations
 import Utils from "../../utils/Utils";
 
-// TooltipAnnotationManager.js - Manages pinned tooltip annotations
 export default class TooltipAnnotationManager {
   /**
    * @param {HTMLElement} chartDiv - The chart container element
@@ -85,6 +85,11 @@ export default class TooltipAnnotationManager {
     const tooltipX = screenPos.x - data.tooltipWidth / 2;
     const tooltipY = screenPos.y - data.tooltipHeight - 10; // Position above the point with a small gap
 
+    // Check if we're in dark mode by looking for the theme class on the chart element or its parent
+    const isDarkMode =
+      this.chartDiv.classList.contains("apexstock-theme-dark") ||
+      this.chartDiv.parentNode.classList.contains("apexstock-theme-dark");
+
     // Create background rectangle
     const background = document.createElementNS(
       "http://www.w3.org/2000/svg",
@@ -95,9 +100,17 @@ export default class TooltipAnnotationManager {
     background.setAttribute("width", data.tooltipWidth);
     background.setAttribute("height", data.tooltipHeight);
     background.setAttribute("rx", "3");
-    background.setAttribute("fill", "white");
-    background.setAttribute("fill-opacity", "0.95");
-    background.setAttribute("stroke", "#e9ecef");
+
+    // Apply styles inline to ensure they're included during export
+    if (isDarkMode) {
+      background.setAttribute("fill", "#343a40");
+      background.setAttribute("stroke", "#495057");
+    } else {
+      background.setAttribute("fill", "white");
+      background.setAttribute("stroke", "#e9ecef");
+    }
+
+    background.setAttribute("fill-opacity", "0.75");
     background.setAttribute("stroke-width", "1");
 
     // Create foreignObject to hold the HTML content
@@ -117,7 +130,8 @@ export default class TooltipAnnotationManager {
     tooltipDiv.style.padding = "6px 8px";
     tooltipDiv.style.fontFamily = "Helvetica, Arial, sans-serif";
     tooltipDiv.style.fontSize = "12px";
-    tooltipDiv.style.color = "#373d3f";
+
+    tooltipDiv.style.color = isDarkMode ? "#f8f9fa" : "#373d3f";
     tooltipDiv.style.pointerEvents = "none";
     tooltipDiv.innerHTML = data.tooltipContent;
 
@@ -135,7 +149,9 @@ export default class TooltipAnnotationManager {
     timestampBar.setAttribute("y1", tooltipY + data.tooltipHeight);
     timestampBar.setAttribute("x2", screenPos.x);
     timestampBar.setAttribute("y2", screenPos.y);
-    timestampBar.setAttribute("stroke", "#b0bec5");
+
+    // Use theme-appropriate color for the connecting line
+    timestampBar.setAttribute("stroke", isDarkMode ? "#6c757d" : "#b0bec5");
     timestampBar.setAttribute("stroke-width", "1");
     timestampBar.setAttribute("stroke-dasharray", "2,2");
     group.appendChild(timestampBar);
@@ -148,8 +164,10 @@ export default class TooltipAnnotationManager {
     marker.setAttribute("cx", screenPos.x);
     marker.setAttribute("cy", screenPos.y);
     marker.setAttribute("r", "3");
-    marker.setAttribute("fill", "#b0bec5");
-    marker.setAttribute("stroke", "white");
+
+    // Apply theme-appropriate color to marker
+    marker.setAttribute("fill", isDarkMode ? "#6c757d" : "#b0bec5");
+    marker.setAttribute("stroke", isDarkMode ? "#343a40" : "white");
     marker.setAttribute("stroke-width", "1");
     group.appendChild(marker);
 
