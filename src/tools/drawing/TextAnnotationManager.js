@@ -546,15 +546,14 @@ class TextAnnotationManager {
     // Use the coordinate converter to determine the correct screen position
     let x, y;
 
-    // If clickX/Y are stored, use them for absolute positioning
-    if (data.clickX !== undefined && data.clickY !== undefined) {
-      x = data.clickX;
-      y = data.clickY;
-    } else {
-      // Otherwise convert from data coordinates
-      const screenPos = this.coordinateConverter.dataToScreen(data.x, data.y);
-      x = screenPos.x;
-      y = screenPos.y;
+    // Always use data coordinates for positioning during redraw
+    const screenPos = this.coordinateConverter.dataToScreen(data.x, data.y);
+    x = screenPos.x;
+    y = screenPos.y;
+    // Only fall back to clickX/Y if data coordinates are invalid
+    if (isNaN(screenPos.x) || isNaN(screenPos.y)) {
+      x = data.clickX || 0;
+      y = data.clickY || 0;
     }
 
     // Create text element

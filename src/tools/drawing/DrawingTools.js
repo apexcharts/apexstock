@@ -568,10 +568,19 @@ export default class DrawingTools {
             data.x + data.width,
             data.y + data.height
           );
-          element.setAttribute("x", rectTopLeft.x);
-          element.setAttribute("y", rectTopLeft.y);
-          element.setAttribute("width", rectBottomRight.x - rectTopLeft.x);
-          element.setAttribute("height", rectBottomRight.y - rectTopLeft.y);
+
+          // Calculate width and height
+          const rectWidth = Math.abs(rectBottomRight.x - rectTopLeft.x);
+          const rectHeight = Math.abs(rectBottomRight.y - rectTopLeft.y);
+
+          // Determine the actual top-left corner based on which point has smaller coordinates
+          const rectX = Math.min(rectTopLeft.x, rectBottomRight.x);
+          const rectY = Math.min(rectTopLeft.y, rectBottomRight.y);
+
+          element.setAttribute("x", rectX);
+          element.setAttribute("y", rectY);
+          element.setAttribute("width", rectWidth);
+          element.setAttribute("height", rectHeight);
           element.setAttribute("stroke", data.color);
           element.setAttribute("stroke-width", data.strokeWidth);
           element.setAttribute("fill", "none");
