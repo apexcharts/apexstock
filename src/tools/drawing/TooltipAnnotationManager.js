@@ -27,18 +27,29 @@ export default class TooltipAnnotationManager {
   createTooltipAnnotation(originalTooltip, x, y, dataPoint) {
     if (!originalTooltip) return null;
 
+    // Ensure we have valid data coordinates using the coordinate converter
+    if (!dataPoint || isNaN(dataPoint.x) || isNaN(dataPoint.y)) {
+      dataPoint = this.coordinateConverter.screenToData(x, y);
+
+      // If still invalid, return null
+      if (!dataPoint || isNaN(dataPoint.x) || isNaN(dataPoint.y)) {
+        console.warn("Could not determine data coordinates for tooltip");
+        return null;
+      }
+    }
+
     // Create a group for the tooltip
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     group.classList.add("apexstock-tooltip-annotation");
 
-    // Generate a truly unique ID for this tooltip using UUID v4-like pattern
+    // Generate a truly unique ID for this tooltip
     const id = Utils.generateUniqueId("tooltip");
     group.dataset.tooltipId = id;
     group.dataset.elementId = id; // Add both for consistency
 
     // Create data object
     const tooltipData = {
-      id, // Add a unique ID
+      id,
       type: "tooltip",
       x: dataPoint.x,
       y: dataPoint.y,
@@ -67,7 +78,7 @@ export default class TooltipAnnotationManager {
    * @param {Object} data - The tooltip data
    */
   createSvgTooltip(group, data) {
-    // Always recalculate screen coordinates from data coords to ensure correct positioning
+    // Always use the coordinate converter to get current screen position
     const screenPos = this.coordinateConverter.dataToScreen(data.x, data.y);
 
     // Calculate tooltip position - ensure it's centered on the data point
@@ -168,6 +179,9 @@ export default class TooltipAnnotationManager {
       data.id = tooltipId;
     }
 
+    // Force refresh coordinate converter bounds to ensure accurate positioning
+    this.coordinateConverter.refreshBounds();
+
     // Create SVG elements using data coordinates for proper positioning
     this.createSvgTooltip(group, data);
 
@@ -175,6 +189,82 @@ export default class TooltipAnnotationManager {
     this.tooltipElements.set(data.id, group);
 
     return group;
+  }
+
+  /**
+   * Updates the position of a tooltip based on chart changes
+   * @param {string} id - The tooltip ID
+   * @returns {boolean} - Whether the update was successful
+   */
+  updateTooltipPosition(id) {
+    // Find the tooltip element
+    const tooltipGroup = this.tooltipElements.get(id);
+    if (!tooltipGroup) return false;
+
+    // Find the data for this tooltip
+    const tooltipData = this.getTooltipDataFromElement(tooltipGroup);
+    if (!tooltipData) return false;
+
+    // Create new tooltip with updated position
+    const updatedGroup = this.redrawTooltipElement(tooltipData);
+
+    // Replace the old tooltip with the new one
+    if (tooltipGroup.parentNode) {
+      tooltipGroup.parentNode.replaceChild(updatedGroup, tooltipGroup);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Extract tooltip data from a tooltip element
+   * @param {SVGElement} element - The tooltip element
+   * @returns {Object|null} - The tooltip data or null if not found
+   */
+  getTooltipDataFromElement(element) {
+    if (!element) return null;
+
+    const id = element.dataset.tooltipId || element.dataset.elementId;
+    if (!id) return null;
+
+    // Find data from the elements we know about
+    for (const item of this.tooltipElements.values()) {
+      if (
+        item.dataset &&
+        (item.dataset.tooltipId === id || item.dataset.elementId === id)
+      ) {
+        // Extract data from element attributes
+        const foreignObject = item.querySelector("foreignObject");
+        const rect = item.querySelector("rect");
+        const circle = item.querySelector("circle");
+
+        if (!foreignObject || !rect || !circle) continue;
+
+        const tooltipX = parseFloat(circle.getAttribute("cx"));
+        const tooltipY = parseFloat(circle.getAttribute("cy"));
+
+        // Convert screen coordinates to data coordinates
+        const dataPoint = this.coordinateConverter.screenToData(
+          tooltipX,
+          tooltipY
+        );
+
+        return {
+          id,
+          type: "tooltip",
+          x: dataPoint.x,
+          y: dataPoint.y,
+          clickX: tooltipX,
+          clickY: tooltipY,
+          tooltipContent: foreignObject.querySelector("div").innerHTML,
+          tooltipWidth: parseFloat(rect.getAttribute("width")),
+          tooltipHeight: parseFloat(rect.getAttribute("height")),
+        };
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -186,7 +276,7 @@ export default class TooltipAnnotationManager {
     if (!element) return;
 
     // Get tooltip ID from element
-    const tooltipId = element.dataset.tooltipId;
+    const tooltipId = element.dataset.tooltipId || element.dataset.elementId;
 
     // Validate ID match if provided
     if (id && tooltipId !== id) {
@@ -194,8 +284,9 @@ export default class TooltipAnnotationManager {
 
       // Find the correct element with the specified ID
       const correctElement = document.querySelector(
-        `.apexstock-tooltip-annotation[data-tooltip-id="${id}"]`
+        `.apexstock-tooltip-annotation[data-tooltip-id="${id}"], .apexstock-tooltip-annotation[data-element-id="${id}"]`
       );
+
       if (correctElement && correctElement.parentNode) {
         console.log(`Removing tooltip with correct ID: ${id}`);
         correctElement.parentNode.removeChild(correctElement);
@@ -223,10 +314,11 @@ export default class TooltipAnnotationManager {
   removeTooltipById(id) {
     if (!id) return false;
 
-    // Find element by ID
+    // Find element by ID - try both element-id and tooltip-id attributes
     const element = document.querySelector(
-      `.apexstock-tooltip-annotation[data-tooltip-id="${id}"]`
+      `.apexstock-tooltip-annotation[data-tooltip-id="${id}"], .apexstock-tooltip-annotation[data-element-id="${id}"]`
     );
+
     if (element && element.parentNode) {
       element.parentNode.removeChild(element);
       this.tooltipElements.delete(id);
@@ -241,7 +333,7 @@ export default class TooltipAnnotationManager {
    */
   cleanup() {
     // Remove all tooltip elements from the DOM
-    this.tooltipElements.forEach((element) => {
+    this.tooltipElements.forEach((element, id) => {
       if (element && element.parentNode) {
         element.parentNode.removeChild(element);
       }
@@ -249,5 +341,12 @@ export default class TooltipAnnotationManager {
 
     // Clear the Map
     this.tooltipElements.clear();
+  }
+
+  /**
+   * Clean up resources
+   */
+  destroy() {
+    this.cleanup();
   }
 }

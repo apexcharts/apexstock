@@ -10,11 +10,6 @@ import ElementInteractionManager from "../../core/ElementInteractionManager";
 import Utils from "../../utils/Utils";
 
 export default class DrawingTools {
-  /**
-   * @param {ApexCharts} chart - The ApexCharts instance
-   * @param {HTMLElement} chartEl - The chart container element
-   * @param {Array} series - The data series for coordinate transformation
-   */
   constructor(ctx) {
     this.chart = ctx.chart;
     this.chartEl = ctx.chartEl;
@@ -27,9 +22,10 @@ export default class DrawingTools {
     this.drawingWidth = 2;
     this.currentElementData = null;
     this.tooltipPinningEnabled = true; // Enable tooltip pinning by default
+    this.ctx = ctx;
 
-    // Initialize the coordinate converter
-    this.coordinateConverter = new CoordinateConverter(
+    // Initialize the coordinate converter using the shared instance
+    this.coordinateConverter = CoordinateConverter.getInstance(
       this.chart,
       this.chartEl
     );
@@ -134,7 +130,7 @@ export default class DrawingTools {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Convert screen coordinates to chart data coordinates
+    // Convert screen coordinates to chart data coordinates using our coordinate converter
     const dataPoint = this.coordinateConverter.screenToData(x, y);
     if (!dataPoint) return;
 
@@ -198,7 +194,7 @@ export default class DrawingTools {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Convert screen coordinates to chart data coordinates
+    // Convert screen coordinates to chart data coordinates using our coordinate converter
     const dataPoint = this.coordinateConverter.screenToData(x, y);
 
     if (!dataPoint) {
@@ -339,33 +335,33 @@ export default class DrawingTools {
         this.currentElement.setAttribute("width", Math.abs(width));
         this.currentElement.setAttribute("height", Math.abs(height));
 
-        // Calculate data coordinates for the rectangle
-        const startPoint = this.coordinateConverter.screenToData(
+        // Use our coordinate converter to get the data coordinates for the rectangle
+        const startDataPoint = this.coordinateConverter.screenToData(
           this.startPoint.x,
           this.startPoint.y
         );
-        const endPoint = dataPoint;
 
-        this.currentElementData.x = Math.min(startPoint.x, endPoint.x);
-        this.currentElementData.y = Math.min(startPoint.y, endPoint.y);
-        this.currentElementData.width = Math.abs(endPoint.x - startPoint.x);
-        this.currentElementData.height = Math.abs(endPoint.y - startPoint.y);
+        this.currentElementData.x = Math.min(startDataPoint.x, dataPoint.x);
+        this.currentElementData.y = Math.min(startDataPoint.y, dataPoint.y);
+        this.currentElementData.width = Math.abs(
+          dataPoint.x - startDataPoint.x
+        );
+        this.currentElementData.height = Math.abs(
+          dataPoint.y - startDataPoint.y
+        );
         break;
 
       case "circle":
+        // Calculate radius in screen space
         const dx = x - this.startPoint.x;
         const dy = y - this.startPoint.y;
         const radius = Math.sqrt(dx * dx + dy * dy);
         this.currentElement.setAttribute("r", radius);
 
-        // Calculate data space radius
-        const startDataPoint = this.coordinateConverter.screenToData(
-          this.startPoint.x,
-          this.startPoint.y
-        );
-        const dataRadius = Math.sqrt(
-          Math.pow(dataPoint.x - startDataPoint.x, 2) +
-            Math.pow(dataPoint.y - startDataPoint.y, 2)
+        // Calculate data space radius using our coordinate converter
+        const dataRadius = this.coordinateConverter.getDataDistance(
+          { x: this.startPoint.dataX, y: this.startPoint.dataY },
+          dataPoint
         );
         this.currentElementData.r = dataRadius;
         break;
@@ -494,6 +490,9 @@ export default class DrawingTools {
    * Handles window resize to adjust the SVG overlay
    */
   handleResize() {
+    // Force refresh coordinate converter bounds
+    this.coordinateConverter.refreshBounds();
+
     // Redraw all elements when the window is resized
     this.redrawElements();
   }

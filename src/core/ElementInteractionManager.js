@@ -2,7 +2,7 @@
 import SelectedElementPopup from "../components/SelectedElementPopup";
 import Utils from "../utils/Utils";
 
-class ElementInteractionManager {
+export default class ElementInteractionManager {
   /**
    * @param {HTMLElement} chartEl - The chart container element
    * @param {SVGElement} svgOverlay - The SVG overlay element
@@ -444,24 +444,11 @@ class ElementInteractionManager {
     const deltaX = currentX - this.moveStartX;
     const deltaY = currentY - this.moveStartY;
 
-    // Calculate data space delta
-    const startScreenPoint = { x: this.moveStartX, y: this.moveStartY };
-    const currentScreenPoint = { x: currentX, y: currentY };
-
-    const startDataPoint = this.coordinateConverter.screenToData(
-      startScreenPoint.x,
-      startScreenPoint.y
+    // Use the CoordinateConverter to get data space delta
+    const dataSpaceDelta = this.coordinateConverter.screenDeltaToDataDelta(
+      deltaX,
+      deltaY
     );
-
-    const currentDataPoint = this.coordinateConverter.screenToData(
-      currentScreenPoint.x,
-      currentScreenPoint.y
-    );
-
-    if (!startDataPoint || !currentDataPoint) return;
-
-    const dataSpaceDeltaX = currentDataPoint.x - startDataPoint.x;
-    const dataSpaceDeltaY = currentDataPoint.y - startDataPoint.y;
 
     // Get the element data using the ID
     const elementItem = this.getElementById(this.selectedElementId);
@@ -476,8 +463,8 @@ class ElementInteractionManager {
     // Update the element data based on its type
     this.moveElement(
       elementItem.data,
-      dataSpaceDeltaX,
-      dataSpaceDeltaY,
+      dataSpaceDelta.x,
+      dataSpaceDelta.y,
       deltaX,
       deltaY
     );
@@ -693,5 +680,3 @@ class ElementInteractionManager {
     }
   }
 }
-
-export default ElementInteractionManager;

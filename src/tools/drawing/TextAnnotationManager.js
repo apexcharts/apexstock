@@ -1,6 +1,12 @@
 import Utils from "../../utils/Utils";
 
 class TextAnnotationManager {
+  /**
+   * @param {HTMLElement} chartDiv - The chart container element
+   * @param {SVGElement} svgOverlay - The SVG overlay element
+   * @param {Object} coordinateConverter - The coordinate converter utility
+   * @param {Function} onTextCreated - Callback when text is created
+   */
   constructor(chartDiv, svgOverlay, coordinateConverter, onTextCreated) {
     this.svgOverlay = svgOverlay;
     this.chartDiv = chartDiv;
@@ -35,6 +41,14 @@ class TextAnnotationManager {
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
   }
 
+  /**
+   * Creates a new text annotation at the specified position
+   * @param {number} x - Screen x coordinate
+   * @param {number} y - Screen y coordinate
+   * @param {Object} dataPoint - Data coordinates
+   * @param {string} color - Text color
+   * @returns {Object} - Created element and data
+   */
   createTextAnnotation(x, y, dataPoint, color) {
     // Save the initial click position
     this.clickX = x;
@@ -44,7 +58,7 @@ class TextAnnotationManager {
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     group.classList.add("apexstock-text-annotation");
 
-    const id = Utils.generateUniqueId();
+    const id = Utils.generateUniqueId("text");
     group.dataset.elementId = id;
 
     // Create initial data object
@@ -72,6 +86,9 @@ class TextAnnotationManager {
     };
   }
 
+  /**
+   * Creates the formatting toolbar
+   */
   createToolbar() {
     const toolbar = document.createElement("div");
     toolbar.className = "apexstock-text-toolbar";
@@ -197,6 +214,9 @@ class TextAnnotationManager {
     this.toolbar = toolbar;
   }
 
+  /**
+   * Start editing a text annotation
+   */
   startEditing() {
     if (this.isEditing) return;
     this.isEditing = true;
@@ -249,6 +269,11 @@ class TextAnnotationManager {
     document.addEventListener("mousedown", this.handleOutsideClick);
   }
 
+  /**
+   * Display the formatting toolbar
+   * @param {number} x - Screen X position
+   * @param {number} y - Screen Y position
+   */
   showToolbar(x, y) {
     if (!this.toolbar) return;
 
@@ -276,6 +301,10 @@ class TextAnnotationManager {
     this.toolbar.style.top = toolbarY + "px";
   }
 
+  /**
+   * Handle clicks outside the editor
+   * @param {MouseEvent} e - Mouse event
+   */
   handleOutsideClick(e) {
     if (!this.isEditing) return;
 
@@ -291,6 +320,9 @@ class TextAnnotationManager {
     }
   }
 
+  /**
+   * Finish editing and commit the text annotation
+   */
   finishEditing() {
     if (!this.isEditing || !this.editor) return;
 
@@ -312,6 +344,9 @@ class TextAnnotationManager {
     this.cleanup();
   }
 
+  /**
+   * Create the SVG text element from the edited content
+   */
   createSvgText() {
     // Clear current group
     if (this.currentGroup) {
@@ -406,6 +441,9 @@ class TextAnnotationManager {
     }
   }
 
+  /**
+   * Cancel editing and discard changes
+   */
   cancelEditing() {
     if (!this.isEditing) return;
 
@@ -417,6 +455,9 @@ class TextAnnotationManager {
     this.cleanup();
   }
 
+  /**
+   * Clean up UI elements after editing
+   */
   cleanup() {
     // Remove editor
     if (this.editor && this.editor.parentNode) {
@@ -435,6 +476,12 @@ class TextAnnotationManager {
     this.isEditing = false;
   }
 
+  /**
+   * Toggle a style property between two values
+   * @param {string} property - Style property to toggle
+   * @param {*} value1 - First possible value
+   * @param {*} value2 - Second possible value
+   */
   toggleStyle(property, value1, value2) {
     if (!this.currentData || !this.editor) return;
 
@@ -444,6 +491,11 @@ class TextAnnotationManager {
     this.setStyle(property, newValue);
   }
 
+  /**
+   * Set a style property to a specific value
+   * @param {string} property - Style property to set
+   * @param {*} value - Value to set
+   */
   setStyle(property, value) {
     if (!this.currentData || !this.editor) return;
 
@@ -472,6 +524,11 @@ class TextAnnotationManager {
     }
   }
 
+  /**
+   * Redraw a text element based on its data
+   * @param {Object} data - The text annotation data
+   * @returns {SVGElement} - The redrawn text element
+   */
   redrawTextElement(data) {
     // Create new group
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -481,20 +538,24 @@ class TextAnnotationManager {
     if (data.id) {
       group.dataset.elementId = data.id;
     } else {
-      const id = Utils.generateUniqueId();
+      const id = Utils.generateUniqueId("text");
       group.dataset.elementId = id;
       data.id = id;
     }
 
-    // Store original position from data or calculate from coordinates
-    const x =
-      data.clickX !== undefined
-        ? data.clickX
-        : this.coordinateConverter.dataToScreen(data.x, data.y).x;
-    const y =
-      data.clickY !== undefined
-        ? data.clickY
-        : this.coordinateConverter.dataToScreen(data.x, data.y).y;
+    // Use the coordinate converter to determine the correct screen position
+    let x, y;
+
+    // If clickX/Y are stored, use them for absolute positioning
+    if (data.clickX !== undefined && data.clickY !== undefined) {
+      x = data.clickX;
+      y = data.clickY;
+    } else {
+      // Otherwise convert from data coordinates
+      const screenPos = this.coordinateConverter.dataToScreen(data.x, data.y);
+      x = screenPos.x;
+      y = screenPos.y;
+    }
 
     // Create text element
     const textElem = document.createElementNS(
@@ -577,9 +638,16 @@ class TextAnnotationManager {
     group.appendChild(background);
     group.appendChild(textElem);
 
+    // Update stored position information
+    data.clickX = x;
+    data.clickY = y;
+
     return group;
   }
 
+  /**
+   * Clean up resources
+   */
   destroy() {
     this.cleanup();
 
