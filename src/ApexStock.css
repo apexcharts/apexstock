@@ -246,7 +246,7 @@
 .apexstock-theme-dark select,
 .apexstock-theme-dark input,
 .apexstock-theme-dark .apexstock-drawing-tool {
-  background-color: rgba(1, 1, 1, 0.65) !important;
+  background-color: rgba(1, 1, 1, 0.65);
   color: #fff;
   border: 1px solid rgb(206, 212, 218);
   border-radius: 3px;
@@ -273,7 +273,7 @@
 }
 
 .apexstock-theme-dark .apexstock-drawing-tool.active {
-  background: #646464;
+  background: #646464 !important;
 }
 
 /* Export button */
