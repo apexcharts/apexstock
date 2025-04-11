@@ -95,10 +95,16 @@ class EventManager {
         });
 
         this.chart.addEventListener("zoomed", () => {
+          if (typeof this.coordinateConverter?.refreshBounds === "function") {
+            this.coordinateConverter.refreshBounds();
+          }
           this.redrawElements();
         });
 
         this.chart.addEventListener("scrolled", () => {
+          if (typeof this.coordinateConverter?.refreshBounds === "function") {
+            this.coordinateConverter.refreshBounds();
+          }
           this.redrawElements();
         });
       }
