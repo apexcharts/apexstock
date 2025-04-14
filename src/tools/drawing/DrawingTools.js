@@ -24,6 +24,35 @@ export default class DrawingTools {
     this.tooltipPinningEnabled = true; // Enable tooltip pinning by default
     this.ctx = ctx;
 
+    // Get drawing tools configuration from chartOptions
+    const stockChartOptions =
+      (ctx.chartOptions.plotOptions &&
+        ctx.chartOptions.plotOptions.stockChart) ||
+      {};
+    this.drawingToolsConfig = ctx.chartOptions.drawingTools || {};
+
+    // Set default tools if not specified in configuration
+    this.availableTools = {
+      line: true,
+      brush: true,
+      highlighter: true,
+      rectangle: true,
+      circle: true,
+      ellipse: true,
+      text: true,
+      pin: true, // For tooltip annotations
+      clear: true, // Always allow clearing
+    };
+
+    // Override defaults with user configuration
+    if (this.drawingToolsConfig) {
+      Object.keys(this.availableTools).forEach((tool) => {
+        if (this.drawingToolsConfig[tool] !== undefined) {
+          this.availableTools[tool] = !!this.drawingToolsConfig[tool];
+        }
+      });
+    }
+
     // Initialize the coordinate converter using the shared instance
     this.coordinateConverter = CoordinateConverter.getInstance(
       this.chart,
@@ -59,7 +88,8 @@ export default class DrawingTools {
       this.drawingColor,
       this.drawingWidth,
       this.handleToolClick.bind(this),
-      this.clearAllDrawings.bind(this)
+      this.clearAllDrawings.bind(this),
+      this.availableTools
     );
     this.toolbarContainer = this.toolbarManager.toolbarContainer;
 

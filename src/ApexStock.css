@@ -252,6 +252,11 @@
   border-radius: 3px;
 }
 
+.apexstock-theme-dark .apexstock-text-toolbar select,
+.apexstock-theme-dark .apexstock-text-toolbar input {
+  color: #222;
+}
+
 .apexstock-drawing-tool[data-tool="brush"] {
   font-size: 30px;
   align-items: self-end;
@@ -273,7 +278,7 @@
 }
 
 .apexstock-theme-dark .apexstock-drawing-tool.active {
-  background: #646464 !important;
+  background: #343a40 !important;
 }
 
 /* Export button */

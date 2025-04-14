@@ -13,7 +13,8 @@ class ToolbarManager {
     initialColor,
     initialWidth,
     toolClickHandler,
-    clearHandler
+    clearHandler,
+    availableTools
   ) {
     this.ctx = ctx;
     this.chartDiv = chartDiv;
@@ -24,6 +25,7 @@ class ToolbarManager {
     this.toolbarContainer = null;
     this.onColorChange = null;
     this.onWidthChange = null;
+    this.availableTools = availableTools || {};
 
     this.createDrawingToolbar();
   }
@@ -35,8 +37,8 @@ class ToolbarManager {
     const toolbarContainer = document.createElement("div");
     toolbarContainer.className = "apexstock-drawing-toolbar";
 
-    // Define tools
-    const tools = [
+    // Define all possible tools
+    const allTools = [
       { name: "line", icon: "╱", tooltip: "Line" },
       { name: "brush", icon: "∿", tooltip: "Brush" },
       { name: "highlighter", icon: "🖌️", tooltip: "Highlighter" },
@@ -48,7 +50,14 @@ class ToolbarManager {
       { name: "clear", icon: "🗑", tooltip: "Clear All" },
     ];
 
-    // Create color picker
+    // Filter tools based on configuration
+    const tools = allTools.filter((tool) => {
+      // If no configuration exists, show all tools
+      if (!this.availableTools) return true;
+
+      return this.availableTools[tool.name] !== false;
+    });
+
     const colorPicker = document.createElement("input");
     colorPicker.type = "color";
     colorPicker.value = this.drawingColor;
@@ -85,7 +94,7 @@ class ToolbarManager {
     });
     toolbarContainer.appendChild(widthSelector);
 
-    // Create tool buttons
+    // Create tool buttons for enabled tools
     tools.forEach((tool) => {
       const button = document.createElement("button");
       button.className = "apexstock-drawing-tool";
