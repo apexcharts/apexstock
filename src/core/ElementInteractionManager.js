@@ -36,6 +36,7 @@ export default class ElementInteractionManager {
     this.moveStartY = 0;
     this.elementStartX = 0;
     this.elementStartY = 0;
+    this.activeElementForDrag = null;
 
     // Visual feedback elements
     this.hoverOutline = null;
@@ -46,6 +47,7 @@ export default class ElementInteractionManager {
     this.handleElementMouseOver = this.handleElementMouseOver.bind(this);
     this.handleElementMouseOut = this.handleElementMouseOut.bind(this);
     this.handleElementClick = this.handleElementClick.bind(this);
+    this.handleElementMouseDown = this.handleElementMouseDown.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseUp = this.handleMouseUp.bind(this);
@@ -137,6 +139,10 @@ export default class ElementInteractionManager {
   attachEventListeners() {
     // Listen for keyboard events for delete functionality
     document.addEventListener("keydown", this.handleKeyDown);
+
+    // Add global event listeners for dragging
+    window.addEventListener("mousemove", this.handleMouseMove);
+    window.addEventListener("mouseup", this.handleMouseUp);
   }
 
   /**
@@ -145,6 +151,10 @@ export default class ElementInteractionManager {
   activateInteraction() {
     // Ensure all elements have IDs before adding event listeners
     this.ensureElementIds();
+
+    // Re-add global event listeners for mousemove and mouseup
+    window.addEventListener("mousemove", this.handleMouseMove);
+    window.addEventListener("mouseup", this.handleMouseUp);
 
     // Add hover and click event listeners to each drawing element
     for (const item of this.elements) {
@@ -158,13 +168,14 @@ export default class ElementInteractionManager {
         item.element.addEventListener("mouseover", this.handleElementMouseOver);
         item.element.addEventListener("mouseout", this.handleElementMouseOut);
         item.element.addEventListener("click", this.handleElementClick);
+        item.element.addEventListener("mousedown", this.handleElementMouseDown);
 
         // Make sure each individual element has pointer events enabled
         // while keeping the SVG overlay pointer-events:none to allow chart interaction
         item.element.style.pointerEvents = "all";
 
         // Set cursor for better UX
-        item.element.style.cursor = "pointer";
+        item.element.style.cursor = "move";
       }
     }
   }
@@ -194,6 +205,10 @@ export default class ElementInteractionManager {
           this.handleElementMouseOut
         );
         item.element.removeEventListener("click", this.handleElementClick);
+        item.element.removeEventListener(
+          "mousedown",
+          this.handleElementMouseDown
+        );
         item.element.style.pointerEvents = "none";
         item.element.style.cursor = "";
       }
@@ -262,10 +277,64 @@ export default class ElementInteractionManager {
   }
 
   /**
+   * Handle direct mousedown on element for immediate dragging
+   * @param {MouseEvent} e - Mouse event
+   */
+  handleElementMouseDown(e) {
+    // Get the target element
+    const targetElement = e.currentTarget;
+    const elementId = targetElement.dataset.elementId;
+
+    if (!elementId) {
+      console.warn("Clicked element has no ID:", targetElement);
+      return;
+    }
+
+    // If this is the already selected element, let the normal mousedown handler take over
+    if (elementId === this.selectedElementId) {
+      this.handleMouseDown(e);
+      return;
+    }
+
+    // Hide the popup if it's visible
+    if (this.elementPopup) {
+      this.elementPopup.hide();
+    }
+
+    // Store which element is being directly dragged (without selection)
+    this.activeElementForDrag = targetElement;
+
+    const rect = this.svgOverlay.getBoundingClientRect();
+    this.moveStartX = e.clientX - rect.left;
+    this.moveStartY = e.clientY - rect.top;
+
+    // Get the element data using the ID
+    const elementItem = this.getElementById(elementId);
+    if (!elementItem || !elementItem.data) {
+      console.warn("Could not find element data for ID:", elementId);
+      return;
+    }
+
+    // Store the initial position of the element for relative movement
+    this.storeElementStartPosition(elementItem.data);
+
+    this.isMoving = true;
+
+    e.stopPropagation();
+    e.preventDefault();
+  }
+
+  /**
    * Handle element click to select an element
    * @param {MouseEvent} e - Mouse event
    */
   handleElementClick(e) {
+    // If we were just dragging, don't process the click (to avoid selecting after drag)
+    if (this.isMoving) {
+      e.stopPropagation();
+      return;
+    }
+
     // Get the target element
     const targetElement = e.currentTarget;
     const elementId = targetElement.dataset.elementId;
@@ -277,7 +346,6 @@ export default class ElementInteractionManager {
 
     // If clicking on the already selected element, treat as a move
     if (elementId === this.selectedElementId) {
-      this.handleMouseDown(e);
       return;
     }
 
@@ -362,10 +430,6 @@ export default class ElementInteractionManager {
 
     this.isMoving = true;
 
-    // Add global mouse move and up handlers for dragging
-    window.addEventListener("mousemove", this.handleMouseMove);
-    window.addEventListener("mouseup", this.handleMouseUp);
-
     // Hide popup during movement
     if (this.elementPopup) {
       this.elementPopup.hide();
@@ -434,8 +498,16 @@ export default class ElementInteractionManager {
    * @param {MouseEvent} e - Mouse event
    */
   handleMouseMove(e) {
-    if (!this.isMoving || !this.selectedElement || !this.selectedElementId)
-      return;
+    if (!this.isMoving) return;
+
+    // Determine which element is being moved
+    const targetElementId =
+      this.selectedElementId ||
+      (this.activeElementForDrag
+        ? this.activeElementForDrag.dataset.elementId
+        : null);
+
+    if (!targetElementId) return;
 
     const rect = this.svgOverlay.getBoundingClientRect();
     const currentX = e.clientX - rect.left;
@@ -451,12 +523,9 @@ export default class ElementInteractionManager {
     );
 
     // Get the element data using the ID
-    const elementItem = this.getElementById(this.selectedElementId);
+    const elementItem = this.getElementById(targetElementId);
     if (!elementItem || !elementItem.data) {
-      console.warn(
-        "Could not find element data for ID:",
-        this.selectedElementId
-      );
+      console.warn("Could not find element data for ID:", targetElementId);
       return;
     }
 
@@ -472,8 +541,10 @@ export default class ElementInteractionManager {
     // Redraw all elements with the updated positions
     this.redrawElements();
 
-    // Update the selection outline
-    this.updateSelectionOutline();
+    // Update the selection outline if this is a selected element
+    if (this.selectedElement && targetElementId === this.selectedElementId) {
+      this.updateSelectionOutline();
+    }
 
     e.stopPropagation();
     e.preventDefault();
@@ -559,16 +630,20 @@ export default class ElementInteractionManager {
 
     this.isMoving = false;
 
-    // Remove global mouse handlers
-    window.removeEventListener("mousemove", this.handleMouseMove);
-    window.removeEventListener("mouseup", this.handleMouseUp);
-
-    // After moving, show the popup again
-    if (this.selectedElement && this.elementPopup) {
+    // If this was a direct drag (without selection), clear the active drag element
+    if (this.activeElementForDrag) {
+      this.activeElementForDrag = null;
+    }
+    // If this was a selected element being moved, show the popup again
+    else if (this.selectedElement && this.elementPopup) {
       this.elementPopup.show(e.clientX + 10, e.clientY - 10);
     }
 
-    e.stopPropagation();
+    // Only call stopPropagation if we had an actual event
+    // This function might be called programmatically during cleanup
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
   }
 
   /**
@@ -663,6 +738,9 @@ export default class ElementInteractionManager {
   destroy() {
     this.deactivateInteraction();
     document.removeEventListener("keydown", this.handleKeyDown);
+
+    window.removeEventListener("mousemove", this.handleMouseMove);
+    window.removeEventListener("mouseup", this.handleMouseUp);
 
     // Remove visual elements
     if (this.hoverOutline && this.hoverOutline.parentNode) {
