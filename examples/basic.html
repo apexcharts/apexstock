@@ -217,6 +217,15 @@
 
     <script src="../../apexcharts-js/dist/apexcharts.js"></script>
     <script src="../dist/apexstock.min.js"></script>
+    <script>
+      // Replace Math.random() with a pseudo-random number generator to get reproducible results in e2e tests
+      // Based on https://gist.github.com/blixt/f17b47c62508be59987b
+      var _seed = 42;
+      Math.random = function () {
+        _seed = (_seed * 16807) % 2147483647;
+        return (_seed - 1) / 2147483646;
+      };
+    </script>
   </head>
 
   <body>
@@ -414,8 +423,12 @@
 
         // Initialize the chart with default settings
         initChart() {
-          // Generate initial sample data
-          this.allData = this.generateOHLCData(250);
+          // Generate initial sample data with current period and interval
+          this.allData = this.generateOHLCData(
+            250,
+            this.currentPeriod,
+            this.currentInterval
+          );
 
           // Store first and last timestamp for range management
           this.firstDataTimestamp = new Date(this.allData[0].x).getTime();
@@ -480,7 +493,6 @@
 
           this.isFirstLoad = false;
         }
-
         // Format date for date input field
         formatDateForInput(date) {
           return date.toISOString().split("T")[0];
@@ -590,6 +602,7 @@
           try {
             // In a real implementation, this would be an API call
             const count = this.getDataPointCount(period, interval);
+
             const newData = this.generateOHLCData(count, period, interval);
 
             // Cache the data
@@ -732,12 +745,15 @@
           const volMin = 6000;
           const volMax = 900000;
 
-          // For longer timeframes like 5Y and ALL, calculate time per data point
+          // For longer timeframes, calculate time per data point
           const endDate = new Date().getTime(); // Current time
           let timeStep = this.getTimeStepForInterval(interval);
 
-          // For 5Y and ALL with many data points, adjust timestep to distribute evenly
-          if ((period === "5Y" || period === "ALL") && count > 0) {
+          // For 1Y, 5Y and ALL with many data points, adjust timestep to distribute evenly
+          if (
+            (period === "1Y" || period === "5Y" || period === "ALL") &&
+            count > 0
+          ) {
             const timeRange = endDate - baseDate;
             timeStep = Math.max(timeStep, Math.floor(timeRange / count));
           }
@@ -746,8 +762,8 @@
           for (let i = 0; i < count; i++) {
             let currentDate;
 
-            // For 5Y and ALL, distribute points evenly across the time range
-            if (period === "5Y" || period === "ALL") {
+            // For 1Y, 5Y and ALL, distribute points evenly across the time range
+            if (period === "1Y" || period === "5Y" || period === "ALL") {
               // Calculate position from 0 to 1 across the range
               const position = i / (count - 1 || 1);
               const timestamp = baseDate + position * (endDate - baseDate);
@@ -821,7 +837,6 @@
 
           return data;
         }
-
         generateHistoricalData(count, startTimestamp, endTimestamp) {
           const data = [];
           const timeRange = endTimestamp - startTimestamp;
