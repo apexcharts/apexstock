@@ -139,7 +139,10 @@ export default class DrawingTools {
     if (!mainChartEl) return;
 
     // Add click listener to handle tooltip pinning
-    mainChartEl.addEventListener("click", this.handleTooltipPinning.bind(this));
+    mainChartEl.addEventListener(
+      "dblclick",
+      this.handleTooltipPinning.bind(this)
+    );
   }
 
   /**
@@ -869,7 +872,7 @@ export default class DrawingTools {
     const mainChartEl = document.getElementById(this.chart.w.globals.chartID);
     if (mainChartEl) {
       mainChartEl.removeEventListener(
-        "click",
+        "dblclick",
         this.handleTooltipPinning.bind(this)
       );
     }
