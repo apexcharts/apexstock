@@ -86,7 +86,7 @@ export default class ChartSwitch {
       },
     ];
     this.currentType = "candlestick";
-    this.originalSeries = [...this.series]; // Store original data
+    this.originalSeries = [...this.series];
 
     this.init();
   }
@@ -260,6 +260,7 @@ export default class ChartSwitch {
    */
   changeChartType(type) {
     if (type === this.currentType) return;
+    this.originalSeries = [...this.ctx.series];
 
     // Save current zoom state before changing chart type
     const zoomState = this.ctx.getCurrentZoomState();
