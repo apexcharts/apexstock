@@ -32,6 +32,8 @@ class TextAnnotationManager {
       fontStyle: "normal",
       textDecoration: "none",
       color: "#0077b6",
+      backgroundColor: "#ffffff", // Default background color
+      backgroundOpacity: 0.7, // Default background opacity
     };
 
     // Create toolbar
@@ -71,6 +73,8 @@ class TextAnnotationManager {
       clickY: y,
       text: "",
       color: color || this.textStyle.color,
+      backgroundColor: this.textStyle.backgroundColor,
+      backgroundOpacity: this.textStyle.backgroundOpacity,
       ...this.textStyle,
     };
 
@@ -121,6 +125,86 @@ class TextAnnotationManager {
     underlineBtn.addEventListener("click", () => {
       this.toggleStyle("textDecoration", "underline", "none");
     });
+
+    // Text color picker
+    const textColorWrapper = document.createElement("div");
+    textColorWrapper.style.display = "inline-block";
+    textColorWrapper.style.position = "relative";
+
+    const textColorLabel = document.createElement("label");
+    textColorLabel.textContent = "Text";
+    textColorLabel.style.fontSize = "10px";
+    textColorLabel.style.display = "block";
+    textColorLabel.style.textAlign = "center";
+
+    const textColorPicker = document.createElement("input");
+    textColorPicker.type = "color";
+    textColorPicker.value = this.textStyle.color;
+    textColorPicker.style.width = "24px";
+    textColorPicker.style.height = "24px";
+    textColorPicker.style.padding = "0";
+    textColorPicker.style.border = "1px solid #ccc";
+    textColorPicker.style.borderRadius = "2px";
+    textColorPicker.addEventListener("input", (e) => {
+      this.setStyle("color", e.target.value);
+    });
+
+    textColorWrapper.appendChild(textColorLabel);
+    textColorWrapper.appendChild(textColorPicker);
+
+    // Background color picker
+    const bgColorWrapper = document.createElement("div");
+    bgColorWrapper.style.display = "inline-block";
+    bgColorWrapper.style.position = "relative";
+    bgColorWrapper.style.marginLeft = "5px";
+
+    const bgColorLabel = document.createElement("label");
+    bgColorLabel.textContent = "Background";
+    bgColorLabel.style.fontSize = "10px";
+    bgColorLabel.style.display = "block";
+    bgColorLabel.style.textAlign = "center";
+
+    const bgColorPicker = document.createElement("input");
+    bgColorPicker.type = "color";
+    bgColorPicker.value = this.textStyle.backgroundColor;
+    bgColorPicker.style.width = "24px";
+    bgColorPicker.style.height = "24px";
+    bgColorPicker.style.padding = "0";
+    bgColorPicker.style.border = "1px solid #ccc";
+    bgColorPicker.style.borderRadius = "2px";
+    bgColorPicker.addEventListener("input", (e) => {
+      this.setStyle("backgroundColor", e.target.value);
+    });
+
+    bgColorWrapper.appendChild(bgColorLabel);
+    bgColorWrapper.appendChild(bgColorPicker);
+
+    // Background opacity slider
+    const opacityWrapper = document.createElement("div");
+    opacityWrapper.style.display = "inline-block";
+    opacityWrapper.style.position = "relative";
+    opacityWrapper.style.marginLeft = "5px";
+
+    const opacityLabel = document.createElement("label");
+    opacityLabel.textContent = "Opacity";
+    opacityLabel.style.fontSize = "10px";
+    opacityLabel.style.display = "block";
+    opacityLabel.style.textAlign = "center";
+
+    const opacitySlider = document.createElement("input");
+    opacitySlider.type = "range";
+    opacitySlider.min = "0";
+    opacitySlider.max = "100";
+    opacitySlider.value = this.textStyle.backgroundOpacity * 100;
+    opacitySlider.style.width = "60px";
+    opacitySlider.style.height = "8px";
+    opacitySlider.style.marginTop = "8px";
+    opacitySlider.addEventListener("input", (e) => {
+      this.setStyle("backgroundOpacity", parseInt(e.target.value) / 100);
+    });
+
+    opacityWrapper.appendChild(opacityLabel);
+    opacityWrapper.appendChild(opacitySlider);
 
     // Font size
     const sizeSelect = document.createElement("select");
@@ -179,14 +263,44 @@ class TextAnnotationManager {
       this.cancelEditing();
     });
 
-    // Add buttons to toolbar
-    toolbar.appendChild(sizeSelect);
-    toolbar.appendChild(familySelect);
-    toolbar.appendChild(boldBtn);
-    toolbar.appendChild(italicBtn);
-    toolbar.appendChild(underlineBtn);
-    toolbar.appendChild(applyBtn);
-    toolbar.appendChild(cancelBtn);
+    // Create a container for font controls
+    const fontControls = document.createElement("div");
+    fontControls.style.display = "flex";
+    fontControls.style.gap = "5px";
+    fontControls.style.marginBottom = "8px";
+
+    // Add font controls
+    fontControls.appendChild(sizeSelect);
+    fontControls.appendChild(familySelect);
+    fontControls.appendChild(boldBtn);
+    fontControls.appendChild(italicBtn);
+    fontControls.appendChild(underlineBtn);
+
+    // Create a container for color controls
+    const colorControls = document.createElement("div");
+    colorControls.style.display = "flex";
+    colorControls.style.gap = "5px";
+    colorControls.style.marginBottom = "8px";
+
+    // Add color controls
+    colorControls.appendChild(textColorWrapper);
+    colorControls.appendChild(bgColorWrapper);
+    colorControls.appendChild(opacityWrapper);
+
+    // Create a container for action buttons
+    const actionControls = document.createElement("div");
+    actionControls.style.display = "flex";
+    actionControls.style.gap = "5px";
+    actionControls.style.justifyContent = "flex-end";
+
+    // Add action buttons
+    actionControls.appendChild(cancelBtn);
+    actionControls.appendChild(applyBtn);
+
+    // Add all control groups to toolbar
+    toolbar.appendChild(fontControls);
+    toolbar.appendChild(colorControls);
+    toolbar.appendChild(actionControls);
 
     // Style buttons
     const buttons = toolbar.querySelectorAll("button");
@@ -231,7 +345,8 @@ class TextAnnotationManager {
     editor.style.minWidth = "100px";
     editor.style.minHeight = this.textStyle.fontSize + "px";
     editor.style.padding = "5px";
-    editor.style.background = "white";
+    editor.style.background = this.currentData.backgroundColor || "#ffffff";
+    editor.style.opacity = this.currentData.backgroundOpacity || 0.7;
     editor.style.border = "1px solid #007bff";
     editor.style.borderRadius = "3px";
     editor.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
@@ -251,7 +366,7 @@ class TextAnnotationManager {
     setTimeout(() => {
       editor.focus();
       // Show toolbar above editor
-      this.showToolbar(this.clickX, this.clickY - 40);
+      this.showToolbar(this.clickX, this.clickY - 150);
     }, 10);
 
     // Handle keyboard events
@@ -282,6 +397,7 @@ class TextAnnotationManager {
     const viewportHeight = window.innerHeight;
 
     this.toolbar.style.display = "flex";
+    this.toolbar.style.flexDirection = "column";
     const toolbarWidth = this.toolbar.offsetWidth;
     const toolbarHeight = this.toolbar.offsetHeight;
 
@@ -377,8 +493,14 @@ class TextAnnotationManager {
       "http://www.w3.org/2000/svg",
       "rect"
     );
-    background.setAttribute("fill", "white");
-    background.setAttribute("fill-opacity", "0.7");
+    background.setAttribute(
+      "fill",
+      this.currentData.backgroundColor || "#ffffff"
+    );
+    background.setAttribute(
+      "fill-opacity",
+      this.currentData.backgroundOpacity || 0.7
+    );
     background.setAttribute("rx", "3");
 
     // Create text element
@@ -521,6 +643,12 @@ class TextAnnotationManager {
       case "color":
         this.editor.style.color = value;
         break;
+      case "backgroundColor":
+        this.editor.style.backgroundColor = value;
+        break;
+      case "backgroundOpacity":
+        this.editor.style.opacity = value;
+        break;
     }
   }
 
@@ -591,8 +719,14 @@ class TextAnnotationManager {
       "http://www.w3.org/2000/svg",
       "rect"
     );
-    background.setAttribute("fill", "white");
-    background.setAttribute("fill-opacity", "0.7");
+    background.setAttribute(
+      "fill",
+      data.backgroundColor || this.textStyle.backgroundColor
+    );
+    background.setAttribute(
+      "fill-opacity",
+      data.backgroundOpacity || this.textStyle.backgroundOpacity
+    );
     background.setAttribute("rx", "3");
 
     // Add text lines

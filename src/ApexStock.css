@@ -450,3 +450,189 @@
   background-color: #3a3a3a;
   color: #ff6b6b;
 }
+
+/* Add these CSS styles to ApexStock.css */
+
+/* Popup Element Styling - Enhanced */
+.apexstock-element-popup {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background-color: white;
+  min-width: 220px;
+  padding: 12px;
+  position: absolute;
+  z-index: 1000;
+  pointer-events: auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.apexstock-style-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.apexstock-color-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.apexstock-color-container label {
+  font-size: 10px;
+  margin-bottom: 2px;
+  color: #666;
+}
+
+.apexstock-stroke-color-picker,
+.apexstock-fill-color-picker {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.apexstock-stroke-color-picker:hover,
+.apexstock-fill-color-picker:hover {
+  transform: scale(1.1);
+}
+
+.apexstock-opacity-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.apexstock-opacity-container label {
+  font-size: 10px;
+  margin-bottom: 2px;
+  color: #666;
+}
+
+.apexstock-opacity-slider {
+  width: 60px;
+  height: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.apexstock-element-delete-btn {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  color: #333;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.apexstock-element-delete-btn:hover {
+  background-color: #f8d7da;
+  color: #dc3545;
+}
+
+/* Text Toolbar Styling - Enhanced */
+.apexstock-text-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  min-width: 300px;
+  z-index: 1001;
+}
+
+.apexstock-text-toolbar button {
+  width: 28px;
+  height: 28px;
+  margin: 0 2px;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.apexstock-text-toolbar button:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.apexstock-text-toolbar select {
+  height: 28px;
+  margin: 0 2px;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.apexstock-text-editor {
+  min-width: 100px;
+  min-height: 14px;
+  padding: 5px;
+  border: 1px solid #007bff;
+  border-radius: 3px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  outline: none;
+}
+
+/* Dark theme support */
+.apexstock-theme-dark .apexstock-element-popup {
+  background-color: #343A3F;
+  border: 1px solid #495057;
+  color: #e9ecef;
+}
+
+.apexstock-theme-dark .apexstock-color-container label,
+.apexstock-theme-dark .apexstock-opacity-container label {
+  color: #adb5bd;
+}
+
+.apexstock-theme-dark .apexstock-stroke-color-picker,
+.apexstock-theme-dark .apexstock-fill-color-picker {
+  border-color: #495057;
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn {
+  color: #e9ecef;
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn:hover {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #f8d7da;
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar {
+  background-color: #343A3F;
+  border-color: #495057;
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar button,
+.apexstock-theme-dark .apexstock-text-toolbar select {
+  background-color: #495057;
+  border-color: #6c757d;
+  color: #e9ecef;
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar button:hover {
+  background-color: #5a6268;
+}
+
+.apexstock-theme-dark .apexstock-text-editor {
+  background-color: #343A3F;
+  border-color: #007bff;
+  color: #e9ecef;
+}

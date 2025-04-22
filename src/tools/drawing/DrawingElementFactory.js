@@ -6,6 +6,26 @@ class DrawingElementFactory {
     this.startPoint = startPoint;
     this.color = color;
     this.width = width;
+    this.fillColor = "#ffffff"; // Default fill color
+    this.fillOpacity = 0.5; // Default fill opacity
+  }
+
+  /**
+   * Sets the fill color for shapes
+   * @param {string} color - Fill color
+   */
+  setFillColor(color) {
+    this.fillColor = color;
+    return this;
+  }
+
+  /**
+   * Sets the fill opacity for shapes
+   * @param {number} opacity - Fill opacity (0-1)
+   */
+  setFillOpacity(opacity) {
+    this.fillOpacity = opacity;
+    return this;
   }
 
   /**
@@ -143,7 +163,8 @@ class DrawingElementFactory {
     element.setAttribute("height", "0");
     element.setAttribute("stroke", this.color);
     element.setAttribute("stroke-width", this.width);
-    element.setAttribute("fill", "none");
+    element.setAttribute("fill", this.fillColor);
+    element.setAttribute("fill-opacity", this.fillOpacity);
 
     const id = Utils.generateUniqueId("rectangle");
     element.dataset.elementId = id;
@@ -157,6 +178,8 @@ class DrawingElementFactory {
       height: 0,
       color: this.color,
       strokeWidth: this.width,
+      fill: this.fillColor,
+      fillOpacity: this.fillOpacity,
     };
 
     return { element, data };
@@ -176,7 +199,8 @@ class DrawingElementFactory {
     element.setAttribute("r", "0");
     element.setAttribute("stroke", this.color);
     element.setAttribute("stroke-width", this.width);
-    element.setAttribute("fill", "none");
+    element.setAttribute("fill", this.fillColor);
+    element.setAttribute("fill-opacity", this.fillOpacity);
 
     const id = Utils.generateUniqueId("circle");
     element.dataset.elementId = id;
@@ -189,6 +213,8 @@ class DrawingElementFactory {
       r: 0,
       color: this.color,
       strokeWidth: this.width,
+      fill: this.fillColor,
+      fillOpacity: this.fillOpacity,
     };
 
     return { element, data };
@@ -209,7 +235,8 @@ class DrawingElementFactory {
     element.setAttribute("ry", "0");
     element.setAttribute("stroke", this.color);
     element.setAttribute("stroke-width", this.width);
-    element.setAttribute("fill", "none");
+    element.setAttribute("fill", this.fillColor);
+    element.setAttribute("fill-opacity", this.fillOpacity);
 
     const id = Utils.generateUniqueId("ellipse");
     element.dataset.elementId = id;
@@ -223,6 +250,8 @@ class DrawingElementFactory {
       ry: 0,
       color: this.color,
       strokeWidth: this.width,
+      fill: this.fillColor,
+      fillOpacity: this.fillOpacity,
     };
 
     return { element, data };

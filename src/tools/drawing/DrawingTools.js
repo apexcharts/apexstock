@@ -22,6 +22,10 @@ export default class DrawingTools {
     this.drawingWidth = 2;
     this.currentElementData = null;
     this.tooltipPinningEnabled = true; // Enable tooltip pinning by default
+    this.drawingColor = "#008FFB"; // Stroke color
+    this.drawingWidth = 2;
+    this.fillColor = "#ffffff"; // Fill color for shapes
+    this.fillOpacity = 0.5; // Fill opacity
     this.ctx = ctx;
 
     // Get drawing tools configuration from chartOptions
@@ -283,7 +287,9 @@ export default class DrawingTools {
       this.startPoint,
       this.drawingColor,
       this.drawingWidth
-    );
+    )
+      .setFillColor(this.fillColor)
+      .setFillOpacity(this.fillOpacity);
 
     const result = factory.createElement(this.currentTool);
 
@@ -616,7 +622,12 @@ export default class DrawingTools {
           element.setAttribute("height", rectHeight);
           element.setAttribute("stroke", data.color);
           element.setAttribute("stroke-width", data.strokeWidth);
-          element.setAttribute("fill", "none");
+          element.setAttribute("fill", data.fill || this.fillColor);
+          element.setAttribute(
+            "fill-opacity",
+            data.fillOpacity || this.fillOpacity
+          );
+
           break;
 
         case "circle":
@@ -641,7 +652,11 @@ export default class DrawingTools {
           element.setAttribute("r", screenRadius);
           element.setAttribute("stroke", data.color);
           element.setAttribute("stroke-width", data.strokeWidth);
-          element.setAttribute("fill", "none");
+          element.setAttribute("fill", data.fill || this.fillColor);
+          element.setAttribute(
+            "fill-opacity",
+            data.fillOpacity || this.fillOpacity
+          );
           break;
 
         case "ellipse":
@@ -672,7 +687,11 @@ export default class DrawingTools {
           element.setAttribute("ry", screenRy);
           element.setAttribute("stroke", data.color);
           element.setAttribute("stroke-width", data.strokeWidth);
-          element.setAttribute("fill", "none");
+          element.setAttribute("fill", data.fill || this.fillColor);
+          element.setAttribute(
+            "fill-opacity",
+            data.fillOpacity || this.fillOpacity
+          );
           break;
 
         case "text":
@@ -842,6 +861,29 @@ export default class DrawingTools {
     if (!this.currentTool) {
       this.svgOverlay.style.pointerEvents = "none";
       this.overlayWrapper.style.pointerEvents = "none";
+    }
+  }
+
+  handleStyleChange(element, elementData, styleChanges) {
+    // Find the element in our array
+    const index = this.elements.findIndex(
+      (item) => item.data && item.data.id === elementData.id
+    );
+
+    if (index !== -1) {
+      // Update data with new styles
+      if (styleChanges.stroke) {
+        this.elements[index].data.color = styleChanges.stroke;
+      }
+      if (styleChanges.fill) {
+        this.elements[index].data.fill = styleChanges.fill;
+      }
+      if (styleChanges.fillOpacity !== undefined) {
+        this.elements[index].data.fillOpacity = styleChanges.fillOpacity;
+      }
+
+      // Redraw all elements
+      this.redrawElements();
     }
   }
 
