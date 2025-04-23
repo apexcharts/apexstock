@@ -33,7 +33,7 @@ class TextAnnotationManager {
       textDecoration: "none",
       color: "#0077b6",
       backgroundColor: "#ffffff", // Default background color
-      backgroundOpacity: 0.7, // Default background opacity
+      backgroundOpacity: 0, // Default background opacity
     };
 
     // Create toolbar

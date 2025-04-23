@@ -58,7 +58,45 @@ export default class ElementInteractionManager {
     this.createVisualElements();
     this.elementPopup = new SelectedElementPopup(
       this.chartEl,
-      this.deleteSelectedElement
+      this.deleteSelectedElement.bind(this),
+      (element, elementData, styleChanges) => {
+        if (
+          this.context &&
+          typeof this.context.handleStyleChange === "function"
+        ) {
+          this.context.handleStyleChange(element, elementData, styleChanges);
+        } else {
+          const index = this.elements.findIndex(
+            (item) => item.data && item.data.id === elementData.id
+          );
+
+          if (index !== -1) {
+            // Update element data with new styles
+            if (styleChanges.stroke) {
+              this.elements[index].data.color = styleChanges.stroke;
+              this.elements[index].element.setAttribute(
+                "stroke",
+                styleChanges.stroke
+              );
+            }
+            if (styleChanges.fill) {
+              this.elements[index].data.fill = styleChanges.fill;
+              this.elements[index].element.setAttribute(
+                "fill",
+                styleChanges.fill
+              );
+            }
+
+            if (styleChanges.fillOpacity !== undefined) {
+              this.elements[index].data.fillOpacity = styleChanges.fillOpacity;
+              this.elements[index].element.setAttribute(
+                "fill-opacity",
+                styleChanges.fillOpacity
+              );
+            }
+          }
+        }
+      }
     );
     this.attachEventListeners();
     this.activateInteraction();
@@ -363,7 +401,14 @@ export default class ElementInteractionManager {
 
     // Position and show the popup
     if (this.elementPopup) {
-      this.elementPopup.show(e.clientX + 10, e.clientY - 10);
+      const elementData = this.getElementById(elementId)?.data;
+
+      this.elementPopup.show(
+        e.clientX + 10,
+        e.clientY - 10,
+        this.selectedElement,
+        elementData
+      );
     }
 
     e.stopPropagation();

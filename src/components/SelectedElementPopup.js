@@ -71,8 +71,11 @@ class SelectedElementPopup {
     this.strokeColorPicker.value = "#000000";
 
     this.strokeColorPicker.addEventListener("input", (e) => {
-      if (this.currentElementData && this.styleChangeCallback) {
-        this.styleChangeCallback(this.currentElement, this.currentElementData, {
+      const currentData = this.currentElementData;
+      const currentElement = this.currentElement;
+
+      if (currentData && this.styleChangeCallback) {
+        this.styleChangeCallback(currentElement, currentData, {
           stroke: e.target.value,
         });
       }
@@ -108,8 +111,11 @@ class SelectedElementPopup {
     this.fillColorPicker.value = "#ffffff";
 
     this.fillColorPicker.addEventListener("input", (e) => {
-      if (this.currentElementData && this.styleChangeCallback) {
-        this.styleChangeCallback(this.currentElement, this.currentElementData, {
+      const currentData = this.currentElementData;
+      const currentElement = this.currentElement;
+
+      if (currentData && this.styleChangeCallback) {
+        this.styleChangeCallback(currentElement, currentData, {
           fill: e.target.value,
         });
       }
@@ -149,9 +155,12 @@ class SelectedElementPopup {
     this.fillOpacitySlider.style.margin = "0";
 
     this.fillOpacitySlider.addEventListener("input", (e) => {
-      if (this.currentElementData && this.styleChangeCallback) {
+      const currentData = this.currentElementData;
+      const currentElement = this.currentElement;
+
+      if (currentData && this.styleChangeCallback) {
         const opacity = parseInt(e.target.value) / 100;
-        this.styleChangeCallback(this.currentElement, this.currentElementData, {
+        this.styleChangeCallback(currentElement, currentData, {
           fillOpacity: opacity,
         });
       }
@@ -303,6 +312,8 @@ class SelectedElementPopup {
     const relativeY = y - chartRect.top;
 
     this.currentElement = element;
+    this.currentElementData = elementData;
+
     this.configureForElement(elementData);
 
     this.popupElement.style.position = "absolute";
