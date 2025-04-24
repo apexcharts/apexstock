@@ -378,31 +378,24 @@ export default class XAxis {
     // Create the axis container
     this.axisElement = document.createElement("div");
     this.axisElement.classList.add("apexstock-xaxis");
-    const chartWidth = this.context.chartEl.offsetWidth;
-    this.axisElement.style.width = `${chartWidth}px`;
+    this.axisElement.style.width = "100%";
     this.axisElement.style.height = "30px";
-    this.axisElement.style.position = "absolute";
     this.axisElement.style.overflow = "hidden";
     this.axisElement.style.borderTop = "1px solid #eee";
-    this.axisElement.style.marginTop = "5px";
     this.axisElement.style.boxSizing = "border-box";
     this.axisElement.style.backgroundColor =
       this.context.colors.toolbar.background;
+    this.axisElement.style.zIndex = "999"; // Ensure it's above other elements
 
     // Create the ticks container
     this.ticksContainer = document.createElement("div");
     this.ticksContainer.style.position = "absolute";
     this.ticksContainer.style.height = "100%";
+    this.ticksContainer.style.width = "100%";
     this.ticksContainer.style.overflow = "hidden";
     this.ticksContainer.style.boxSizing = "border-box";
-    // We'll set width and position in updatePosition()
 
     this.axisElement.appendChild(this.ticksContainer);
-
-    // Append the axis after the indicator container
-    if (this.context.chartEl && this.context.indicatorContainer) {
-      this.context.chartEl.appendChild(this.axisElement);
-    }
   }
 
   /**
@@ -420,38 +413,46 @@ export default class XAxis {
     );
     if (!graphicalElement) {
       // If not found immediately, try again after a short delay
-      // This can happen during initial rendering or after chart updates
       setTimeout(() => this.updatePosition(), 50);
       return;
     }
 
-    // Get the bounding rectangle of the graphical element
+    // Get the bounding rectangles for positioning
     const graphicalRect = graphicalElement.getBoundingClientRect();
-    const containerRect = this.axisElement.parentNode.getBoundingClientRect();
+    const axisRect = this.axisElement.getBoundingClientRect();
 
-    // Calculate positions relative to the container
-    const leftOffset = graphicalRect.left - containerRect.left;
-    const width = graphicalRect.width;
+    // Calculate offset
+    const leftOffset = graphicalRect.left - axisRect.left;
+    const rightOffset = axisRect.right - graphicalRect.right;
 
-    this.ticksContainer.style.width = "100%";
+    // Apply padding to align tick marks with chart
+    this.axisElement.style.paddingLeft = Math.max(0, leftOffset) + "px";
+    this.axisElement.style.paddingRight = Math.max(0, rightOffset) + "px";
 
-    // Set the top border to align with the chart area
-    const borderWidth = getComputedStyle(this.axisElement).borderTopWidth;
-    const borderOffset = parseInt(borderWidth || "0", 10);
-    this.axisElement.style.paddingLeft = `${leftOffset - borderOffset}px`;
-    this.axisElement.style.paddingRight = `${
-      containerRect.width - (leftOffset + width) - borderOffset
-    }px`;
-
-    // Check if the chart's zoom has changed
+    // Apply the same transform as the chart's xaxis for proper alignment
     const xaxis = chartElement.querySelector(".apexcharts-xaxis");
     if (xaxis) {
-      // Apply the same transform as the chart's xaxis for proper alignment
       const transform = window.getComputedStyle(xaxis).transform;
       if (transform && transform !== "none") {
         this.ticksContainer.style.transform = transform;
       } else {
         this.ticksContainer.style.transform = "";
+      }
+    }
+  }
+
+  ensureXAxisIsLast() {
+    // Ensure the x-axis is the last element in the chart container
+    if (
+      this.context.chartEl &&
+      this.axisElement &&
+      this.axisElement.parentNode
+    ) {
+      // Check if it's already the last child
+      if (this.context.chartEl.lastChild !== this.axisElement) {
+        // Remove and re-append to make it last
+        this.axisElement.parentNode.removeChild(this.axisElement);
+        this.context.chartEl.appendChild(this.axisElement);
       }
     }
   }
@@ -835,22 +836,27 @@ export default class XAxis {
    * Updates the x-axis height and visibility based on chart configuration
    */
   updateHeight() {
-    // Position the x-axis at the bottom of all charts
-    if (this.context.indicatorContainer) {
-      const top =
-        this.context.indicatorContainer.offsetTop +
-        this.context.indicatorContainer.offsetHeight;
+    // First ensure the chart container exists
+    if (!this.context.chartEl) return;
 
-      this.axisElement.style.top = `${top - 20}px`;
+    // If the axis element is already in the DOM, remove it
+    if (this.axisElement.parentNode) {
+      this.axisElement.parentNode.removeChild(this.axisElement);
     }
+
+    // Add correct positioning styles
+    this.axisElement.style.position = "relative";
+    this.axisElement.style.marginTop = "5px";
+
+    // Always append the axis as the LAST child of the chart container
+    // This ensures it will be below all other elements
+    this.context.chartEl.appendChild(this.axisElement);
 
     // Ensure the axis is visible
     this.axisElement.style.display = "block";
 
-    // Update position and width
+    // Update position and render
     this.updatePosition();
-
-    // Re-render with current range
     this.render();
   }
 

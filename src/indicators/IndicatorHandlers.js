@@ -633,6 +633,10 @@ export default class IndicatorHandlers {
       chartInstance.render();
       context.indicatorChartMap[indicatorKey] = chartInstance;
     }
+
+    if (context.xaxis) {
+      context.xaxis.ensureXAxisIsLast();
+    }
   }
 
   /**
@@ -704,6 +708,9 @@ export default class IndicatorHandlers {
 
         context.updateAllChartHeights();
       }
+    }
+    if (context.xaxis) {
+      context.xaxis.ensureXAxisIsLast();
     }
   }
 }

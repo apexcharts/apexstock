@@ -724,6 +724,7 @@ export default class ApexStock {
       // Update XAxis position
       if (this.xaxis) {
         this.xaxis.updateHeight();
+        this.xaxis.ensureXAxisIsLast();
       }
       return;
     }
@@ -770,6 +771,7 @@ export default class ApexStock {
     // Update XAxis position
     if (this.xaxis) {
       this.xaxis.updateHeight();
+      this.xaxis.ensureXAxisIsLast();
     }
   }
 
