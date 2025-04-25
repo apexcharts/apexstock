@@ -28,46 +28,33 @@ class SelectedElementPopup {
     // Create popup container
     this.popupElement = document.createElement("div");
     this.popupElement.className = "apexstock-element-popup";
-    this.popupElement.style.display = "none";
 
     // Check if we're in dark mode
     this.isDarkTheme =
       document.body.classList.contains("dark-mode") ||
       document.querySelector(".apexstock-theme-dark") !== null;
 
+    if (this.isDarkTheme) {
+      this.popupElement.classList.add("apexstock-theme-dark");
+    }
+
     // Create toolbar container for styling options
     const styleToolbar = document.createElement("div");
     styleToolbar.className = "apexstock-style-toolbar";
-    styleToolbar.style.display = "flex";
-    styleToolbar.style.flexWrap = "wrap";
-    styleToolbar.style.gap = "8px";
-    styleToolbar.style.marginBottom = "8px";
-    styleToolbar.style.padding = "4px";
 
     // Create stroke color picker container
     const strokeContainer = document.createElement("div");
     strokeContainer.className = "apexstock-color-container";
-    strokeContainer.style.display = "flex";
-    strokeContainer.style.flexDirection = "column";
-    strokeContainer.style.alignItems = "center";
 
     // Stroke color label
     const strokeLabel = document.createElement("label");
     strokeLabel.textContent = "Outline";
-    strokeLabel.style.fontSize = "10px";
-    strokeLabel.style.marginBottom = "2px";
     strokeContainer.appendChild(strokeLabel);
 
     // Stroke color picker
     this.strokeColorPicker = document.createElement("input");
     this.strokeColorPicker.type = "color";
     this.strokeColorPicker.className = "apexstock-stroke-color-picker";
-    this.strokeColorPicker.style.width = "24px";
-    this.strokeColorPicker.style.height = "24px";
-    this.strokeColorPicker.style.padding = "0";
-    this.strokeColorPicker.style.border = "1px solid #ccc";
-    this.strokeColorPicker.style.borderRadius = "2px";
-    this.strokeColorPicker.style.cursor = "pointer";
     this.strokeColorPicker.value = "#000000";
 
     this.strokeColorPicker.addEventListener("input", (e) => {
@@ -87,27 +74,16 @@ class SelectedElementPopup {
     // Create fill color picker container
     const fillContainer = document.createElement("div");
     fillContainer.className = "apexstock-color-container";
-    fillContainer.style.display = "flex";
-    fillContainer.style.flexDirection = "column";
-    fillContainer.style.alignItems = "center";
 
     // Fill color label
     const fillLabel = document.createElement("label");
     fillLabel.textContent = "Fill";
-    fillLabel.style.fontSize = "10px";
-    fillLabel.style.marginBottom = "2px";
     fillContainer.appendChild(fillLabel);
 
     // Fill color picker
     this.fillColorPicker = document.createElement("input");
     this.fillColorPicker.type = "color";
     this.fillColorPicker.className = "apexstock-fill-color-picker";
-    this.fillColorPicker.style.width = "24px";
-    this.fillColorPicker.style.height = "24px";
-    this.fillColorPicker.style.padding = "0";
-    this.fillColorPicker.style.border = "1px solid #ccc";
-    this.fillColorPicker.style.borderRadius = "2px";
-    this.fillColorPicker.style.cursor = "pointer";
     this.fillColorPicker.value = "#ffffff";
 
     this.fillColorPicker.addEventListener("input", (e) => {
@@ -127,21 +103,14 @@ class SelectedElementPopup {
     // Create opacity slider container
     const opacityContainer = document.createElement("div");
     opacityContainer.className = "apexstock-opacity-container";
-    opacityContainer.style.display = "flex";
-    opacityContainer.style.flexDirection = "column";
-    opacityContainer.style.alignItems = "center";
 
     // Opacity label
     const opacityLabel = document.createElement("label");
     opacityLabel.textContent = "Opacity";
-    opacityLabel.style.fontSize = "10px";
-    opacityLabel.style.marginBottom = "2px";
     opacityContainer.appendChild(opacityLabel);
 
     // Opacity slider container for better control
     const sliderContainer = document.createElement("div");
-    sliderContainer.style.display = "flex";
-    sliderContainer.style.alignItems = "center";
 
     // Opacity slider
     this.fillOpacitySlider = document.createElement("input");
@@ -150,9 +119,6 @@ class SelectedElementPopup {
     this.fillOpacitySlider.max = "100";
     this.fillOpacitySlider.value = "50";
     this.fillOpacitySlider.className = "apexstock-opacity-slider";
-    this.fillOpacitySlider.style.width = "60px";
-    this.fillOpacitySlider.style.height = "8px";
-    this.fillOpacitySlider.style.margin = "0";
 
     this.fillOpacitySlider.addEventListener("input", (e) => {
       const currentData = this.currentElementData;
@@ -177,25 +143,12 @@ class SelectedElementPopup {
 
     // Add divider
     const divider = document.createElement("div");
-    divider.style.width = "100%";
-    divider.style.height = "1px";
-    divider.style.backgroundColor = this.isDarkTheme ? "#444" : "#ddd";
-    divider.style.margin = "4px 0";
+    divider.className = "apexstock-divider";
 
     // Create delete button
     const deleteButton = document.createElement("button");
     deleteButton.className = "apexstock-element-delete-btn";
     deleteButton.innerHTML = "🗑 Delete";
-    deleteButton.style.display = "flex";
-    deleteButton.style.alignItems = "center";
-    deleteButton.style.padding = "6px 12px";
-    deleteButton.style.width = "100%";
-    deleteButton.style.background = "none";
-    deleteButton.style.border = "none";
-    deleteButton.style.textAlign = "left";
-    deleteButton.style.cursor = "pointer";
-    deleteButton.style.borderRadius = "3px";
-    deleteButton.style.color = this.isDarkTheme ? "#e0e0e0" : "#333";
 
     // Add click handler
     deleteButton.addEventListener("click", (e) => {
@@ -316,11 +269,9 @@ class SelectedElementPopup {
 
     this.configureForElement(elementData);
 
-    this.popupElement.style.position = "absolute";
     this.popupElement.style.left = `${relativeX}px`;
     this.popupElement.style.top = `${relativeY}px`;
     this.popupElement.style.display = "block";
-    this.popupElement.style.zIndex = "1000"; // Ensure popup is above other elements
 
     // Ensure popup is fully visible in the viewport
     const popupRect = this.popupElement.getBoundingClientRect();

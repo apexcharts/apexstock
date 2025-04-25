@@ -96,14 +96,6 @@ class TextAnnotationManager {
   createToolbar() {
     const toolbar = document.createElement("div");
     toolbar.className = "apexstock-text-toolbar";
-    toolbar.style.position = "absolute";
-    toolbar.style.display = "none";
-    toolbar.style.zIndex = "1001";
-    toolbar.style.background = "#f8f9fa";
-    toolbar.style.border = "1px solid #dee2e6";
-    toolbar.style.borderRadius = "4px";
-    toolbar.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-    toolbar.style.padding = "5px";
 
     // Bold button
     const boldBtn = document.createElement("button");
@@ -128,23 +120,14 @@ class TextAnnotationManager {
 
     // Text color picker
     const textColorWrapper = document.createElement("div");
-    textColorWrapper.style.display = "inline-block";
-    textColorWrapper.style.position = "relative";
+    textColorWrapper.className = "color-wrapper";
 
     const textColorLabel = document.createElement("label");
     textColorLabel.textContent = "Text";
-    textColorLabel.style.fontSize = "10px";
-    textColorLabel.style.display = "block";
-    textColorLabel.style.textAlign = "center";
 
     const textColorPicker = document.createElement("input");
     textColorPicker.type = "color";
     textColorPicker.value = this.textStyle.color;
-    textColorPicker.style.width = "24px";
-    textColorPicker.style.height = "24px";
-    textColorPicker.style.padding = "0";
-    textColorPicker.style.border = "1px solid #ccc";
-    textColorPicker.style.borderRadius = "2px";
     textColorPicker.addEventListener("input", (e) => {
       this.setStyle("color", e.target.value);
     });
@@ -154,24 +137,14 @@ class TextAnnotationManager {
 
     // Background color picker
     const bgColorWrapper = document.createElement("div");
-    bgColorWrapper.style.display = "inline-block";
-    bgColorWrapper.style.position = "relative";
-    bgColorWrapper.style.marginLeft = "5px";
+    bgColorWrapper.className = "color-wrapper";
 
     const bgColorLabel = document.createElement("label");
     bgColorLabel.textContent = "Background";
-    bgColorLabel.style.fontSize = "10px";
-    bgColorLabel.style.display = "block";
-    bgColorLabel.style.textAlign = "center";
 
     const bgColorPicker = document.createElement("input");
     bgColorPicker.type = "color";
     bgColorPicker.value = this.textStyle.backgroundColor;
-    bgColorPicker.style.width = "24px";
-    bgColorPicker.style.height = "24px";
-    bgColorPicker.style.padding = "0";
-    bgColorPicker.style.border = "1px solid #ccc";
-    bgColorPicker.style.borderRadius = "2px";
     bgColorPicker.addEventListener("input", (e) => {
       this.setStyle("backgroundColor", e.target.value);
     });
@@ -181,24 +154,16 @@ class TextAnnotationManager {
 
     // Background opacity slider
     const opacityWrapper = document.createElement("div");
-    opacityWrapper.style.display = "inline-block";
-    opacityWrapper.style.position = "relative";
-    opacityWrapper.style.marginLeft = "5px";
+    opacityWrapper.className = "opacity-wrapper";
 
     const opacityLabel = document.createElement("label");
     opacityLabel.textContent = "Opacity";
-    opacityLabel.style.fontSize = "10px";
-    opacityLabel.style.display = "block";
-    opacityLabel.style.textAlign = "center";
 
     const opacitySlider = document.createElement("input");
     opacitySlider.type = "range";
     opacitySlider.min = "0";
     opacitySlider.max = "100";
     opacitySlider.value = this.textStyle.backgroundOpacity * 100;
-    opacitySlider.style.width = "60px";
-    opacitySlider.style.height = "8px";
-    opacitySlider.style.marginTop = "8px";
     opacitySlider.addEventListener("input", (e) => {
       this.setStyle("backgroundOpacity", parseInt(e.target.value) / 100);
     });
@@ -265,9 +230,7 @@ class TextAnnotationManager {
 
     // Create a container for font controls
     const fontControls = document.createElement("div");
-    fontControls.style.display = "flex";
-    fontControls.style.gap = "5px";
-    fontControls.style.marginBottom = "8px";
+    fontControls.className = "font-controls";
 
     // Add font controls
     fontControls.appendChild(sizeSelect);
@@ -278,9 +241,7 @@ class TextAnnotationManager {
 
     // Create a container for color controls
     const colorControls = document.createElement("div");
-    colorControls.style.display = "flex";
-    colorControls.style.gap = "5px";
-    colorControls.style.marginBottom = "8px";
+    colorControls.className = "color-controls";
 
     // Add color controls
     colorControls.appendChild(textColorWrapper);
@@ -289,9 +250,7 @@ class TextAnnotationManager {
 
     // Create a container for action buttons
     const actionControls = document.createElement("div");
-    actionControls.style.display = "flex";
-    actionControls.style.gap = "5px";
-    actionControls.style.justifyContent = "flex-end";
+    actionControls.className = "action-controls";
 
     // Add action buttons
     actionControls.appendChild(cancelBtn);
@@ -301,28 +260,6 @@ class TextAnnotationManager {
     toolbar.appendChild(fontControls);
     toolbar.appendChild(colorControls);
     toolbar.appendChild(actionControls);
-
-    // Style buttons
-    const buttons = toolbar.querySelectorAll("button");
-    buttons.forEach((btn) => {
-      btn.style.width = "28px";
-      btn.style.height = "28px";
-      btn.style.margin = "0 2px";
-      btn.style.background = "#fff";
-      btn.style.border = "1px solid #ced4da";
-      btn.style.borderRadius = "4px";
-      btn.style.cursor = "pointer";
-    });
-
-    const selects = toolbar.querySelectorAll("select");
-    selects.forEach((select) => {
-      select.style.height = "28px";
-      select.style.margin = "0 2px";
-      select.style.background = "#fff";
-      select.style.border = "1px solid #ced4da";
-      select.style.borderRadius = "4px";
-      select.style.cursor = "pointer";
-    });
 
     this.chartDiv.appendChild(toolbar);
     this.toolbar = toolbar;
@@ -339,18 +276,11 @@ class TextAnnotationManager {
     const editor = document.createElement("div");
     editor.className = "apexstock-text-editor";
     editor.contentEditable = true;
-    editor.style.position = "absolute";
     editor.style.left = this.clickX + "px";
     editor.style.top = this.clickY + "px";
-    editor.style.minWidth = "100px";
     editor.style.minHeight = this.textStyle.fontSize + "px";
-    editor.style.padding = "5px";
     editor.style.background = this.currentData.backgroundColor || "#ffffff";
     editor.style.opacity = this.currentData.backgroundOpacity || 0.7;
-    editor.style.border = "1px solid #007bff";
-    editor.style.borderRadius = "3px";
-    editor.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
-    editor.style.zIndex = "1000";
     editor.style.fontFamily = this.currentData.fontFamily;
     editor.style.fontSize = this.currentData.fontSize + "px";
     editor.style.fontWeight = this.currentData.fontWeight;
@@ -397,7 +327,6 @@ class TextAnnotationManager {
     const viewportHeight = window.innerHeight;
 
     this.toolbar.style.display = "flex";
-    this.toolbar.style.flexDirection = "column";
     const toolbarWidth = this.toolbar.offsetWidth;
     const toolbarHeight = this.toolbar.offsetHeight;
 

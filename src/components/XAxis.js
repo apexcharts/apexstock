@@ -846,7 +846,7 @@ export default class XAxis {
 
     // Add correct positioning styles
     this.axisElement.style.position = "relative";
-    this.axisElement.style.marginTop = "5px";
+    this.axisElement.style.marginTop = "-15px";
 
     // Always append the axis as the LAST child of the chart container
     // This ensures it will be below all other elements
