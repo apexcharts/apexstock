@@ -171,6 +171,15 @@ export default class Export {
         .apexcharts-tooltip-box span.value {
           font-weight: 700;
         }
+        .apexstock-drawing-overlay-wrapper {
+            position: absolute;
+            top: 0;
+        }
+        .apexstock-drawing-overlay {
+          overflow: auto;
+          width: 100%;
+          height: 100%;
+        }
         [class^=apexstock-] * {
           font-family: ${
             this.ctx.chartOptions.chart.fontFamily ||
