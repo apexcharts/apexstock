@@ -750,10 +750,7 @@
           let timeStep = this.getTimeStepForInterval(interval);
 
           // For 1Y, 5Y and ALL with many data points, adjust timestep to distribute evenly
-          if (
-            (period === "1Y" || period === "5Y" || period === "ALL") &&
-            count > 0
-          ) {
+          if ((period === "5Y" || period === "ALL") && count > 0) {
             const timeRange = endDate - baseDate;
             timeStep = Math.max(timeStep, Math.floor(timeRange / count));
           }
@@ -763,7 +760,7 @@
             let currentDate;
 
             // For 1Y, 5Y and ALL, distribute points evenly across the time range
-            if (period === "1Y" || period === "5Y" || period === "ALL") {
+            if (period === "5Y" || period === "ALL") {
               // Calculate position from 0 to 1 across the range
               const position = i / (count - 1 || 1);
               const timestamp = baseDate + position * (endDate - baseDate);

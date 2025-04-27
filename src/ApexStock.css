@@ -662,7 +662,53 @@
 }
 
 /* ==============================
- * 13. Responsive Adjustments
+ * 13. Zoom Controls
+ * ============================== */
+.apexstock-zoom-controls {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.apexstock-zoom-in,
+.apexstock-zoom-out {
+  width: 29px;
+  height: 22px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.7);
+  color: #333;
+  font-size: 18px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.apexstock-zoom-in:hover,
+.apexstock-zoom-out:hover {
+  background-color: rgba(255, 255, 255, 1);
+}
+
+.apexstock-theme-dark .apexstock-zoom-in,
+.apexstock-theme-dark .apexstock-zoom-out {
+  background-color: rgba(70, 70, 70, 0.7);
+  color: #f1f1f1;
+}
+
+.apexstock-theme-dark .apexstock-zoom-in:hover,
+.apexstock-theme-dark .apexstock-zoom-out:hover {
+  background-color: rgba(70, 70, 70, 1);
+}
+
+/* ==============================
+ * 14. Responsive Adjustments
  * ============================== */
 @media (max-width: 768px) {
   .apexstock-toolbar {

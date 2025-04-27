@@ -7,6 +7,7 @@ import ChartSwitch from "./core/ChartSwitch";
 import IndicatorHandlers from "./indicators/IndicatorHandlers";
 import XAxis from "./components/XAxis";
 import ThemeManager from "./core/ThemeManager";
+import ZoomControls from "./components/ZoomControls";
 
 export default class ApexStock {
   /**
@@ -377,6 +378,9 @@ export default class ApexStock {
 
     // Initialize the custom XAxis
     this.xaxis = new XAxis(this);
+
+    // Initialize zoom controls
+    this.zoomControls = new ZoomControls(this);
 
     // Initial update to ensure consistent heights
     this.updateAllChartHeights();
@@ -929,6 +933,11 @@ export default class ApexStock {
     const zoomState = this.getCurrentZoomState();
     if (zoomState) {
       this.applyZoomToAllCharts(zoomState);
+    }
+
+    // Update zoom controls theme
+    if (this.zoomControls) {
+      this.zoomControls.updateTheme(newTheme);
     }
   }
 
