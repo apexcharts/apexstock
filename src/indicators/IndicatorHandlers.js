@@ -1,5 +1,4 @@
-// IndicatorHandlers.js
-// Contains the updateIndicator function and related methods for ApexStock
+import Utils from "../utils/Utils";
 
 export default class IndicatorHandlers {
   /**
@@ -143,41 +142,121 @@ export default class IndicatorHandlers {
       context.indicatorChartMap[indicatorKey] = true;
       return;
     } else if (indicatorKey === "fibonacci retracements") {
-      const levels = context.calculateFibonacciRetracements(context.series);
+      // Get the current zoom state
+      const zoomState = context.getCurrentZoomState();
+      let startIndex = 0;
+      let endIndex = context.series.length - 1;
+
+      // If there's an active zoom, use those indices
+      if (
+        zoomState &&
+        zoomState.minX !== undefined &&
+        zoomState.maxX !== undefined
+      ) {
+        startIndex = Math.max(0, Math.floor(zoomState.minX));
+        endIndex = Math.min(
+          context.series.length - 1,
+          Math.ceil(zoomState.maxX)
+        );
+      }
+
+      // Calculate levels based on the visible range
+      const levels = context.calculateFibonacciRetracementsForRange(
+        context.series,
+        startIndex,
+        endIndex
+      );
+
+      // Create annotations with the calculated levels
       const annotations = levels.map((level, l) => ({
         id: "fib-anno-" + context.FIBLEVELS[l].toString().replace(/\./g, ""),
         y: level,
-        borderColor: context.colors.indicators.fibonacci,
+        borderColor: context.colors.indicators.fibonacci[l],
+        strokeDashArray: 0,
         label: {
-          text: `${Math.round(
-            ((level - Math.min(...context.series.map((pt) => pt.y[2]))) /
-              (Math.max(...context.series.map((pt) => pt.y[1])) -
-                Math.min(...context.series.map((pt) => pt.y[2])))) *
-              100
-          )}%`,
+          text: `${Utils.truncateNumber(context.FIBLEVELS[l] * 100)}%`,
+          textAnchor: "start",
+          position: "left",
+          style: {
+            background: context.colors.indicators.fibonacci[l],
+            color: "#fff",
+            fontSize: "10px",
+          },
         },
       }));
-      context.chart.updateOptions({ annotations: { yaxis: annotations } });
-      context.indicatorChartMap[indicatorKey] = true;
-      return;
-    } else if (indicatorKey === "linear regression") {
-      const lrData = context.calculateLinearRegression(context.series, 30);
 
-      const lrSeries = {
-        name: "Linear Regression",
-        type: "line",
-        data: lrData.map((value, index) => ({
-          x: context.series[index].x,
-          y: value.y,
-        })),
-        color: context.colors.indicators.linearRegression,
-      };
-      const currentSeries = context.chart.w.config.series.filter(
-        (s) => s.name !== "Linear Regression"
+      // Get existing annotations (if any)
+      const currentOptions = context.chart.w.config.annotations || {};
+      const currentYAxisAnnotations = (currentOptions.yaxis || []).filter(
+        (anno) => !anno.id || !anno.id.startsWith("fib-anno-")
       );
 
-      context.chart.updateSeries([...currentSeries, lrSeries]);
-      context.indicatorChartMap[indicatorKey] = true;
+      // Merge new Fibonacci annotations with existing annotations
+      const updatedAnnotations = {
+        ...currentOptions,
+        yaxis: [...currentYAxisAnnotations, ...annotations],
+      };
+
+      // Update the chart with merged annotations
+      context.chart.updateOptions({ annotations: updatedAnnotations });
+
+      // Store the indicator in the map, but use a special object with update method
+      context.indicatorChartMap[indicatorKey] = {
+        // This special update method will be called when zoom or scroll occurs
+        update: function () {
+          // When called, calculate new Fibonacci levels based on current zoom
+          const currentZoom = context.getCurrentZoomState();
+          let newStartIndex = 0;
+          let newEndIndex = context.series.length - 1;
+
+          if (
+            currentZoom &&
+            currentZoom.minX !== undefined &&
+            currentZoom.maxX !== undefined
+          ) {
+            newStartIndex = Math.max(0, Math.floor(currentZoom.minX));
+            newEndIndex = Math.min(
+              context.series.length - 1,
+              Math.ceil(currentZoom.maxX)
+            );
+          }
+
+          const newLevels = context.calculateFibonacciRetracementsForRange(
+            context.series,
+            newStartIndex,
+            newEndIndex
+          );
+
+          // Remove old Fibonacci annotations
+          context.FIBLEVELS.forEach((level) => {
+            const id = "fib-anno-" + level.toString().replace(/\./g, "");
+            context.chart.removeAnnotation(id);
+          });
+
+          // Create and add new annotations
+          newLevels.forEach((level, i) => {
+            const id =
+              "fib-anno-" + context.FIBLEVELS[i].toString().replace(/\./g, "");
+            context.chart.addYaxisAnnotation({
+              id: id,
+              y: level,
+              borderColor: context.colors.indicators.fibonacci[i],
+              strokeDashArray: 0,
+              label: {
+                text: `${Utils.truncateNumber(context.FIBLEVELS[i] * 100)}%`,
+                textAnchor: "start",
+                position: "left",
+                style: {
+                  background: context.colors.indicators.fibonacci[i],
+                  color: "#fff",
+                  fontSize: "10px",
+                },
+              },
+            });
+          });
+        },
+      };
+
       return;
     } else if (indicatorKey === "ichimoku cloud indicator") {
       const ichimoku = context.calculateIchimoku(context.series);

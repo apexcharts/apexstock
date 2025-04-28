@@ -313,6 +313,14 @@ export default class ApexStock {
       if (this.xaxis) {
         this.xaxis.render();
       }
+
+      if (
+        this.indicatorChartMap["fibonacci retracements"] &&
+        typeof this.indicatorChartMap["fibonacci retracements"].update ===
+          "function"
+      ) {
+        this.indicatorChartMap["fibonacci retracements"].update();
+      }
     }
   }
 
@@ -332,6 +340,14 @@ export default class ApexStock {
       // Update the custom x-axis if it exists
       if (this.xaxis) {
         this.xaxis.render();
+      }
+
+      if (
+        this.indicatorChartMap["fibonacci retracements"] &&
+        typeof this.indicatorChartMap["fibonacci retracements"].update ===
+          "function"
+      ) {
+        this.indicatorChartMap["fibonacci retracements"].update();
       }
     }
   }
@@ -998,6 +1014,14 @@ export default class ApexStock {
 
   calculatePVT(series) {
     return Indicators.calculatePVT(series);
+  }
+
+  calculateFibonacciRetracementsForRange(series, startIndex, endIndex) {
+    return Indicators.calculateFibonacciRetracementsForRange(
+      series,
+      startIndex,
+      endIndex
+    );
   }
 
   calculateStochastic(series, period, smoothPeriod) {

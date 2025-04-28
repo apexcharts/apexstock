@@ -165,6 +165,29 @@ class Indicators {
     );
   }
 
+  static calculateFibonacciRetracementsForRange(series, startIndex, endIndex) {
+    // Ensure indices are valid
+    if (!series || series.length === 0) return [];
+
+    startIndex = Math.max(0, startIndex);
+    endIndex = Math.min(series.length - 1, endIndex);
+
+    // Get data points within the range
+    const visibleSeries = series.slice(startIndex, endIndex + 1);
+
+    // Find highest high and lowest low within this range
+    const highs = visibleSeries.map((pt) => pt.y[1]);
+    const lows = visibleSeries.map((pt) => pt.y[2]);
+    const maxHigh = Math.max(...highs);
+    const minLow = Math.min(...lows);
+    const diff = maxHigh - minLow;
+
+    // Calculate Fibonacci levels
+    return [0, 0.236, 0.382, 0.5, 0.618, 1].map(
+      (level) => minLow + level * diff
+    );
+  }
+
   static calculatePVT(series) {
     const pvt = [];
     let prev = 0;
