@@ -56,8 +56,8 @@ export default class TooltipAnnotationManager {
       clickX: x,
       clickY: y,
       tooltipContent: originalTooltip.innerHTML,
-      tooltipWidth: originalTooltip.offsetWidth,
-      tooltipHeight: originalTooltip.offsetHeight,
+      tooltipWidth: originalTooltip.offsetWidth + 5,
+      tooltipHeight: originalTooltip.offsetHeight + 5,
     };
 
     // Create SVG elements
