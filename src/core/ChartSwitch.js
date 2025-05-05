@@ -1,5 +1,3 @@
-import RenkoSettings from "../components/RenkoSettings";
-
 /**
  * ChartSwitch component for ApexStock
  * Allows switching between different chart types (line, area, candle, column, heikin-ashi, renko)
@@ -50,7 +48,6 @@ export default class ChartSwitch {
           <rect x="15" y="5" width="4" height="4" fill="currentColor" />
           <rect x="15" y="13" width="4" height="4" fill="currentColor" />
         </svg>`,
-        settings: true,
       },
       {
         id: "ohlc",
@@ -103,8 +100,7 @@ export default class ChartSwitch {
     this.originalSeries = [...this.series];
 
     // Default Renko brick size (in percentage)
-    this.renkoBrickSize = 0.1; // 1% by default
-    this.renkoSettings = null;
+    this.renkoBrickSize = 0.25;
 
     this.init();
   }
@@ -428,34 +424,12 @@ export default class ChartSwitch {
     const dropdown = document.createElement("div");
     dropdown.classList.add("apexstock-chart-type-dropdown");
 
-    // Create a container for settings
-    const settingsContainer = document.createElement("div");
-    settingsContainer.classList.add("apexstock-chart-settings-container");
-    chartSwitchWrapper.appendChild(settingsContainer);
-
-    // Initialize Renko settings
-    this.renkoSettings = new RenkoSettings(this, settingsContainer);
-
     // Add chart type options to dropdown
     this.chartTypes.forEach((type) => {
       const option = document.createElement("div");
       option.classList.add("apexstock-chart-type-option");
       option.dataset.type = type.id;
       option.innerHTML = `<span class="chart-icon">${type.icon}</span><span class="chart-text">${type.name}</span>`;
-
-      // Add settings icon if this type has settings
-      if (type.settings) {
-        const settingsIcon = document.createElement("span");
-        settingsIcon.className = "apexstock-chart-type-settings-icon";
-        settingsIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
-
-        settingsIcon.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.toggleSettings(type.id);
-        });
-
-        option.appendChild(settingsIcon);
-      }
 
       // Highlight the currently selected chart type
       if (type.id === this.currentType) {
@@ -474,13 +448,6 @@ export default class ChartSwitch {
             el.classList.remove("active");
           });
         option.classList.add("active");
-
-        // Show settings if this type has settings
-        if (type.settings) {
-          this.showSettings(type.id);
-        } else {
-          this.hideAllSettings();
-        }
       });
 
       dropdown.appendChild(option);
@@ -506,145 +473,6 @@ export default class ChartSwitch {
     const toolbarEl = this.ctx.primaryToolbarLeft;
     if (toolbarEl) {
       toolbarEl.insertBefore(chartSwitchWrapper, toolbarEl.firstChild);
-    }
-
-    // Add CSS styles
-    this.addStyles();
-  }
-
-  /**
-   * Toggle chart type settings
-   * @param {string} typeId - The chart type ID
-   */
-  toggleSettings(typeId) {
-    if (typeId === "renko" && this.renkoSettings) {
-      this.renkoSettings.toggle();
-    }
-  }
-
-  /**
-   * Show settings for a specific chart type
-   * @param {string} typeId - The chart type ID
-   */
-  showSettings(typeId) {
-    if (typeId === "renko" && this.renkoSettings) {
-      this.renkoSettings.show();
-    }
-  }
-
-  /**
-   * Hide all chart type settings
-   */
-  hideAllSettings() {
-    if (this.renkoSettings) {
-      this.renkoSettings.hide();
-    }
-  }
-
-  /**
-   * Add CSS styles for Renko chart settings
-   */
-  addStyles() {
-    const styleId = "apexstock-renko-styles";
-    let styleEl = document.getElementById(styleId);
-
-    if (!styleEl) {
-      styleEl = document.createElement("style");
-      styleEl.id = styleId;
-      document.head.appendChild(styleEl);
-
-      styleEl.textContent = `
-        .apexstock-chart-settings-container {
-          margin-top: 10px;
-        }
-        
-        .apexstock-renko-settings {
-          background-color: var(--light-bg, #ffffff);
-          border: 1px solid var(--light-border, #ced4da);
-          border-radius: 4px;
-          padding: 10px;
-          margin-top: 5px;
-          width: 220px;
-        }
-        
-        .apexstock-theme-dark .apexstock-renko-settings {
-          background-color: var(--dark-bg, #343a40);
-          border-color: var(--dark-border, #495057);
-          color: var(--dark-text, #e9ecef);
-        }
-        
-        .apexstock-renko-brick-size {
-          display: flex;
-          align-items: center;
-          margin-bottom: 5px;
-        }
-        
-        .apexstock-renko-brick-size label {
-          margin-right: 10px;
-          font-size: 12px;
-          flex: 1;
-        }
-        
-        .apexstock-renko-brick-size input {
-          width: 60px;
-          padding: 4px;
-          border: 1px solid var(--light-border, #ced4da);
-          border-radius: 3px;
-          font-size: 12px;
-          margin-right: 5px;
-        }
-        
-        .apexstock-theme-dark .apexstock-renko-brick-size input {
-          background-color: var(--dark-bg-alpha, rgba(1, 1, 1, 0.65));
-          border-color: var(--dark-border, #495057);
-          color: var(--dark-text, #e9ecef);
-        }
-        
-        .apexstock-renko-apply {
-          padding: 4px 8px;
-          background-color: var(--blue, #007bff);
-          color: white;
-          border: none;
-          border-radius: 3px;
-          cursor: pointer;
-          font-size: 12px;
-        }
-        
-        .apexstock-renko-apply:hover {
-          background-color: #0069d9;
-        }
-        
-        .apexstock-renko-info {
-          font-size: 11px;
-          color: #666;
-          margin-top: 8px;
-        }
-        
-        .apexstock-theme-dark .apexstock-renko-info {
-          color: #adb5bd;
-        }
-        
-        .apexstock-chart-type-settings-icon {
-          margin-left: auto;
-          margin-right: 5px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .apexstock-chart-type-settings-icon svg {
-          opacity: 0.7;
-        }
-        
-        .apexstock-chart-type-settings-icon:hover svg {
-          opacity: 1;
-        }
-        
-        .apexstock-chart-type-option {
-          display: flex;
-          align-items: center;
-        }
-      `;
     }
   }
 
