@@ -382,7 +382,7 @@ export default class ApexStock {
     this.addCustomIndicatorDropdowns();
 
     // Initialize the ChartSwitch component
-    new ChartSwitch(this);
+    this.chartSwitch = new ChartSwitch(this);
 
     // Initialize DrawingTools
     new DrawingTools(this);
@@ -415,6 +415,10 @@ export default class ApexStock {
       newOptions.theme.mode &&
       newOptions.theme.mode !== this.theme
     ) {
+      if (this.chartSwitch) {
+        this.chartSwitch.updateTheme(newOptions.theme.mode);
+      }
+
       // Update theme manager
       this.themeManager.setTheme(newOptions.theme.mode);
       this.theme = this.themeManager.getTheme();
@@ -551,6 +555,13 @@ export default class ApexStock {
 
     // Update heights to ensure consistent layout
     this.updateAllChartHeights();
+  }
+
+  destroy() {
+    // Clean up ChartSwitch
+    if (this.chartSwitch && typeof this.chartSwitch.destroy === "function") {
+      this.chartSwitch.destroy();
+    }
   }
 
   randomId() {
@@ -954,6 +965,14 @@ export default class ApexStock {
     // Update zoom controls theme
     if (this.zoomControls) {
       this.zoomControls.updateTheme(newTheme);
+    }
+
+    // Update ChartSwitch theme
+    if (
+      this.chartSwitch &&
+      typeof this.chartSwitch.updateTheme === "function"
+    ) {
+      this.chartSwitch.updateTheme(newTheme);
     }
   }
 

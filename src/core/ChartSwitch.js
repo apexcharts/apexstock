@@ -1,3 +1,5 @@
+import SettingsControl from "../components/SettingsControl";
+
 /**
  * ChartSwitch component for ApexStock
  * Allows switching between different chart types (line, area, candle, column, heikin-ashi, renko)
@@ -101,8 +103,45 @@ export default class ChartSwitch {
 
     // Default Renko brick size (in percentage)
     this.renkoBrickSize = 0.25;
+    this.renkoSettingsControl = null;
 
     this.init();
+  }
+
+  initializeRenkoSettings() {
+    // Create the settings control only if it doesn't exist
+    if (!this.renkoSettingsControl) {
+      this.renkoSettingsControl = new SettingsControl(this.ctx.chartEl, {
+        title: "Renko Chart Settings",
+        position: "top-left",
+        theme: this.ctx.theme,
+        controls: [
+          {
+            id: "brick-size",
+            type: "number",
+            label: "Brick Size (%)",
+            value: this.renkoBrickSize,
+            defaultValue: 0.25,
+            min: 0.01,
+            max: 10,
+            step: 0.01,
+            helpText: "Size of each brick as percentage of price",
+          },
+        ],
+        onChange: (controlId, value) => {
+          if (controlId === "brick-size") {
+            this.renkoBrickSize = value;
+
+            // Redraw the Renko chart with new brick size if currently selected
+            if (this.currentType === "renko") {
+              const temp = this.currentType;
+              this.currentType = null; // Reset to force redraw
+              this.changeChartType(temp);
+            }
+          }
+        },
+      });
+    }
   }
 
   /**
@@ -476,6 +515,12 @@ export default class ChartSwitch {
     }
   }
 
+  updateTheme(theme) {
+    if (this.renkoSettingsControl) {
+      this.renkoSettingsControl.updateTheme(theme);
+    }
+  }
+
   /**
    * Change the chart type
    * @param {string} type - The chart type to switch to
@@ -488,6 +533,15 @@ export default class ChartSwitch {
     const zoomState = this.ctx.getCurrentZoomState();
 
     this.currentType = type;
+
+    // Show/hide Renko settings based on chart type - ADD THESE LINES
+    if (type === "renko") {
+      this.initializeRenkoSettings();
+      this.renkoSettingsControl.show();
+    } else if (this.renkoSettingsControl) {
+      this.renkoSettingsControl.hide();
+    }
+
     let newSeries = [];
 
     // Prepare the data for the selected chart type
@@ -679,5 +733,12 @@ export default class ChartSwitch {
     this.chart.updateOptions(chartOptions, true, false, false).then(() => {
       this.ctx.applyZoomToAllCharts(zoomState);
     });
+  }
+
+  destroy() {
+    if (this.renkoSettingsControl) {
+      this.renkoSettingsControl.destroy();
+      this.renkoSettingsControl = null;
+    }
   }
 }

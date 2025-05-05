@@ -56,6 +56,7 @@
   position: relative;
   margin-bottom: 5px;
   border-bottom: 2px solid #000;
+  z-index: 1000;
 }
 
 .apexstock-toolbar-left {
@@ -705,6 +706,216 @@
 .apexstock-theme-dark .apexstock-zoom-in:hover,
 .apexstock-theme-dark .apexstock-zoom-out:hover {
   background-color: rgba(70, 70, 70, 1);
+}
+
+/* ==============================
+ * Settings Control Component Styles
+ * ============================== */
+
+.apexstock-settings-control {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed var(--light-border);
+  padding: 10px;
+  z-index: 900;
+  min-width: 200px;
+  font-size: 12px;
+  display: none;
+}
+
+.apexstock-settings-control.position-top-left {
+  top: 10px;
+  left: 10px;
+}
+
+.apexstock-settings-control.position-top-right {
+  top: 10px;
+  right: 10px;
+}
+
+.apexstock-settings-control.position-bottom-left {
+  bottom: 50px;
+  left: 10px;
+}
+
+.apexstock-settings-control.position-bottom-right {
+  bottom: 50px;
+  right: 10px;
+}
+
+.apexstock-settings-header {
+  font-weight: bold;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--light-divider);
+  color: var(--light-text);
+}
+
+
+
+.apexstock-settings-control-group label {
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
+}
+
+.apexstock-settings-control-group input[type="number"],
+.apexstock-settings-control-group input[type="text"],
+.apexstock-settings-control-group select {
+  padding: 4px 8px;
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  background: var(--light-bg);
+  color: var(--light-text);
+  font-size: 11px;
+  margin: 0 5px;
+}
+
+.apexstock-settings-range-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.apexstock-settings-range-container input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--light-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.apexstock-settings-range-container input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apexstock-settings-range-container input[type="range"]::-webkit-slider-thumb:hover {
+  background: #0056b3;
+}
+
+.apexstock-settings-range-container input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.apexstock-settings-range-container input[type="range"]::-moz-range-thumb:hover {
+  background: #0056b3;
+}
+
+.apexstock-settings-range-value {
+  min-width: 35px;
+  text-align: right;
+  font-weight: 500;
+  color: var(--blue);
+}
+
+.apexstock-settings-toggle {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+}
+
+.apexstock-settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.apexstock-settings-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .2s;
+  border-radius: 18px;
+}
+
+.apexstock-settings-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+
+.apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider {
+  background-color: var(--blue);
+}
+
+.apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider:before {
+  transform: translateX(16px);
+}
+
+.apexstock-settings-help {
+  font-size: 10px;
+  color: #888;
+  font-style: italic;
+}
+
+/* Dark Theme Support */
+.apexstock-settings-control.apexstock-theme-dark {
+  background: var(--dark-bg);
+  border-color: var(--dark-border);
+  box-shadow: 0 2px 8px var(--dark-shadow);
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-header {
+  color: var(--dark-text);
+  border-color: var(--dark-divider);
+}
+
+.apexstock-settings-control.apexstock-theme-dark label {
+  color: #adb5bd;
+}
+
+.apexstock-settings-control.apexstock-theme-dark input[type="number"],
+.apexstock-settings-control.apexstock-theme-dark input[type="text"],
+.apexstock-settings-control.apexstock-theme-dark select {
+  background: var(--dark-bg-alpha);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-range-container input[type="range"] {
+  background: var(--dark-border);
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-range-value {
+  color: #64b5f6;
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-help {
+  color: #888;
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-toggle-slider {
+  background-color: #6c757d;
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider {
+  background-color: #64b5f6;
 }
 
 /* ==============================
