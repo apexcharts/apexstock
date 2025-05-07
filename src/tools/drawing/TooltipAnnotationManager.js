@@ -306,7 +306,6 @@ export default class TooltipAnnotationManager {
       );
 
       if (correctElement && correctElement.parentNode) {
-        console.log(`Removing tooltip with correct ID: ${id}`);
         correctElement.parentNode.removeChild(correctElement);
         this.tooltipElements.delete(id);
         return;

@@ -74,12 +74,17 @@ export default class IndicatorHandlers {
       },
     };
 
+    // Get current indicator parameters if oscillator settings are available
+    const indicatorParams = context.oscillatorSettings
+      ? context.oscillatorSettings.getIndicatorParams(indicatorKey)
+      : {};
+
     let indicatorChartOptions = {};
 
     // For overlays that are drawn on the main chart
     if (indicatorKey === "bollinger bands") {
-      const period = 20,
-        stdDev = 2;
+      const period = indicatorParams.period || 20;
+      const stdDev = indicatorParams.stdDev || 2;
       const { upper, lower } = context.calculateBollingerBands(
         context.series,
         period,
@@ -108,7 +113,8 @@ export default class IndicatorHandlers {
       context.indicatorChartMap[indicatorKey] = true;
       return;
     } else if (indicatorKey === "moving average") {
-      const maData = context.calculateMovingAverage(context.series, 10);
+      const period = indicatorParams.period || 10;
+      const maData = context.calculateMovingAverage(context.series, period);
       const maSeries = {
         name: "Moving Average",
         type: "line",
@@ -125,7 +131,8 @@ export default class IndicatorHandlers {
       context.indicatorChartMap[indicatorKey] = true;
       return;
     } else if (indicatorKey === "exponential moving average") {
-      const emaData = context.calculateEMA(context.series, 10);
+      const period = indicatorParams.period || 10;
+      const emaData = context.calculateEMA(context.series, period);
       const emaSeries = {
         name: "EMA",
         type: "line",
@@ -324,7 +331,8 @@ export default class IndicatorHandlers {
           indicatorChartOptions.series = defaultSeries;
       }
     } else if (indicatorKey === "rsi") {
-      const rsiData = context.calculateRSI(context.series, 14);
+      const period = indicatorParams.period || 14;
+      const rsiData = context.calculateRSI(context.series, period);
       const defaultSeries = [
         {
           name: "RSI",
@@ -363,7 +371,17 @@ export default class IndicatorHandlers {
           indicatorChartOptions.series = defaultSeries;
       }
     } else if (indicatorKey === "macd") {
-      const { macd, signal, histogram } = context.calculateMACD(context.series);
+      const fastPeriod = indicatorParams.fastPeriod || 12;
+      const slowPeriod = indicatorParams.slowPeriod || 26;
+      const signalPeriod = indicatorParams.signalPeriod || 9;
+
+      const { macd, signal, histogram } = context.calculateMACD(
+        context.series,
+        fastPeriod,
+        slowPeriod,
+        signalPeriod
+      );
+
       const defaultSeries = [
         {
           name: "MACD",
@@ -459,7 +477,15 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "stochastic oscillator") {
-      const { k, d } = context.calculateStochastic(context.series, 14, 3);
+      const period = indicatorParams.period || 14;
+      const smoothPeriod = indicatorParams.smoothPeriod || 3;
+
+      const { k, d } = context.calculateStochastic(
+        context.series,
+        period,
+        smoothPeriod
+      );
+
       const defaultSeries = [
         {
           name: "Stochastic %K",
@@ -489,7 +515,9 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "standard deviation indicator") {
-      const stdData = context.calculateStdDevIndicator(context.series, 14);
+      const period = indicatorParams.period || 14;
+      const stdData = context.calculateStdDevIndicator(context.series, period);
+
       const defaultSeries = [
         {
           name: "Std Dev",
@@ -511,7 +539,9 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "average directional index") {
-      const adxData = context.calculateADX(context.series, 14);
+      const period = indicatorParams.period || 14;
+      const adxData = context.calculateADX(context.series, period);
+
       const defaultSeries = [
         {
           name: "ADX",
@@ -533,7 +563,16 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "chaikin oscillator") {
-      const chaikin = context.calculateChaikinOsc(context.series);
+      const shortPeriod = indicatorParams.shortPeriod || 3;
+      const longPeriod = indicatorParams.longPeriod || 10;
+
+      // Update the calculation function to use custom parameters if needed
+      const chaikin = context.calculateChaikinOsc(
+        context.series,
+        shortPeriod,
+        longPeriod
+      );
+
       const defaultSeries = [
         {
           name: "Chaikin Osc",
@@ -555,7 +594,9 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "commodity channel index") {
-      const cciData = context.calculateCCI(context.series, 20);
+      const period = indicatorParams.period || 20;
+      const cciData = context.calculateCCI(context.series, period);
+
       const defaultSeries = [
         {
           name: "CCI",
@@ -577,7 +618,17 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "trend strength index") {
-      const tsiData = context.calculateTSI(context.series, 25, 13);
+      const longPeriod = indicatorParams.longPeriod || 25;
+      const shortPeriod = indicatorParams.shortPeriod || 13;
+      const signalPeriod = indicatorParams.signalPeriod || 7;
+
+      const tsiData = context.calculateTSI(
+        context.series,
+        longPeriod,
+        shortPeriod,
+        signalPeriod
+      );
+
       const defaultSeries = [
         {
           name: "TSI",
@@ -599,7 +650,9 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "accelerator oscillator") {
-      const acData = context.calculateAcceleratorOsc(context.series);
+      const period = indicatorParams.period || 5;
+      const acData = context.calculateAcceleratorOsc(context.series, period);
+
       const defaultSeries = [
         {
           name: "AC",
@@ -621,12 +674,20 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "bollinger bands %b") {
-      const bb = context.calculateBollingerBands(context.series, 20, 2);
+      const period = indicatorParams.period || 20;
+      const stdDev = indicatorParams.stdDev || 2;
+
+      const bb = context.calculateBollingerBands(
+        context.series,
+        period,
+        stdDev
+      );
       const bBPercent = context.calculateBBPercent(
         context.series,
         bb.lower,
         bb.upper
       );
+
       const defaultSeries = [
         {
           name: "Bollinger %B",
@@ -648,13 +709,21 @@ export default class IndicatorHandlers {
         },
       };
     } else if (indicatorKey === "bollinger bands width") {
-      const bb = context.calculateBollingerBands(context.series, 20, 2);
+      const period = indicatorParams.period || 20;
+      const stdDev = indicatorParams.stdDev || 2;
+
+      const bb = context.calculateBollingerBands(
+        context.series,
+        period,
+        stdDev
+      );
       const bBWidth = context.calculateBBWidth(
         context.series,
         bb.middle,
         bb.upper,
         bb.lower
       );
+
       const defaultSeries = [
         {
           name: "Bollinger Width",
@@ -711,6 +780,21 @@ export default class IndicatorHandlers {
       const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
       chartInstance.render();
       context.indicatorChartMap[indicatorKey] = chartInstance;
+
+      // Create settings control for this oscillator
+      if (context.oscillatorSettings) {
+        // Create a settings control for the oscillator
+        const settingsControl =
+          context.oscillatorSettings.createSettingsControl(
+            indicatorKey,
+            context.indicatorContainer
+          );
+
+        // Show the settings immediately
+        if (settingsControl) {
+          settingsControl.show();
+        }
+      }
     }
 
     if (context.xaxis) {
@@ -783,6 +867,11 @@ export default class IndicatorHandlers {
         // If this was the active oscillator, clear it
         if (context.activeOscillator === indicatorKey) {
           context.activeOscillator = null;
+        }
+
+        // Hide the settings control
+        if (context.oscillatorSettings) {
+          context.oscillatorSettings.hideSettings(indicatorKey);
         }
 
         context.updateAllChartHeights();

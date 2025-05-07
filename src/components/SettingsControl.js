@@ -3,15 +3,14 @@ export default class SettingsControl {
    * Creates a reusable settings control box
    * @param {HTMLElement} container - The container element where the control will be placed
    * @param {Object} options - Configuration options
-   * @param {string} options.title - Title of the settings box
    * @param {Array} options.controls - Array of control objects
    * @param {Function} options.onChange - Callback function when settings change
    * @param {string} options.position - Position of the box (default: 'top-left')
+   * @param {string} options.theme - Theme for the control (default: 'light')
    */
   constructor(container, options = {}) {
     this.container = container;
     this.options = {
-      title: options.title || "Settings",
       controls: options.controls || [],
       onChange: options.onChange || (() => {}),
       position: options.position || "top-left",
@@ -32,9 +31,12 @@ export default class SettingsControl {
     this.element = document.createElement("div");
     this.element.className = "apexstock-settings-control";
     this.element.classList.add(`position-${this.options.position}`);
+
     if (this.options.theme === "dark") {
       this.element.classList.add("apexstock-theme-dark");
     }
+
+    this.element.classList.add("apexstock-settings-minimal");
 
     // Create content area
     const content = document.createElement("div");
@@ -91,14 +93,6 @@ export default class SettingsControl {
 
     controlGroup.appendChild(input);
     this.controlElements[control.id] = input;
-
-    // Add help text if provided
-    if (control.helpText) {
-      const helpText = document.createElement("small");
-      helpText.className = "apexstock-settings-help";
-      helpText.textContent = control.helpText;
-      controlGroup.appendChild(helpText);
-    }
 
     return controlGroup;
   }

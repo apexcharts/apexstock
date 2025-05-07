@@ -8,6 +8,8 @@ import IndicatorHandlers from "./indicators/IndicatorHandlers";
 import XAxis from "./components/XAxis";
 import ThemeManager from "./core/ThemeManager";
 import ZoomControls from "./components/ZoomControls";
+import OscillatorSettings from "./components/OscillatorSettings";
+import SettingsControl from "./components/SettingsControl";
 
 export default class ApexStock {
   /**
@@ -78,6 +80,8 @@ export default class ApexStock {
 
     // Initialize xaxis range from the series data
     this.initializeXAxisRange();
+
+    this.SettingsControl = SettingsControl;
 
     // Define overlays and oscillators
     this.overlays = {
@@ -238,6 +242,8 @@ export default class ApexStock {
     );
 
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
+
+    this.oscillatorSettings = new OscillatorSettings(this);
   }
 
   /**
@@ -562,6 +568,12 @@ export default class ApexStock {
     if (this.chartSwitch && typeof this.chartSwitch.destroy === "function") {
       this.chartSwitch.destroy();
     }
+    if (
+      this.oscillatorSettings &&
+      typeof this.oscillatorSettings.destroy === "function"
+    ) {
+      this.oscillatorSettings.destroy();
+    }
   }
 
   randomId() {
@@ -804,6 +816,8 @@ export default class ApexStock {
       this.xaxis.updateHeight();
       this.xaxis.ensureXAxisIsLast();
     }
+
+    this.updateOscillatorSettings();
   }
 
   isOverlay(indicatorKey) {
@@ -890,6 +904,10 @@ export default class ApexStock {
     if (this.xaxis && typeof this.xaxis.updateEventListeners === "function") {
       this.xaxis.updateEventListeners();
     }
+
+    if (this.oscillatorSettings) {
+      this.oscillatorSettings.removeSettingsElement(indicatorKey);
+    }
   }
 
   /**
@@ -974,6 +992,10 @@ export default class ApexStock {
     ) {
       this.chartSwitch.updateTheme(newTheme);
     }
+
+    if (this.oscillatorSettings) {
+      this.oscillatorSettings.updateTheme(newTheme);
+    }
   }
 
   /**
@@ -982,6 +1004,22 @@ export default class ApexStock {
    */
   getTheme() {
     return this.themeManager.getTheme();
+  }
+
+  /**
+   * Update the positions of oscillator settings controls
+   * Called after height changes, indicator additions/removals
+   */
+  updateOscillatorSettings() {
+    if (
+      this.oscillatorSettings &&
+      typeof this.oscillatorSettings.updatePositions === "function"
+    ) {
+      // Use setTimeout to allow chart layout to finalize
+      setTimeout(() => {
+        this.oscillatorSettings.updatePositions();
+      }, 150);
+    }
   }
 
   /**

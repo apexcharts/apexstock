@@ -112,7 +112,6 @@ export default class ChartSwitch {
     // Create the settings control only if it doesn't exist
     if (!this.renkoSettingsControl) {
       this.renkoSettingsControl = new SettingsControl(this.ctx.chartEl, {
-        title: "Renko Chart Settings",
         position: "top-left",
         theme: this.ctx.theme,
         controls: [

@@ -712,6 +712,7 @@
  * Settings Control Component Styles
  * ============================== */
 
+/* Base settings control styles */
 .apexstock-settings-control {
   position: absolute;
   background: rgba(255, 255, 255, 0.5);
@@ -723,26 +724,13 @@
   display: none;
 }
 
+/* Positioning variations */
 .apexstock-settings-control.position-top-left {
   top: 10px;
   left: 10px;
 }
 
-.apexstock-settings-control.position-top-right {
-  top: 10px;
-  right: 10px;
-}
-
-.apexstock-settings-control.position-bottom-left {
-  bottom: 50px;
-  left: 10px;
-}
-
-.apexstock-settings-control.position-bottom-right {
-  bottom: 50px;
-  right: 10px;
-}
-
+/* Header styles */
 .apexstock-settings-header {
   font-weight: bold;
   margin-bottom: 8px;
@@ -751,8 +739,7 @@
   color: var(--light-text);
 }
 
-
-
+/* Control group and form elements */
 .apexstock-settings-control-group label {
   font-size: 11px;
   color: #666;
@@ -771,6 +758,7 @@
   margin: 0 5px;
 }
 
+/* Range input container */
 .apexstock-settings-range-container {
   display: flex;
   align-items: center;
@@ -787,6 +775,7 @@
   outline: none;
 }
 
+/* Range input thumb styles */
 .apexstock-settings-range-container input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -816,6 +805,7 @@
   background: #0056b3;
 }
 
+/* Range value display */
 .apexstock-settings-range-value {
   min-width: 35px;
   text-align: right;
@@ -823,6 +813,7 @@
   color: var(--blue);
 }
 
+/* Toggle switch styles */
 .apexstock-settings-toggle {
   position: relative;
   display: inline-block;
@@ -868,17 +859,12 @@
   transform: translateX(16px);
 }
 
-.apexstock-settings-help {
-  font-size: 10px;
-  color: #888;
-  font-style: italic;
-}
-
-/* Dark Theme Support */
+/* ==============================
+ * Dark Theme Support
+ * ============================== */
 .apexstock-settings-control.apexstock-theme-dark {
   background: var(--dark-bg);
   border-color: var(--dark-border);
-  box-shadow: 0 2px 8px var(--dark-shadow);
 }
 
 .apexstock-settings-control.apexstock-theme-dark .apexstock-settings-header {
@@ -906,10 +892,6 @@
   color: #64b5f6;
 }
 
-.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-help {
-  color: #888;
-}
-
 .apexstock-settings-control.apexstock-theme-dark .apexstock-settings-toggle-slider {
   background-color: #6c757d;
 }
@@ -917,6 +899,66 @@
 .apexstock-settings-control.apexstock-theme-dark .apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider {
   background-color: #64b5f6;
 }
+
+/* ==============================
+ * Oscillator Settings Styles
+ * ============================== */
+.apexstock-oscillator-settings-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  /* Important: zero height to not affect layout */
+  pointer-events: none;
+  /* Let clicks pass through to charts by default */
+  z-index: 110;
+  /* Above charts but below tooltips */
+}
+
+/* Minimal settings style */
+.apexstock-settings-minimal {
+  border: none !important;
+  padding: 6px 8px !important;
+  transition: opacity 0.2s ease, transform 0.15s ease !important;
+  border-radius: 4px;
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* Layout for controls inside minimal settings */
+.apexstock-settings-minimal .apexstock-settings-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.apexstock-settings-minimal .apexstock-settings-control-group {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.apexstock-settings-minimal label {
+  margin-right: 5px;
+  margin-bottom: 0;
+  font-size: 10px;
+  min-width: auto;
+  white-space: nowrap;
+}
+
+.apexstock-settings-minimal input[type="number"] {
+  width: 45px;
+  margin: 0;
+  padding: 1px 3px;
+  font-size: 10px;
+  height: 18px;
+  border-radius: 2px;
+}
+
 
 /* ==============================
  * 14. Responsive Adjustments

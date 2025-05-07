@@ -736,7 +736,6 @@ export default class ElementInteractionManager {
         const domElements = document.querySelectorAll(selector);
         domElements.forEach((element) => {
           if (element && element.parentNode) {
-            console.log(`Removing tooltip with ID: ${this.selectedElementId}`);
             element.parentNode.removeChild(element);
           }
         });
