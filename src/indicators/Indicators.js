@@ -259,14 +259,147 @@ class Indicators {
   }
 
   static calculateADX(series, period) {
-    const adxArr = [];
-    for (let i = 0; i < series.length; i++) {
-      adxArr.push({ x: series[i].x, y: i < period ? null : 25 });
+    if (!series || series.length < period * 2) {
+      // Need at least 2 * period data points for meaningful calculation
+      return series.map((point) => ({ x: point.x, y: null }));
     }
+
+    const adxArr = [];
+    const trArr = []; // True Range
+    const plusDMArr = []; // Plus Directional Movement
+    const minusDMArr = []; // Minus Directional Movement
+    const smoothedTRArr = []; // Smoothed True Range
+    const smoothedPlusDMArr = []; // Smoothed Plus DM
+    const smoothedMinusDMArr = []; // Smoothed Minus DM
+    const plusDIArr = []; // Plus Directional Indicator
+    const minusDIArr = []; // Minus Directional Indicator
+    const dxArr = []; // Directional Index
+
+    // Step 1: Calculate True Range (TR) and Directional Movement (DM)
+    for (let i = 1; i < series.length; i++) {
+      // Current and previous candles
+      const curr = series[i].y;
+      const prev = series[i - 1].y;
+
+      // High, Low, Close for current and previous
+      const highCurr = curr[1];
+      const lowCurr = curr[2];
+      const closePrev = prev[3];
+
+      // True Range calculation
+      const tr1 = Math.abs(highCurr - lowCurr);
+      const tr2 = Math.abs(highCurr - closePrev);
+      const tr3 = Math.abs(lowCurr - closePrev);
+      const tr = Math.max(tr1, tr2, tr3);
+      trArr.push(tr);
+
+      // Plus Directional Movement (+DM)
+      const upMove = highCurr - prev[1];
+      const downMove = prev[2] - lowCurr;
+      let plusDM = 0;
+      let minusDM = 0;
+
+      if (upMove > downMove && upMove > 0) {
+        plusDM = upMove;
+      }
+
+      if (downMove > upMove && downMove > 0) {
+        minusDM = downMove;
+      }
+
+      plusDMArr.push(plusDM);
+      minusDMArr.push(minusDM);
+
+      // Fill initial values with nulls in result array
+      if (i <= period) {
+        adxArr.push({ x: series[i].x, y: null });
+      }
+    }
+
+    // Step 2: Calculate first smoothed values for TR, +DM, -DM
+    let firstTR = 0;
+    let firstPlusDM = 0;
+    let firstMinusDM = 0;
+
+    for (let i = 0; i < period; i++) {
+      firstTR += trArr[i];
+      firstPlusDM += plusDMArr[i];
+      firstMinusDM += minusDMArr[i];
+    }
+
+    smoothedTRArr.push(firstTR);
+    smoothedPlusDMArr.push(firstPlusDM);
+    smoothedMinusDMArr.push(firstMinusDM);
+
+    // Step 3: Calculate remaining smoothed values using Wilder's method
+    for (let i = 1; i < trArr.length - period + 1; i++) {
+      const smoothedTR =
+        smoothedTRArr[i - 1] -
+        smoothedTRArr[i - 1] / period +
+        trArr[i + period - 1];
+      const smoothedPlusDM =
+        smoothedPlusDMArr[i - 1] -
+        smoothedPlusDMArr[i - 1] / period +
+        plusDMArr[i + period - 1];
+      const smoothedMinusDM =
+        smoothedMinusDMArr[i - 1] -
+        smoothedMinusDMArr[i - 1] / period +
+        minusDMArr[i + period - 1];
+
+      smoothedTRArr.push(smoothedTR);
+      smoothedPlusDMArr.push(smoothedPlusDM);
+      smoothedMinusDMArr.push(smoothedMinusDM);
+
+      // Step 4: Calculate +DI and -DI
+      const plusDI = (smoothedPlusDM / smoothedTR) * 100;
+      const minusDI = (smoothedMinusDM / smoothedTR) * 100;
+
+      plusDIArr.push(plusDI);
+      minusDIArr.push(minusDI);
+
+      // Step 5: Calculate DX
+      const diDiff = Math.abs(plusDI - minusDI);
+      const diSum = plusDI + minusDI;
+      const dx = (diDiff / diSum) * 100;
+
+      dxArr.push(dx);
+    }
+
+    // Step 6: Calculate ADX (Average of DX over period)
+    let adxSum = 0;
+    for (let i = 0; i < period; i++) {
+      if (i < dxArr.length) {
+        adxSum += dxArr[i];
+      }
+    }
+
+    // First ADX value (average of first period DX values)
+    let adx = adxSum / period;
+    const adxIndex = period * 2; // Index in the original series
+
+    if (adxIndex < series.length) {
+      adxArr.push({ x: series[adxIndex].x, y: Utils.truncateNumber(adx) });
+    }
+
+    // Calculate remaining ADX values using Wilder's smoothing
+    for (let i = period; i < dxArr.length; i++) {
+      adx = (adx * (period - 1) + dxArr[i]) / period;
+      const adxIndex = i + period + 1; // Adjust index for original series
+
+      if (adxIndex < series.length) {
+        adxArr.push({ x: series[adxIndex].x, y: Utils.truncateNumber(adx) });
+      }
+    }
+
+    // Ensure the output has the same length as the input series
+    while (adxArr.length < series.length) {
+      adxArr.push({ x: series[adxArr.length].x, y: null });
+    }
+
     return adxArr;
   }
 
-  static calculateChaikinOsc(series) {
+  static calculateChaikinOsc(series, shortPeriod, longPeriod) {
     const ad = [];
     let cumulative = 0;
     for (let i = 0; i < series.length; i++) {
@@ -278,8 +411,8 @@ class Indicators {
       cumulative += clv * volume;
       ad.push(cumulative);
     }
-    const emaShort = Indicators.calculateEMAFromArray(ad, 3);
-    const emaLong = Indicators.calculateEMAFromArray(ad, 10);
+    const emaShort = Indicators.calculateEMAFromArray(ad, shortPeriod);
+    const emaLong = Indicators.calculateEMAFromArray(ad, longPeriod);
     const chaikin = [];
     for (let i = 0; i < ad.length; i++) {
       if (emaShort[i] === null || emaLong[i] === null) {
