@@ -1093,8 +1093,8 @@ export default class ApexStock {
     return Indicators.calculateADX(series, period);
   }
 
-  calculateChaikinOsc(series) {
-    return Indicators.calculateChaikinOsc(series);
+  calculateChaikinOsc(series, shortPeriod, longPeriod) {
+    return Indicators.calculateChaikinOsc(series, shortPeriod, longPeriod);
   }
 
   calculateEMAFromArray(arr, period) {
@@ -1121,8 +1121,8 @@ export default class ApexStock {
     return Indicators.calculateIchimoku(series);
   }
 
-  calculateAcceleratorOsc(series) {
-    return Indicators.calculateAcceleratorOsc(series);
+  calculateAcceleratorOsc(series, period) {
+    return Indicators.calculateAcceleratorOsc(series, period);
   }
 
   calculateCCI(series, period) {
