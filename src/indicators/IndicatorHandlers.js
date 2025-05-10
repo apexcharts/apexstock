@@ -265,6 +265,21 @@ export default class IndicatorHandlers {
       };
 
       return;
+    } else if (indicatorKey === "linear regression") {
+      const period = indicatorParams.period || 14;
+      const lrData = context.calculateLinearRegression(context.series, period);
+      const lrSeries = {
+        name: "Linear Regression",
+        type: "line",
+        data: lrData,
+        color: context.colors.indicators.linearRegression,
+      };
+      const currentSeries = context.chart.w.config.series.filter(
+        (s) => s.name !== "Linear Regression"
+      );
+      context.chart.updateSeries([...currentSeries, lrSeries]);
+      context.indicatorChartMap[indicatorKey] = true;
+      return;
     } else if (indicatorKey === "ichimoku cloud indicator") {
       const ichimoku = context.calculateIchimoku(context.series);
       const tenkanSeries = {
