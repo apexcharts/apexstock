@@ -130,7 +130,7 @@ export default class OscillatorSettings {
         value: params[param],
         defaultValue: params[param],
         min: 1,
-        max: param.includes("Period") ? 100 : 10,
+        max: param.includes("Period") || param.includes("period") ? 100 : 14,
         step: param === "stdDev" ? 0.1 : 1,
       });
     });
@@ -254,7 +254,6 @@ export default class OscillatorSettings {
       group.style.display = "inline-flex";
       group.style.alignItems = "center";
       group.style.marginRight = "10px";
-      group.style.marginBottom = "5px";
     });
 
     // Adjust label and input sizes
@@ -279,14 +278,241 @@ export default class OscillatorSettings {
    * @param {string} indicator - The indicator to update
    */
   updateIndicator(indicator) {
-    // Remove the existing indicator
-    this.ctx.removeIndicator(indicator);
+    // Get the updated parameters for this indicator
+    const params = this.getIndicatorParams(indicator);
 
-    // Re-add it with the new parameters
-    setTimeout(() => {
-      // This delay ensures clean removal before re-adding
-      this.ctx.updateIndicator(indicator);
-    }, 50);
+    // Find the chart instance from the indicator map
+    const chartInstance = this.ctx.indicatorChartMap[indicator];
+
+    // If the chart instance doesn't exist or isn't an ApexCharts instance, revert to old behavior
+    if (
+      !chartInstance ||
+      typeof chartInstance !== "object" ||
+      typeof chartInstance.updateOptions !== "function"
+    ) {
+      // Fall back to removing and re-adding for indicators that aren't standard charts
+      // or special indicators like Fibonacci retracements that use a custom update method
+      if (chartInstance && typeof chartInstance.update === "function") {
+        chartInstance.update();
+        return;
+      }
+
+      // Remove the existing indicator
+      this.ctx.removeIndicator(indicator);
+
+      // Re-add with new parameters
+      setTimeout(() => {
+        this.ctx.updateIndicator(indicator);
+      }, 50);
+
+      return;
+    }
+
+    // Get current series from the chart
+    const currentSeries = chartInstance.w.config.series;
+
+    // Prepare updated series data based on indicator type
+    let updatedSeries = [];
+
+    switch (indicator) {
+      case "rsi":
+        const rsiData = this.ctx.calculateRSI(
+          this.ctx.series,
+          params.period || 14
+        );
+        updatedSeries = [
+          {
+            name: "RSI",
+            data: rsiData.map((value, index) => ({
+              x: this.ctx.series[index].x,
+              y: value,
+            })),
+          },
+        ];
+        break;
+
+      case "macd":
+        const { macd, signal, histogram } = this.ctx.calculateMACD(
+          this.ctx.series,
+          params.fastPeriod || 12,
+          params.slowPeriod || 26,
+          params.signalPeriod || 9
+        );
+
+        updatedSeries = [
+          {
+            name: "MACD",
+            type: "line",
+            data: macd.map((value, index) => ({
+              x: this.ctx.series[index].x,
+              y: value,
+            })),
+          },
+          {
+            name: "Signal",
+            type: "line",
+            data: signal.map((value, index) => ({
+              x: this.ctx.series[index].x,
+              y: value,
+            })),
+          },
+          {
+            name: "Histogram",
+            type: "bar",
+            data: histogram.map((value, index) => ({
+              x: this.ctx.series[index].x,
+              y: value,
+            })),
+          },
+        ];
+        break;
+
+      case "stochastic oscillator":
+        const { k, d } = this.ctx.calculateStochastic(
+          this.ctx.series,
+          params.period || 14,
+          params.smoothPeriod || 3
+        );
+
+        updatedSeries = [
+          { name: "Stochastic %K", data: k },
+          { name: "Stochastic %D", data: d },
+        ];
+        break;
+
+      case "standard deviation indicator":
+        const stdData = this.ctx.calculateStdDevIndicator(
+          this.ctx.series,
+          params.period || 14
+        );
+
+        updatedSeries = [{ name: "Std Dev", data: stdData }];
+        break;
+
+      case "average directional index":
+        const adxData = this.ctx.calculateADX(
+          this.ctx.series,
+          params.period || 14
+        );
+        updatedSeries = [{ name: "ADX", data: adxData }];
+        break;
+
+      case "commodity channel index":
+        const cciData = this.ctx.calculateCCI(
+          this.ctx.series,
+          params.period || 20
+        );
+        updatedSeries = [{ name: "CCI", data: cciData }];
+        break;
+
+      case "trend strength index":
+        const tsiData = this.ctx.calculateTSI(
+          this.ctx.series,
+          params.longPeriod || 25,
+          params.shortPeriod || 13,
+          params.signalPeriod || 7
+        );
+
+        updatedSeries = [{ name: "TSI", data: tsiData.tsi }];
+        break;
+
+      case "accelerator oscillator":
+        const acData = this.ctx.calculateAcceleratorOsc(
+          this.ctx.series,
+          params.period || 5
+        );
+        updatedSeries = [{ name: "AC", data: acData }];
+        break;
+
+      case "bollinger bands %b":
+        const bbParams = this.ctx.calculateBollingerBands(
+          this.ctx.series,
+          params.period || 20,
+          params.stdDev || 2
+        );
+
+        const bBPercent = this.ctx.calculateBBPercent(
+          this.ctx.series,
+          bbParams.lower,
+          bbParams.upper
+        );
+
+        updatedSeries = [{ name: "Bollinger %B", data: bBPercent }];
+        break;
+
+      case "bollinger bands width":
+        const bbWidthParams = this.ctx.calculateBollingerBands(
+          this.ctx.series,
+          params.period || 20,
+          params.stdDev || 2
+        );
+
+        const bBWidth = this.ctx.calculateBBWidth(
+          this.ctx.series,
+          bbWidthParams.middle,
+          bbWidthParams.upper,
+          bbWidthParams.lower
+        );
+
+        updatedSeries = [{ name: "Bollinger Width", data: bBWidth }];
+        break;
+
+      case "chaikin oscillator":
+        const chaikinData = this.ctx.calculateChaikinOsc(
+          this.ctx.series,
+          params.shortPeriod || 3,
+          params.longPeriod || 10
+        );
+
+        updatedSeries = [{ name: "Chaikin Osc", data: chaikinData }];
+        break;
+
+      case "price volume trend":
+        const pvtData = this.ctx.calculatePVT(this.ctx.series);
+        updatedSeries = [{ name: "PVT", data: pvtData }];
+        break;
+
+      case "volumes":
+        // Volumes data is already available in the context
+        if (this.ctx.volumesData && this.ctx.volumesData.length > 0) {
+          updatedSeries = [{ name: "Volumes", data: this.ctx.volumesData }];
+        }
+        break;
+
+      default:
+        // For any other indicators, fall back to old behavior
+        this.ctx.removeIndicator(indicator);
+        setTimeout(() => {
+          this.ctx.updateIndicator(indicator);
+        }, 50);
+        return;
+    }
+
+    // Update chart with new series data without refreshing the entire chart
+    if (updatedSeries.length > 0) {
+      // Apply color information to the series based on theme
+      updatedSeries.forEach((series) => {
+        if (!series.color && this.ctx.colors && this.ctx.colors.indicators) {
+          const colorKey = indicator.replace(/\s+/g, "");
+          if (this.ctx.colors.indicators[colorKey]) {
+            series.color = this.ctx.colors.indicators[colorKey];
+          }
+        }
+      });
+
+      // Update just the series data without redrawing the entire chart
+      chartInstance.updateSeries(updatedSeries, false);
+
+      // If we had a focused input, restore focus
+      if (
+        this.settingsControls[indicator] &&
+        this.settingsControls[indicator].control &&
+        typeof this.settingsControls[indicator].control.restoreFocus ===
+          "function"
+      ) {
+        this.settingsControls[indicator].control.restoreFocus();
+      }
+    }
   }
 
   /**

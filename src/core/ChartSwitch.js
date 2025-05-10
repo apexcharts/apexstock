@@ -711,14 +711,6 @@ export default class ChartSwitch {
       chartOptions.plotOptions.candlestick.renkoBrickSize = this.renkoBrickSize;
       chartOptions.plotOptions.candlestick.handleNulls = true;
 
-      // Connect null values with previous values for continuous appearance
-      chartOptions.stroke = {
-        ...chartOptions.stroke,
-        show: true,
-        colors: ["#22C55E", "#EF4444"],
-        width: 0, // No connecting lines between bricks for standard Renko look
-      };
-
       // Customize tooltip further for Renko
       chartOptions.tooltip.x = {
         format: "dd MMM yyyy",

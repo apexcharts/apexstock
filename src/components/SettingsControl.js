@@ -20,6 +20,7 @@ export default class SettingsControl {
     this.element = null;
     this.isVisible = false;
     this.controlElements = {};
+    this.focusedInputId = null;
 
     this.create();
   }
@@ -167,6 +168,20 @@ export default class SettingsControl {
       this.onChange(control.id, parseFloat(e.target.value));
     });
 
+    input.addEventListener("focus", () => {
+      this.focusedInputId = control.id;
+    });
+
+    input.addEventListener("blur", () => {
+      if (this.focusedInputId === control.id) {
+        setTimeout(() => {
+          // Give time for new focus to be set before clearing
+          if (document.activeElement !== input) {
+            this.focusedInputId = null;
+          }
+        }, 100);
+      }
+    });
     return input;
   }
 
@@ -232,6 +247,24 @@ export default class SettingsControl {
    */
   onChange(controlId, value) {
     this.options.onChange(controlId, value);
+  }
+
+  restoreFocus() {
+    if (this.focusedInputId && this.controlElements[this.focusedInputId]) {
+      const input = this.controlElements[this.focusedInputId];
+
+      // For range controls, the input is inside a container
+      if (input.tagName === "DIV" && input.querySelector("input")) {
+        input.querySelector("input").focus();
+      } else {
+        input.focus();
+      }
+
+      // For number inputs, select the text for easy editing
+      if (input.type === "number") {
+        input.select();
+      }
+    }
   }
 
   /**
