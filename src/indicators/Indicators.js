@@ -392,8 +392,6 @@ class Indicators {
       }
     }
 
-    console.log(series, result, "series and result");
-
     return result;
   }
 
