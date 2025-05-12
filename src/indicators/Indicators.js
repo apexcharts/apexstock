@@ -264,7 +264,13 @@ class Indicators {
       return series.map((point) => ({ x: point.x, y: null }));
     }
 
-    const adxArr = [];
+    // Initialize result array with null values and the same dates as input series
+    const result = series.map((point) => ({
+      x: point.x,
+      y: null,
+    }));
+
+    // Arrays for intermediate calculations
     const trArr = []; // True Range
     const plusDMArr = []; // Plus Directional Movement
     const minusDMArr = []; // Minus Directional Movement
@@ -309,11 +315,6 @@ class Indicators {
 
       plusDMArr.push(plusDM);
       minusDMArr.push(minusDM);
-
-      // Fill initial values with nulls in result array
-      if (i <= period) {
-        adxArr.push({ x: series[i].x, y: null });
-      }
     }
 
     // Step 2: Calculate first smoothed values for TR, +DM, -DM
@@ -375,10 +376,10 @@ class Indicators {
 
     // First ADX value (average of first period DX values)
     let adx = adxSum / period;
-    const adxIndex = period * 2; // Index in the original series
+    const firstAdxIndex = period * 2; // Index in the original series
 
-    if (adxIndex < series.length) {
-      adxArr.push({ x: series[adxIndex].x, y: Utils.truncateNumber(adx) });
+    if (firstAdxIndex < series.length) {
+      result[firstAdxIndex].y = Utils.truncateNumber(adx);
     }
 
     // Calculate remaining ADX values using Wilder's smoothing
@@ -387,16 +388,13 @@ class Indicators {
       const adxIndex = i + period + 1; // Adjust index for original series
 
       if (adxIndex < series.length) {
-        adxArr.push({ x: series[adxIndex].x, y: Utils.truncateNumber(adx) });
+        result[adxIndex].y = Utils.truncateNumber(adx);
       }
     }
 
-    // Ensure the output has the same length as the input series
-    while (adxArr.length < series.length) {
-      adxArr.push({ x: series[adxArr.length].x, y: null });
-    }
+    console.log(series, result, "series and result");
 
-    return adxArr;
+    return result;
   }
 
   static calculateChaikinOsc(series, shortPeriod, longPeriod) {
