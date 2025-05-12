@@ -160,7 +160,7 @@ export default class Export {
       // any styles that need to be attached with the exported svg
       const exportStyles = `
         .apexcharts-tooltip, .apexcharts-toolbar, .apexcharts-xaxistooltip, .apexcharts-yaxistooltip, .apexcharts-xcrosshairs, .apexcharts-ycrosshairs, .apexcharts-zoom-rect, .apexcharts-selection-rect, .apexstock-text-toolbar, .apexstock-zoom-controls, .apexstock-settings-control {
-          display: none;
+          display: none !important;
         }
         .apexcharts-custom-tooltip, .apexcharts-tooltip-box {
           padding: 4px 8px;
