@@ -45,10 +45,9 @@ export default class ChartSwitch {
         name: "Renko",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="5" width="4" height="4" fill="currentColor" />
-          <rect x="7" y="9" width="4" height="4" fill="currentColor" />
-          <rect x="11" y="9" width="4" height="4" fill="currentColor" />
-          <rect x="15" y="5" width="4" height="4" fill="currentColor" />
-          <rect x="15" y="13" width="4" height="4" fill="currentColor" />
+          <rect x="7" y="8" width="4" height="4" fill="currentColor" />
+          <rect x="11" y="11" width="4" height="4" fill="currentColor" />
+          <rect x="15" y="14" width="4" height="4" fill="currentColor" />
         </svg>`,
       },
       {
@@ -102,7 +101,7 @@ export default class ChartSwitch {
     this.originalSeries = [...this.series];
 
     // Default Renko brick size (in percentage)
-    this.renkoBrickSize = 0.25;
+    this.renkoBrickSize = 0.3;
     this.renkoSettingsControl = null;
 
     this.init();
@@ -120,7 +119,7 @@ export default class ChartSwitch {
             type: "number",
             label: "Brick Size (%)",
             value: this.renkoBrickSize,
-            defaultValue: 0.25,
+            defaultValue: 0.3,
             min: 0.01,
             max: 10,
             step: 0.01,
