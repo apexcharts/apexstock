@@ -295,7 +295,7 @@
     </div>
 
     <script>
-      // Stock Chart Controller to manage data and interactions
+      // Modified StockChartController class with consistent data generation
       class StockChartController {
         constructor() {
           this.stockChart = null;
@@ -305,6 +305,7 @@
           this.isFirstLoad = true;
           this.historicalData = {};
           this.allData = [];
+          this.masterData = null; // Master dataset for consistent generation
           this.firstDataTimestamp = null;
           this.lastDataTimestamp = null;
           this.customDateRange = {
@@ -321,6 +322,8 @@
           this.toggleLoadingIndicator = this.toggleLoadingIndicator.bind(this);
           this.handleCustomDateRange = this.handleCustomDateRange.bind(this);
           this.applyCustomDateRange = this.applyCustomDateRange.bind(this);
+          this.generateMasterDataset = this.generateMasterDataset.bind(this);
+          this.extractDataForPeriod = this.extractDataForPeriod.bind(this);
 
           // Initialize UI event listeners
           this.initEventListeners();
@@ -425,9 +428,11 @@
 
         // Initialize the chart with default settings
         initChart() {
-          // Generate initial sample data with current period and interval
-          this.allData = this.generateOHLCData(
-            250,
+          // Generate the master dataset once with consistent data
+          this.generateMasterDataset();
+
+          // Get initial data slice for the current period
+          this.allData = this.extractDataForPeriod(
             this.currentPeriod,
             this.currentInterval
           );
@@ -495,6 +500,7 @@
 
           this.isFirstLoad = false;
         }
+
         // Format date for date input field
         formatDateForInput(date) {
           return date.toISOString().split("T")[0];
@@ -594,6 +600,351 @@
           this.fetchData("custom", this.currentInterval);
         }
 
+        // Generate the master dataset that will serve as the source for all time periods
+        generateMasterDataset() {
+          if (this.masterData) return; // Only generate once
+
+          // Generate a large dataset covering the maximum possible range (10 years with daily data)
+          const tenYearsAgo = new Date();
+          tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
+          const now = new Date();
+
+          // Define parameters for data generation
+          let baseDate = tenYearsAgo.getTime();
+          const endDate = now.getTime();
+          const timeRange = endDate - baseDate;
+
+          // Generate daily data for the entire 10-year period
+          // We'll use approx 2500 trading days (10 years x ~250 trading days per year)
+          const count = 2500;
+          const data = [];
+
+          // Start with a fixed seed price
+          let price = 100;
+          const volMin = 6000;
+          const volMax = 900000;
+
+          for (let i = 0; i < count; i++) {
+            // Calculate position for evenly distributed timestamps
+            const position = i / (count - 1);
+            const timestamp = baseDate + position * timeRange;
+            const currentDate = new Date(timestamp);
+
+            // Skip weekends (consistent with real market data)
+            const dayOfWeek = currentDate.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+              continue;
+            }
+
+            // Use fixed volatility for ALL points in the master dataset
+            // This ensures consistent price action across all time ranges
+            const volatilityFactor = 2.0;
+            const change = (Math.random() - 0.5) * volatilityFactor;
+            const open = price;
+            const close = price + change;
+            const high =
+              Math.max(open, close) + Math.random() * (volatilityFactor / 2);
+            const low =
+              Math.min(open, close) - Math.random() * (volatilityFactor / 2);
+
+            // Generate volume
+            const volumeFactor = (Math.abs(change) / volatilityFactor) * 3;
+            const volumeVariance = Math.random() * 0.5 + 0.5; // 0.5 to 1.0
+            const volume = Math.floor(
+              volMin + (volMax - volMin) * volumeFactor * volumeVariance
+            );
+
+            data.push({
+              x: new Date(currentDate).toString(),
+              y: [
+                Number(open.toFixed(2)),
+                Number(high.toFixed(2)),
+                Number(low.toFixed(2)),
+                Number(close.toFixed(2)),
+              ],
+              v: volume,
+            });
+
+            // Update price for next data point
+            price = close;
+          }
+
+          this.masterData = data;
+        }
+
+        // Extract data for a specific period from the master dataset
+        extractDataForPeriod(period, interval) {
+          if (!this.masterData) {
+            this.generateMasterDataset();
+          }
+
+          // Get the base date for the period
+          const baseDate = this.getBaseDateForPeriod(period);
+          const now = new Date().getTime();
+
+          // Filter the master data to include only points within the requested time range
+          let filteredData = this.masterData.filter((point) => {
+            const pointDate = new Date(point.x).getTime();
+            return pointDate >= baseDate && pointDate <= now;
+          });
+
+          // If custom period, handle differently
+          if (
+            period === "custom" &&
+            this.customDateRange.start &&
+            this.customDateRange.end
+          ) {
+            const startDate = new Date(this.customDateRange.start).getTime();
+            const endDate = new Date(this.customDateRange.end).getTime();
+
+            filteredData = this.masterData.filter((point) => {
+              const pointDate = new Date(point.x).getTime();
+              return pointDate >= startDate && pointDate <= endDate;
+            });
+          }
+
+          // For intervals other than 1day, we need to adjust the data
+          if (interval !== "1day") {
+            // For larger intervals (weekly, monthly), aggregate data
+            if (interval === "1week" || interval === "1month") {
+              filteredData = this.aggregateDataForInterval(
+                filteredData,
+                interval
+              );
+            }
+            // For smaller intervals (intraday), we need to generate more data points
+            else if (
+              ["1min", "5min", "15min", "30min", "1hour", "4hour"].includes(
+                interval
+              )
+            ) {
+              filteredData = this.expandDataForIntraday(filteredData, interval);
+            }
+          }
+
+          return filteredData;
+        }
+
+        // Aggregate daily data into weekly or monthly
+        aggregateDataForInterval(data, interval) {
+          const result = [];
+
+          if (interval === "1week") {
+            // Group by week and aggregate
+            let currentWeek = null;
+            let weekData = null;
+
+            for (const point of data) {
+              const date = new Date(point.x);
+              const weekStart = new Date(date);
+              weekStart.setDate(date.getDate() - date.getDay() + 1); // Monday of current week
+
+              if (!currentWeek || weekStart > currentWeek) {
+                // New week
+                if (weekData) {
+                  result.push(weekData);
+                }
+
+                currentWeek = weekStart;
+                weekData = {
+                  x: weekStart.toString(),
+                  y: [
+                    point.y[0], // Open of first day becomes open of week
+                    point.y[1], // High starts as first day's high
+                    point.y[2], // Low starts as first day's low
+                    point.y[3], // Close will be updated with last day's close
+                  ],
+                  v: point.v, // Volume will be accumulated
+                };
+              } else {
+                // Continue same week
+                weekData.y[1] = Math.max(weekData.y[1], point.y[1]); // Update high
+                weekData.y[2] = Math.min(weekData.y[2], point.y[2]); // Update low
+                weekData.y[3] = point.y[3]; // Update close
+                weekData.v += point.v; // Accumulate volume
+              }
+            }
+
+            // Add the last week
+            if (weekData) {
+              result.push(weekData);
+            }
+          } else if (interval === "1month") {
+            // Group by month and aggregate
+            let currentMonth = null;
+            let monthData = null;
+
+            for (const point of data) {
+              const date = new Date(point.x);
+              const monthStart = new Date(
+                date.getFullYear(),
+                date.getMonth(),
+                1
+              );
+
+              if (!currentMonth || monthStart > currentMonth) {
+                // New month
+                if (monthData) {
+                  result.push(monthData);
+                }
+
+                currentMonth = monthStart;
+                monthData = {
+                  x: monthStart.toString(),
+                  y: [
+                    point.y[0], // Open of first day becomes open of month
+                    point.y[1], // High starts as first day's high
+                    point.y[2], // Low starts as first day's low
+                    point.y[3], // Close will be updated with last day's close
+                  ],
+                  v: point.v, // Volume will be accumulated
+                };
+              } else {
+                // Continue same month
+                monthData.y[1] = Math.max(monthData.y[1], point.y[1]); // Update high
+                monthData.y[2] = Math.min(monthData.y[2], point.y[2]); // Update low
+                monthData.y[3] = point.y[3]; // Update close
+                monthData.v += point.v; // Accumulate volume
+              }
+            }
+
+            // Add the last month
+            if (monthData) {
+              result.push(monthData);
+            }
+          }
+
+          return result;
+        }
+
+        // Expand daily data into intraday data
+        expandDataForIntraday(data, interval) {
+          const result = [];
+
+          // Determine number of intraday candles per day
+          const candlesPerDay = {
+            "1min": 390, // 6.5 hours × 60 min
+            "5min": 78, // 6.5 hours × 12 intervals
+            "15min": 26, // 6.5 hours × 4 intervals
+            "30min": 13, // 6.5 hours × 2 intervals
+            "1hour": 7, // Approximately 7 hours
+            "4hour": 2, // 2 intervals per day
+          }[interval];
+
+          // Expand each daily candle into multiple intraday candles
+          for (const dayCandle of data) {
+            const dayDate = new Date(dayCandle.x);
+            const dayOpen = dayCandle.y[0];
+            const dayHigh = dayCandle.y[1];
+            const dayLow = dayCandle.y[2];
+            const dayClose = dayCandle.y[3];
+            const dayVolume = dayCandle.v;
+
+            const marketOpen = new Date(dayDate);
+            marketOpen.setHours(9, 30, 0, 0);
+
+            // Generate prices within the day's range
+            let currentPrice = dayOpen;
+            let prevPrice = dayOpen;
+
+            for (let i = 0; i < candlesPerDay; i++) {
+              const candleTime = new Date(marketOpen);
+
+              switch (interval) {
+                case "1min":
+                  candleTime.setMinutes(marketOpen.getMinutes() + i);
+                  break;
+                case "5min":
+                  candleTime.setMinutes(marketOpen.getMinutes() + i * 5);
+                  break;
+                case "15min":
+                  candleTime.setMinutes(marketOpen.getMinutes() + i * 15);
+                  break;
+                case "30min":
+                  candleTime.setMinutes(marketOpen.getMinutes() + i * 30);
+                  break;
+                case "1hour":
+                  candleTime.setHours(marketOpen.getHours() + i);
+                  break;
+                case "4hour":
+                  candleTime.setHours(marketOpen.getHours() + i * 4);
+                  break;
+              }
+
+              // Skip candles outside trading hours
+              const hours = candleTime.getHours();
+              const minutes = candleTime.getMinutes();
+              const timeInMinutes = hours * 60 + minutes;
+
+              // Trading hours: 9:30 AM (570 minutes) to 4:00 PM (960 minutes)
+              if (timeInMinutes < 570 || timeInMinutes > 960) {
+                continue;
+              }
+
+              // For last candle of the day, ensure it closes at day's close
+              const isLastCandle = i === candlesPerDay - 1;
+
+              // If last candle, force close price to be day close
+              if (isLastCandle) {
+                currentPrice = dayClose;
+              } else {
+                // Generate a random price movement
+                // More movement for longer intervals
+                const volatilityFactor = {
+                  "1min": 0.2,
+                  "5min": 0.3,
+                  "15min": 0.5,
+                  "30min": 0.7,
+                  "1hour": 1.0,
+                  "4hour": 1.5,
+                }[interval];
+
+                // Random walk with drift toward day's close
+                const progress = i / (candlesPerDay - 1);
+                const drift = (dayClose - dayOpen) * 0.1 * progress;
+                const randomComponent =
+                  (Math.random() - 0.5) * volatilityFactor;
+                currentPrice = prevPrice + drift + randomComponent;
+
+                // Constrain within day's high and low
+                currentPrice = Math.min(
+                  Math.max(currentPrice, dayLow),
+                  dayHigh
+                );
+              }
+
+              const open = prevPrice;
+              const close = currentPrice;
+              const high = Math.max(open, close) + Math.random() * 0.1;
+              const low = Math.min(open, close) - Math.random() * 0.1;
+
+              // Constrain to day's range
+              const canHigh = Math.min(high, dayHigh);
+              const canLow = Math.max(low, dayLow);
+
+              // Allocate a portion of daily volume
+              const volumePortion = dayVolume / candlesPerDay;
+              const volumeVariance = 0.5 + Math.random();
+              const volume = Math.floor(volumePortion * volumeVariance);
+
+              result.push({
+                x: candleTime.toString(),
+                y: [
+                  Number(open.toFixed(2)),
+                  Number(canHigh.toFixed(2)),
+                  Number(canLow.toFixed(2)),
+                  Number(close.toFixed(2)),
+                ],
+                v: volume,
+              });
+
+              prevPrice = currentPrice;
+            }
+          }
+
+          return result;
+        }
+
         // Simulate API call to fetch data
         async fetchData(period, interval) {
           this.toggleLoadingIndicator(true);
@@ -602,10 +953,8 @@
           await new Promise((resolve) => setTimeout(resolve, 800));
 
           try {
-            // In a real implementation, this would be an API call
-            const count = this.getDataPointCount(period, interval);
-
-            const newData = this.generateOHLCData(count, period, interval);
+            // Get data from master dataset
+            const newData = this.extractDataForPeriod(period, interval);
 
             // Cache the data
             const cacheKey = `${period}_${interval}`;
@@ -615,100 +964,17 @@
             this.updateChart(newData);
 
             // Update timestamps after data update
-            this.firstDataTimestamp = new Date(newData[0].x).getTime();
-            this.lastDataTimestamp = new Date(
-              newData[newData.length - 1].x
-            ).getTime();
+            if (newData.length > 0) {
+              this.firstDataTimestamp = new Date(newData[0].x).getTime();
+              this.lastDataTimestamp = new Date(
+                newData[newData.length - 1].x
+              ).getTime();
+            }
           } catch (error) {
             console.error("Error fetching data:", error);
           } finally {
             this.toggleLoadingIndicator(false);
           }
-        }
-
-        getDataPointCount(period, interval) {
-          // Calculate trading days more accurately
-          const getTradingDays = (days) => Math.ceil((days * 5) / 7); // Approximate trading days (5 out of 7 days per week)
-
-          // Calculate data points based on interval and trading days
-          const getDataPoints = (tradingDays, interval) => {
-            switch (interval) {
-              case "1min":
-                return tradingDays * 390; // 6.5 hours × 60 min
-              case "5min":
-                return tradingDays * 78; // 6.5 hours × 12 intervals
-              case "15min":
-                return tradingDays * 26; // 6.5 hours × 4 intervals
-              case "30min":
-                return tradingDays * 13; // 6.5 hours × 2 intervals
-              case "1hour":
-                return tradingDays * 7; // Approximately 7 hours
-              case "4hour":
-                return tradingDays * 2; // 2 intervals per day
-              case "1day":
-                return tradingDays; // 1 candle per day
-              case "1week":
-                return Math.ceil(tradingDays / 5); // 1 candle per week
-              case "1month":
-                return Math.ceil(tradingDays / 21); // ~21 trading days per month
-              default:
-                return tradingDays;
-            }
-          };
-
-          // Calculate count based on period
-          let actualDays;
-          let tradingDays;
-
-          switch (period) {
-            case "1D":
-              tradingDays = 1;
-              break;
-            case "5D":
-              tradingDays = 5;
-              break;
-            case "1M":
-              actualDays = 30;
-              tradingDays = getTradingDays(actualDays); // ~21-22 trading days
-              break;
-            case "3M":
-              actualDays = 90;
-              tradingDays = getTradingDays(actualDays); // ~64-65 trading days
-              break;
-            case "6M":
-              actualDays = 180;
-              tradingDays = getTradingDays(actualDays); // ~128-129 trading days
-              break;
-            case "1Y":
-              actualDays = 365;
-              tradingDays = getTradingDays(actualDays); // ~260-261 trading days
-              break;
-            case "5Y":
-              actualDays = 365 * 5;
-              tradingDays = getTradingDays(actualDays); // ~1304 trading days
-              break;
-            case "ALL":
-              actualDays = 365 * 10;
-              tradingDays = getTradingDays(actualDays); // ~2607 trading days
-              break;
-            case "custom": {
-              // Calculate days between custom dates
-              const start = new Date(this.customDateRange.start);
-              const end = new Date(this.customDateRange.end);
-              const diffTime = Math.abs(end - start);
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              tradingDays = getTradingDays(diffDays);
-              break;
-            }
-            default:
-              actualDays = 365;
-              tradingDays = getTradingDays(actualDays); // Default to 1Y
-          }
-
-          console.log(
-            `Period: ${period}, Interval: ${interval}, Trading Days: ${tradingDays}`
-          );
-          return getDataPoints(tradingDays, interval);
         }
 
         updateChart(newData) {
@@ -730,153 +996,6 @@
           document.getElementById("loading-indicator").style.display = isLoading
             ? "flex"
             : "none";
-        }
-
-        generateOHLCData(count, period, interval) {
-          const data = [];
-          let baseDate;
-
-          // Set appropriate base date based on period
-          if (period === "custom" && this.customDateRange.start) {
-            baseDate = new Date(this.customDateRange.start).getTime();
-          } else {
-            baseDate = this.getBaseDateForPeriod(period);
-          }
-
-          let price = 100;
-          const volMin = 6000;
-          const volMax = 900000;
-
-          // For longer timeframes, calculate time per data point
-          const endDate = new Date().getTime(); // Current time
-          let timeStep = this.getTimeStepForInterval(interval);
-
-          // For 1Y, 5Y and ALL with many data points, adjust timestep to distribute evenly
-          if ((period === "5Y" || period === "ALL") && count > 0) {
-            const timeRange = endDate - baseDate;
-            timeStep = Math.max(timeStep, Math.floor(timeRange / count));
-          }
-
-          // Generate data points
-          for (let i = 0; i < count; i++) {
-            let currentDate;
-
-            // For 1Y, 5Y and ALL, distribute points evenly across the time range
-            if (period === "5Y" || period === "ALL") {
-              // Calculate position from 0 to 1 across the range
-              const position = i / (count - 1 || 1);
-              const timestamp = baseDate + position * (endDate - baseDate);
-              currentDate = new Date(timestamp);
-            } else {
-              // For shorter periods, use regular increments
-              currentDate = new Date(baseDate + i * timeStep);
-            }
-
-            // For daily or longer intervals, skip weekends
-            if (
-              interval === "1day" ||
-              interval === "1week" ||
-              interval === "1month"
-            ) {
-              const dayOfWeek = currentDate.getDay(); // 0 is Sunday, 6 is Saturday
-              if (dayOfWeek === 0 || dayOfWeek === 6) {
-                // Generate an extra point to compensate for skipped weekend
-                if (i < count - 1) count++;
-                continue;
-              }
-            }
-
-            // For intraday data, only include trading hours (9:30 AM - 4:00 PM)
-            if (
-              ["1min", "5min", "15min", "30min", "1hour", "4hour"].includes(
-                interval
-              )
-            ) {
-              const hours = currentDate.getHours();
-              const minutes = currentDate.getMinutes();
-              const timeInMinutes = hours * 60 + minutes;
-
-              // Trading hours: 9:30 AM (570 minutes) to 4:00 PM (960 minutes)
-              if (timeInMinutes < 570 || timeInMinutes > 960) {
-                // Generate an extra point to compensate for skipped non-trading hour
-                if (i < count - 1) count++;
-                continue;
-              }
-            }
-
-            // Adjust volatility based on interval
-            const volatilityFactor = this.getVolatilityForInterval(interval);
-            const change = (Math.random() - 0.5) * volatilityFactor;
-            const open = price;
-            const close = price + change;
-            const high =
-              Math.max(open, close) + Math.random() * (volatilityFactor / 2);
-            const low =
-              Math.min(open, close) - Math.random() * (volatilityFactor / 2);
-
-            const volumeFactor = (Math.abs(change) / volatilityFactor) * 3;
-            const volumeVariance = Math.random() * 0.5 + 0.5; // 0.5 to 1.0
-            const volume = Math.floor(
-              volMin + (volMax - volMin) * volumeFactor * volumeVariance
-            );
-
-            data.push({
-              x: new Date(currentDate).toString(),
-              y: [
-                Number(open.toFixed(2)),
-                Number(high.toFixed(2)),
-                Number(low.toFixed(2)),
-                Number(close.toFixed(2)),
-              ],
-              v: volume,
-            });
-
-            price = close;
-          }
-
-          return data;
-        }
-        generateHistoricalData(count, startTimestamp, endTimestamp) {
-          const data = [];
-          const timeRange = endTimestamp - startTimestamp;
-          let price = 80 + Math.random() * 20; // Start with price between 80-100
-          const volMin = 6000;
-          const volMax = 900000;
-
-          for (let i = 0; i < count; i++) {
-            const position = i / (count - 1);
-            const timestamp = startTimestamp + position * timeRange;
-            const currentDate = new Date(timestamp);
-
-            // Skip weekends for daily data
-            const dayOfWeek = currentDate.getDay();
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-              continue;
-            }
-
-            // Generate random OHLC values
-            const change = (Math.random() - 0.5) * 2;
-            const open = price;
-            const close = price + change;
-            const high = Math.max(open, close) + Math.random() * 1;
-            const low = Math.min(open, close) - Math.random() * 1;
-
-            data.push({
-              x: currentDate.toString(),
-              y: [
-                Number(open.toFixed(2)),
-                Number(high.toFixed(2)),
-                Number(low.toFixed(2)),
-                Number(close.toFixed(2)),
-              ],
-              v: Math.floor(Math.random() * (volMax - volMin + 1)) + volMin,
-            });
-
-            // Update base price for next datapoint
-            price = close;
-          }
-
-          return data;
         }
 
         // Get appropriate base date for period
@@ -941,62 +1060,6 @@
               const defaultDate = new Date(now);
               defaultDate.setFullYear(defaultDate.getFullYear() - 1);
               return defaultDate.getTime();
-          }
-        }
-
-        getTimeStepForInterval(interval) {
-          const minute = 60 * 1000;
-          const hour = 60 * minute;
-          const day = 24 * hour;
-          const week = 7 * day;
-
-          switch (interval) {
-            case "1min":
-              return minute;
-            case "5min":
-              return 5 * minute;
-            case "15min":
-              return 15 * minute;
-            case "30min":
-              return 30 * minute;
-            case "1hour":
-              return hour;
-            case "4hour":
-              return 4 * hour;
-            case "1day":
-              return day;
-            case "1week":
-              return week;
-            case "1month":
-              return 30 * day; // Approximation
-            default:
-              return day;
-          }
-        }
-
-        // Get appropriate volatility for interval
-        getVolatilityForInterval(interval) {
-          switch (interval) {
-            case "1min":
-              return 0.2;
-            case "5min":
-              return 0.3;
-            case "15min":
-              return 0.5;
-            case "30min":
-              return 0.7;
-            case "1hour":
-              return 1.0;
-            case "4hour":
-              return 1.5;
-            case "1day":
-              return 2.0;
-            case "1week":
-              return 3.0;
-            case "1month":
-              return 5.0;
-            default:
-              return 2.0;
           }
         }
       }

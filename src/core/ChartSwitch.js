@@ -533,7 +533,6 @@ export default class ChartSwitch {
 
     this.currentType = type;
 
-    // Show/hide Renko settings based on chart type - ADD THESE LINES
     if (type === "renko") {
       this.initializeRenkoSettings();
       this.renkoSettingsControl.show();

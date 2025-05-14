@@ -561,6 +561,13 @@ export default class ApexStock {
 
     // Update heights to ensure consistent layout
     this.updateAllChartHeights();
+
+    // Restore chart type if different from default
+    if (this.chartSwitch && this.chartSwitch.currentType !== "candlestick") {
+      const temp = this.chartSwitch.currentType;
+      this.chartSwitch.currentType = null; // Reset to force redraw
+      this.chartSwitch.changeChartType(temp);
+    }
   }
 
   destroy() {
