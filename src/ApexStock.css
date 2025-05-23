@@ -715,7 +715,6 @@
 /* Base settings control styles */
 .apexstock-settings-control {
   position: absolute;
-  background: rgba(255, 255, 255, 0.5);
   border: 1px dashed var(--light-border);
   padding: 10px;
   z-index: 900;
@@ -863,7 +862,6 @@
  * Dark Theme Support
  * ============================== */
 .apexstock-settings-control.apexstock-theme-dark {
-  background: var(--dark-bg);
   border-color: var(--dark-border);
 }
 
