@@ -1,6 +1,6 @@
 {
   "name": "apexstock",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "description": "An extension library for ApexCharts focusing on stock charts",
   "main": "dist/apexstock.min.js",
