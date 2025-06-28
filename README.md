@@ -80,7 +80,6 @@ const chartOptions = {
   chart: {
     height: 600, // Chart height in pixels
     id: "my-chart", // Chart ID (auto-generated if not provided)
-    type: "candlestick", // Chart type (set automatically)
   },
 
   series: [
