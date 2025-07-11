@@ -19,7 +19,7 @@
     "stock",
     "financial"
   ],
-  "author": "ApexCharts",
+  "license": "see LICENSE in LICENSE",
   "devDependencies": {
     "@babel/core": "^7.23.2",
     "@babel/preset-env": "^7.23.2",
