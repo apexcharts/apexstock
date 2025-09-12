@@ -10,6 +10,8 @@ import ThemeManager from "./core/ThemeManager";
 import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
 import SettingsControl from "./components/SettingsControl";
+import LicenseManager from "./licensing/LicenseManager";
+import Watermark from "./licensing/Watermark";
 
 export default class ApexStock {
   /**
@@ -246,6 +248,24 @@ export default class ApexStock {
     this.oscillatorSettings = new OscillatorSettings(this);
   }
 
+  static setLicense(key) {
+    LicenseManager.setLicense(key);
+  }
+
+  handleWatermark() {
+    const container = this.chartEl;
+
+    if (!container) {
+      return;
+    }
+
+    if (LicenseManager.isLicenseValid()) {
+      Watermark.remove(container);
+    } else {
+      Watermark.add(container);
+    }
+  }
+
   /**
    * Initialize the xaxis range from the series data
    * @param {boolean} useCurrentZoom - Whether to use current zoom state if available
@@ -406,6 +426,8 @@ export default class ApexStock {
 
     // Initial update to ensure consistent heights
     this.updateAllChartHeights();
+
+    this.handleWatermark();
   }
 
   update(newOptions) {
@@ -568,6 +590,8 @@ export default class ApexStock {
       this.chartSwitch.currentType = null; // Reset to force redraw
       this.chartSwitch.changeChartType(temp);
     }
+
+    this.handleWatermark();
   }
 
   destroy() {
