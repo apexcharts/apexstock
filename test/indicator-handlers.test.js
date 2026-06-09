@@ -134,6 +134,30 @@ describe("ApexStock.update — indicator restoration", () => {
     const series = inst.chart.updateSeries.mock.calls.at(-1)[0];
     expect(series.find((s) => s.name === "Moving Average")).toBeTruthy();
   });
+
+  it("does NOT rebuild indicators on an option-only update (no series/theme change)", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("moving average");
+    const updateSeriesCallsBefore = inst.chart.updateSeries.mock.calls.length;
+
+    // An update that changes neither series nor theme must not churn indicators.
+    inst.update({ title: { text: "Hello" } });
+
+    expect(inst.chart.updateSeries.mock.calls.length).toBe(
+      updateSeriesCallsBefore
+    );
+    expect(inst.indicatorChartMap["moving average"]).toBe(true);
+  });
+
+  it("rebuilds indicators on a theme-only update", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("moving average");
+    const before = inst.chart.updateSeries.mock.calls.length;
+    inst.update({ theme: { mode: "dark" } });
+    // refreshIndicators ran (remove + re-add => at least one more updateSeries).
+    expect(inst.chart.updateSeries.mock.calls.length).toBeGreaterThan(before);
+    expect(inst.indicatorChartMap["moving average"]).toBe(true);
+  });
 });
 
 describe("IndicatorHandlers — fibonacci (annotations)", () => {

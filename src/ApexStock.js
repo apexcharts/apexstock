@@ -490,12 +490,19 @@ export default class ApexStock {
     let currentZoomState = this.getCurrentZoomState();
     let themeConfig = this.themeManager.getChartConfig();
 
+    // Indicators derive from the series data and theme colors; track whether
+    // either actually changed so we can skip the (expensive) indicator rebuild
+    // on option-only updates.
+    let themeChanged = false;
+    let seriesChanged = false;
+
     // Handle theme if it's being updated
     if (
       newOptions.theme &&
       newOptions.theme.mode &&
       newOptions.theme.mode !== this.theme
     ) {
+      themeChanged = true;
       if (this.chartSwitch) {
         this.chartSwitch.updateTheme(newOptions.theme.mode);
       }
@@ -532,6 +539,7 @@ export default class ApexStock {
       newOptions.series[0] &&
       newOptions.series[0].data
     ) {
+      seriesChanged = true;
       this.series = newOptions.series[0].data;
 
       // Update volumes data if available in the new series
@@ -582,8 +590,12 @@ export default class ApexStock {
     // Reinitialize xaxis range with new data
     this.initializeXAxisRange();
 
-    // Rebuild active indicators against the new data.
-    this.refreshIndicators(activeIndicators);
+    // Rebuild active indicators only when their inputs (series data or theme
+    // colors) changed. Option-only updates leave them untouched, since the
+    // updateOptions call above does not replace the chart series.
+    if (seriesChanged || themeChanged) {
+      this.refreshIndicators(activeIndicators);
+    }
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
