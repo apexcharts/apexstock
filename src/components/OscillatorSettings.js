@@ -6,7 +6,7 @@
 export default class OscillatorSettings {
   /**
    * Creates settings controls for oscillator indicators
-   * @param {ApexStock} ctx - The ApexStock context
+   * @param {import("../ApexStock.js").default} ctx - The ApexStock context
    */
   constructor(ctx) {
     this.ctx = ctx;

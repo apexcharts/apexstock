@@ -11,6 +11,13 @@ those are called out explicitly below.
 
 ### Added
 
+- **TypeScript type definitions**: shipped `.d.ts` files (generated from JSDoc
+  via `tsc`, no TS rewrite). Core domain types live in `src/types.js`
+  (`OHLCPoint`, `Series`, `StockChartOptions`, `IndicatorConfig`,
+  `IndicatorPoint`, `ThemeMode`, `ZoomState`); the public `ApexStock` API and
+  all `Indicators.*` methods are annotated. `package.json` now exposes `types`
+  and a `types` export condition (`dist/types/ApexStock.d.ts`). New scripts:
+  `build:types` and `typecheck`; `build` now also emits declarations.
 - **Production-readiness foundation**: ESLint (flat config) + Prettier, a Vitest
   test suite (unit coverage for all indicator math plus an ApexStock construction
   smoke test), and a GitHub Actions CI pipeline (`install → lint → test → build`)

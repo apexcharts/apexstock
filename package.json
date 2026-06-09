@@ -5,8 +5,10 @@
   "description": "An extension library for ApexCharts focusing on stock charts",
   "main": "dist/apexstock.min.js",
   "module": "dist/apexstock.esm.js",
+  "types": "dist/types/ApexStock.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/types/ApexStock.d.ts",
       "import": "./dist/apexstock.esm.js",
       "require": "./dist/apexstock.umd.js",
       "default": "./dist/apexstock.umd.js"
@@ -19,8 +21,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && npm run build:types",
+    "build:types": "tsc -p tsconfig.json",
     "dev": "rollup -c -w --bundleConfigAsCjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\"",
@@ -56,6 +60,7 @@
     "jsdom": "^29.1.1",
     "prettier": "^3.8.4",
     "rollup": "^3.29.4",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
   "peerDependencies": {

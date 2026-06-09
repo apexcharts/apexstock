@@ -1,6 +1,12 @@
 import Utils from "../utils/Utils";
 
 class Indicators {
+  /**
+   * Simple moving average of close prices.
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @returns {Array<number|null>}
+   */
   static calculateMovingAverage(series, period) {
     const ma = [];
     for (let i = 0; i < series.length; i++) {
@@ -17,6 +23,12 @@ class Indicators {
     return ma;
   }
 
+  /**
+   * Relative Strength Index (Wilder) over close prices.
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @returns {Array<number|null>}
+   */
   static calculateRSI(series, period) {
     const rsi = [];
     let gains = 0,
@@ -60,6 +72,13 @@ class Indicators {
     return rsi;
   }
 
+  /**
+   * Bollinger Bands (middle SMA with upper/lower std-dev envelopes).
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @param {number} stdDev - Standard-deviation multiplier.
+   * @returns {{ middle: Array<number|null>, upper: Array<number|null>, lower: Array<number|null> }}
+   */
   static calculateBollingerBands(series, period, stdDev) {
     const middle = Indicators.calculateMovingAverage(series, period);
     const upper = [],
@@ -82,6 +101,14 @@ class Indicators {
     return { middle, upper, lower };
   }
 
+  /**
+   * Moving Average Convergence Divergence.
+   * @param {import("../types.js").Series} series
+   * @param {number} [fastPeriod=12]
+   * @param {number} [slowPeriod=26]
+   * @param {number} [signalPeriod=9]
+   * @returns {{ macd: Array<number|null>, signal: Array<number|null>, histogram: Array<number|null> }}
+   */
   static calculateMACD(
     series,
     fastPeriod = 12,
@@ -130,6 +157,12 @@ class Indicators {
     return { macd, signal, histogram };
   }
 
+  /**
+   * Exponential moving average of close prices (seeded with the SMA).
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @returns {Array<number|null>}
+   */
   static calculateEMA(series, period) {
     const ema = [];
     const multiplier = 2 / (period + 1);
@@ -154,6 +187,11 @@ class Indicators {
     return ema;
   }
 
+  /**
+   * Fibonacci retracement levels across the full series high/low range.
+   * @param {import("../types.js").Series} series
+   * @returns {number[]} The six standard levels (0, .236, .382, .5, .618, 1).
+   */
   static calculateFibonacciRetracements(series) {
     const highs = series.map((pt) => pt.y[1]);
     const lows = series.map((pt) => pt.y[2]);
@@ -165,6 +203,13 @@ class Indicators {
     );
   }
 
+  /**
+   * Fibonacci retracement levels across a sub-range of the series.
+   * @param {import("../types.js").Series} series
+   * @param {number} startIndex
+   * @param {number} endIndex
+   * @returns {number[]}
+   */
   static calculateFibonacciRetracementsForRange(series, startIndex, endIndex) {
     // Ensure indices are valid
     if (!series || series.length === 0) return [];
@@ -188,6 +233,11 @@ class Indicators {
     );
   }
 
+  /**
+   * Price Volume Trend.
+   * @param {import("../types.js").Series} series
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculatePVT(series) {
     const pvt = [];
     let prev = 0;
@@ -206,6 +256,13 @@ class Indicators {
     return pvt;
   }
 
+  /**
+   * Stochastic oscillator (%K and smoothed %D).
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @param {number} smoothPeriod
+   * @returns {{ k: import("../types.js").IndicatorPoint[], d: import("../types.js").IndicatorPoint[] }}
+   */
   static calculateStochastic(series, period, smoothPeriod) {
     const k = [];
     for (let i = 0; i < series.length; i++) {
@@ -238,6 +295,12 @@ class Indicators {
     return { k, d };
   }
 
+  /**
+   * Rolling population standard deviation of close prices.
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateStdDevIndicator(series, period) {
     const stdDevArr = [];
     for (let i = 0; i < series.length; i++) {
@@ -258,6 +321,12 @@ class Indicators {
     return stdDevArr;
   }
 
+  /**
+   * Average Directional Index (Wilder smoothing).
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateADX(series, period) {
     if (!series || series.length < period * 2) {
       // Need at least 2 * period data points for meaningful calculation
@@ -395,6 +464,13 @@ class Indicators {
     return result;
   }
 
+  /**
+   * Chaikin oscillator (EMA difference of the accumulation/distribution line).
+   * @param {import("../types.js").Series} series
+   * @param {number} shortPeriod
+   * @param {number} longPeriod
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateChaikinOsc(series, shortPeriod, longPeriod) {
     const ad = [];
     let cumulative = 0;
@@ -423,6 +499,12 @@ class Indicators {
     return chaikin;
   }
 
+  /**
+   * Exponential moving average over a plain numeric array.
+   * @param {Array<number|null>} arr
+   * @param {number} period
+   * @returns {Array<number|null>}
+   */
   static calculateEMAFromArray(arr, period) {
     const ema = [];
     const multiplier = 2 / (period + 1);
@@ -448,6 +530,12 @@ class Indicators {
     return ema;
   }
 
+  /**
+   * Simple moving average over a plain numeric array.
+   * @param {Array<number|null>} arr
+   * @param {number} period
+   * @returns {Array<number|null>}
+   */
   static calculateSMAFromArray(arr, period) {
     const sma = [];
     for (let i = 0; i < arr.length; i++) {
@@ -464,6 +552,13 @@ class Indicators {
     return sma;
   }
 
+  /**
+   * Bollinger %B relative to precomputed lower/upper bands.
+   * @param {import("../types.js").Series} series
+   * @param {Array<number|null>} lower
+   * @param {Array<number|null>} upper
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateBBPercent(series, lower, upper) {
     const percentB = [];
     for (let i = 0; i < series.length; i++) {
@@ -478,6 +573,14 @@ class Indicators {
     return percentB;
   }
 
+  /**
+   * Bollinger band width relative to precomputed bands.
+   * @param {import("../types.js").Series} series
+   * @param {Array<number|null>} middle
+   * @param {Array<number|null>} upper
+   * @param {Array<number|null>} lower
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateBBWidth(series, middle, upper, lower) {
     const bbWidth = [];
     for (let i = 0; i < series.length; i++) {
@@ -491,6 +594,12 @@ class Indicators {
     return bbWidth;
   }
 
+  /**
+   * Rolling linear-regression value of close prices.
+   * @param {import("../types.js").Series} series
+   * @param {number} period
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateLinearRegression(series, period) {
     const lr = [];
     for (let i = 0; i < series.length; i++) {
@@ -519,6 +628,11 @@ class Indicators {
     return lr;
   }
 
+  /**
+   * Ichimoku Cloud components.
+   * @param {import("../types.js").Series} series
+   * @returns {{ tenkan: import("../types.js").IndicatorPoint[], kijun: import("../types.js").IndicatorPoint[], senkouA: import("../types.js").IndicatorPoint[], senkouB: import("../types.js").IndicatorPoint[], chikou: import("../types.js").IndicatorPoint[] }}
+   */
   static calculateIchimoku(series) {
     const tenkan = [];
     const kijun = [];
@@ -576,6 +690,12 @@ class Indicators {
     return { tenkan, kijun, senkouA, senkouB, chikou };
   }
 
+  /**
+   * Commodity Channel Index.
+   * @param {import("../types.js").Series} series
+   * @param {number} [period=20]
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateCCI(series, period = 20) {
     const cci = [];
     for (let i = 0; i < series.length; i++) {
@@ -611,6 +731,14 @@ class Indicators {
     return cci;
   }
 
+  /**
+   * True Strength Index with its signal line.
+   * @param {import("../types.js").Series} series
+   * @param {number} [longPeriod=25]
+   * @param {number} [shortPeriod=13]
+   * @param {number} [signalPeriod=7]
+   * @returns {{ tsi: import("../types.js").IndicatorPoint[], signal: import("../types.js").IndicatorPoint[] }}
+   */
   static calculateTSI(
     series,
     longPeriod = 25,
@@ -663,6 +791,12 @@ class Indicators {
     return { tsi, signal: signalLine };
   }
 
+  /**
+   * Accelerator oscillator (AO minus its SMA).
+   * @param {import("../types.js").Series} series
+   * @param {number} [acPeriod=5]
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateAcceleratorOsc(series, acPeriod = 5) {
     // First calculate Awesome Oscillator
     const awesome = Indicators.calculateAwesomeOscillator(series);
@@ -688,6 +822,12 @@ class Indicators {
   }
 
   // Helper method for Accelerator Oscillator
+  /**
+   * Awesome oscillator (SMA difference of median price). Helper for the
+   * accelerator oscillator.
+   * @param {import("../types.js").Series} series
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
   static calculateAwesomeOscillator(series) {
     const fastPeriod = 5;
     const slowPeriod = 34;

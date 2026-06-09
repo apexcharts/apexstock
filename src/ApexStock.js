@@ -13,10 +13,14 @@ import SettingsControl from "./components/SettingsControl";
 import LicenseManager from "./licensing/LicenseManager";
 import Watermark from "./licensing/Watermark";
 
+/**
+ * ApexStock — a financial-charting layer on top of ApexCharts. Renders an OHLC
+ * main chart plus technical-indicator panes, drawing tools, and theming.
+ */
 export default class ApexStock {
   /**
    * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
-   * @param {Object} chartOptions - The ApexCharts options object.
+   * @param {import("./types.js").StockChartOptions} chartOptions - ApexCharts options whose `series[0].data` holds the OHLC points.
    */
   constructor(chartEl, chartOptions) {
     // --- Validate the public boundary with clear, actionable errors ---
@@ -278,6 +282,12 @@ export default class ApexStock {
     this.oscillatorSettings = new OscillatorSettings(this);
   }
 
+  /**
+   * Register a license key globally. An invalid/expired key causes the
+   * "Powered by apexcharts.com" watermark to be shown.
+   * @param {string} key - License key in the form `APEX-{encoded}`.
+   * @returns {void}
+   */
   static setLicense(key) {
     LicenseManager.setLicense(key);
   }
@@ -408,6 +418,12 @@ export default class ApexStock {
     }
   }
 
+  /**
+   * Render the main chart and initialize all sub-components (chart-type switch,
+   * drawing tools, export, custom x-axis, zoom controls). Call once after
+   * construction.
+   * @returns {void}
+   */
   render() {
     let rootNode = this.chartEl.getRootNode && this.chartEl.getRootNode();
     let inShadowRoot = Utils.is("ShadowRoot", rootNode);
@@ -460,6 +476,12 @@ export default class ApexStock {
     this.handleWatermark();
   }
 
+  /**
+   * Apply new options/data to the chart, preserving active indicators, zoom
+   * state, theme, and chart type across the update.
+   * @param {Partial<import("./types.js").StockChartOptions>} newOptions
+   * @returns {void}
+   */
   update(newOptions) {
     // Store current state
     const activeIndicators = Object.keys(this.indicatorChartMap);
@@ -624,6 +646,10 @@ export default class ApexStock {
     this.handleWatermark();
   }
 
+  /**
+   * Tear down sub-components and their listeners.
+   * @returns {void}
+   */
   destroy() {
     // Clean up ChartSwitch
     if (this.chartSwitch && typeof this.chartSwitch.destroy === "function") {
@@ -886,8 +912,8 @@ export default class ApexStock {
   }
 
   /**
-   * Get the current zoom state to apply to new charts
-   * @returns {Object} Object containing min and max indices for the x-axis
+   * Get the current visible x-axis range to apply to new charts.
+   * @returns {import("./types.js").ZoomState|null} `{minX, maxX}`, or null if the chart is not yet rendered.
    */
   getCurrentZoomState() {
     // If chart is not rendered yet, return null
@@ -931,6 +957,11 @@ export default class ApexStock {
     };
   }
 
+  /**
+   * Add or refresh a technical indicator pane/overlay, preserving zoom state.
+   * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
+   * @returns {void}
+   */
   updateIndicator(indicatorKey) {
     // Store current zoom state before updating
     const zoomState = this.getCurrentZoomState();
@@ -949,6 +980,11 @@ export default class ApexStock {
     }
   }
 
+  /**
+   * Remove a technical indicator pane/overlay, preserving zoom state.
+   * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
+   * @returns {void}
+   */
   removeIndicator(indicatorKey) {
     // Store current zoom state before removing
     const zoomState = this.getCurrentZoomState();
@@ -1060,8 +1096,8 @@ export default class ApexStock {
   }
 
   /**
-   * Gets the current theme
-   * @returns {string} Current theme ('light' or 'dark')
+   * Gets the current theme.
+   * @returns {import("./types.js").ThemeMode} Current theme ('light' or 'dark').
    */
   getTheme() {
     return this.themeManager.getTheme();
@@ -1084,8 +1120,9 @@ export default class ApexStock {
   }
 
   /**
-   * Updates chart options and applies theme changes if needed
-   * @param {Object} newOptions - New chart options object
+   * Updates chart options and applies theme changes if needed.
+   * @param {Partial<import("./types.js").StockChartOptions>} newOptions - New chart options.
+   * @returns {void}
    */
   updateChartOptions(newOptions) {
     if (newOptions.theme && newOptions.theme.mode !== this.theme) {

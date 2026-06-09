@@ -6,7 +6,7 @@ import Utils from "../utils/Utils";
 export default class XAxis {
   /**
    * Creates a new XAxis instance
-   * @param {ApexStock} context - The ApexStock instance
+   * @param {import("../ApexStock.js").default} context - The ApexStock instance
    */
   constructor(context) {
     this.context = context;
