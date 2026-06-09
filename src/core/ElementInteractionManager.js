@@ -301,7 +301,7 @@ export default class ElementInteractionManager {
       this.hoverOutline.setAttribute("height", bbox.height + 4);
       this.hoverOutline.style.display = "block";
     } catch (err) {
-      console.error("Error updating hover outline:", err);
+      Utils.error("Error updating hover outline:", err);
     }
   }
 
@@ -324,7 +324,7 @@ export default class ElementInteractionManager {
     const elementId = targetElement.dataset.elementId;
 
     if (!elementId) {
-      console.warn("Clicked element has no ID:", targetElement);
+      Utils.warn("Clicked element has no ID:", targetElement);
       return;
     }
 
@@ -349,7 +349,7 @@ export default class ElementInteractionManager {
     // Get the element data using the ID
     const elementItem = this.getElementById(elementId);
     if (!elementItem || !elementItem.data) {
-      console.warn("Could not find element data for ID:", elementId);
+      Utils.warn("Could not find element data for ID:", elementId);
       return;
     }
 
@@ -378,7 +378,7 @@ export default class ElementInteractionManager {
     const elementId = targetElement.dataset.elementId;
 
     if (!elementId) {
-      console.warn("Clicked element has no ID:", targetElement);
+      Utils.warn("Clicked element has no ID:", targetElement);
       return;
     }
 
@@ -431,7 +431,7 @@ export default class ElementInteractionManager {
       this.selectionOutline.setAttribute("height", bbox.height + 4);
       this.selectionOutline.style.display = "block";
     } catch (err) {
-      console.error("Error updating selection outline:", err);
+      Utils.error("Error updating selection outline:", err);
     }
   }
 
@@ -463,7 +463,7 @@ export default class ElementInteractionManager {
     // Get the element data using the ID
     const elementItem = this.getElementById(this.selectedElementId);
     if (!elementItem || !elementItem.data) {
-      console.warn(
+      Utils.warn(
         "Could not find element data for ID:",
         this.selectedElementId
       );
@@ -570,7 +570,7 @@ export default class ElementInteractionManager {
     // Get the element data using the ID
     const elementItem = this.getElementById(targetElementId);
     if (!elementItem || !elementItem.data) {
-      console.warn("Could not find element data for ID:", targetElementId);
+      Utils.warn("Could not find element data for ID:", targetElementId);
       return;
     }
 
@@ -715,7 +715,7 @@ export default class ElementInteractionManager {
     // Find the element by ID
     const index = this.getElementIndexById(this.selectedElementId);
     if (index === -1) {
-      console.warn(
+      Utils.warn(
         "Element to delete not found with ID:",
         this.selectedElementId
       );

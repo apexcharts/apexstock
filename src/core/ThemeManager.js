@@ -1,3 +1,4 @@
+import Utils from "../utils/Utils";
 /**
  * ThemeManager.js
  * Handles theme management for ApexStock charts
@@ -18,7 +19,7 @@ export default class ThemeManager {
 
   setTheme(themeName) {
     if (themeName !== "light" && themeName !== "dark") {
-      console.warn('Invalid theme. Using "light" theme as default.');
+      Utils.warn('Invalid theme. Using "light" theme as default.');
       themeName = "light";
     }
 

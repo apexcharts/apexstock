@@ -1,3 +1,4 @@
+import Utils from "../utils/Utils";
 /**
  * Custom X-Axis component for ApexStock
  * Provides a customizable time-based X-axis that adapts to different zoom levels
@@ -336,7 +337,7 @@ export default class XAxis {
 
       return closestIndex;
     } catch (error) {
-      console.warn("Error finding nearest data point:", error);
+      Utils.warn("Error finding nearest data point:", error);
       return null;
     }
   }
@@ -366,7 +367,7 @@ export default class XAxis {
         return new Date(point.x).getTime();
       }
     } catch (error) {
-      console.warn("Error getting data point timestamp:", error);
+      Utils.warn("Error getting data point timestamp:", error);
       return this.context.xaxisRange.min;
     }
   }
@@ -585,7 +586,7 @@ export default class XAxis {
   calculateTicks() {
     const range = this.context.xaxisRange;
     if (!range || isNaN(range.min) || isNaN(range.max)) {
-      console.warn("Invalid range for calculating ticks:", range);
+      Utils.warn("Invalid range for calculating ticks:", range);
       return [];
     }
 
@@ -594,7 +595,7 @@ export default class XAxis {
 
     // Ensure interval is valid
     if (!interval || interval <= 0) {
-      console.warn("Invalid interval for calculating ticks:", interval);
+      Utils.warn("Invalid interval for calculating ticks:", interval);
       return [];
     }
 
@@ -722,7 +723,7 @@ export default class XAxis {
       isNaN(this.context.xaxisRange.min) ||
       isNaN(this.context.xaxisRange.max)
     ) {
-      console.warn("Invalid xaxisRange values:", this.context.xaxisRange);
+      Utils.warn("Invalid xaxisRange values:", this.context.xaxisRange);
       return;
     }
 

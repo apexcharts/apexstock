@@ -1,3 +1,4 @@
+import Utils from "../../utils/Utils";
 // OverlayManager.js - Manages the SVG overlay for drawing
 class OverlayManager {
   /**
@@ -70,7 +71,7 @@ class OverlayManager {
       this.overlayWrapper.style.height = chartRect.height + "px";
       this.overlayWrapper.style.left = chartRect.left - parentRect.left + "px";
     } catch (err) {
-      console.error("Error syncing overlay position:", err);
+      Utils.error("Error syncing overlay position:", err);
     }
   }
 }

@@ -18,7 +18,6 @@ export default class IndicatorHandlers {
     // Define common chart properties for all indicator charts
     const commonChartOptions = {
       chart: {
-        toolbar: { show: false },
         parentHeightOffset: 0,
         animations: { enabled: false },
         group: context.groupID,
@@ -311,7 +310,7 @@ export default class IndicatorHandlers {
     // For oscillators that are drawn in separate charts
     if (indicatorKey === "volumes") {
       if (!context.volumesData || context.volumesData.length === 0) {
-        console.warn("No volumes data available.");
+        Utils.warn("No volumes data available.");
         return;
       }
       const defaultSeries = [
