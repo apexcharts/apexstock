@@ -7,6 +7,7 @@ import ChartSwitch from "./core/ChartSwitch";
 import IndicatorHandlers from "./indicators/IndicatorHandlers";
 import XAxis from "./components/XAxis";
 import ThemeManager from "./core/ThemeManager";
+import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
 import SettingsControl from "./components/SettingsControl";
@@ -812,26 +813,11 @@ export default class ApexStock {
   }
 
   computeHeights(newIndicatorCount) {
-    // Get the total available height without the xAxis
-    const totalHeightWithoutXAxis = this.totalHeight - this.xAxisHeight;
-
-    // For main chart, calculate 60% of available height
-    const newMainHeight = Math.floor(0.6 * totalHeightWithoutXAxis);
-
-    // For indicators, calculate 40% of available height
-    const indicatorContainerHeight = Math.floor(0.4 * totalHeightWithoutXAxis);
-
-    // Divide indicator area by number of indicators
-    const indicatorHeight =
-      newIndicatorCount > 0
-        ? Math.floor(indicatorContainerHeight / newIndicatorCount)
-        : 0;
-
-    return {
-      newMainHeight,
-      indicatorContainerHeight,
-      indicatorHeight,
-    };
+    return LayoutManager.computeHeights({
+      totalHeight: this.totalHeight,
+      xAxisHeight: this.xAxisHeight,
+      indicatorCount: newIndicatorCount,
+    });
   }
 
   updateAllChartHeights() {
@@ -863,7 +849,7 @@ export default class ApexStock {
     const { newMainHeight, indicatorContainerHeight, indicatorHeight } =
       this.computeHeights(indicatorCount);
 
-    const INDICATOR_CHART_TOP_OFFSET = 18;
+    const INDICATOR_CHART_TOP_OFFSET = LayoutManager.INDICATOR_CHART_TOP_OFFSET;
     // Update main chart height
     this.mainChartDiv.style.height =
       newMainHeight + INDICATOR_CHART_TOP_OFFSET * 2 + "px";
