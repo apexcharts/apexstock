@@ -1,6 +1,31 @@
 export default Indicators;
 declare class Indicators {
     /**
+     * Per-series memoization cache. Keyed on the series array identity (so a new
+     * data array naturally invalidates and the old entry is GC'd), then on a
+     * string describing the method + its parameters.
+     *
+     * Indicator math is pure, so caching is safe. Callers must treat the returned
+     * arrays as read-only (they do today — results are mapped into new arrays).
+     * @type {WeakMap<object, Map<string, *>>}
+     */
+    static _cache: WeakMap<object, Map<string, any>>;
+    /**
+     * @param {*} series
+     * @param {string} key
+     * @returns {*} The cached value, or `undefined` if absent.
+     */
+    static _cacheGet(series: any, key: string): any;
+    /**
+     * Stores and returns `value` for `(series, key)`.
+     * @template T
+     * @param {*} series
+     * @param {string} key
+     * @param {T} value
+     * @returns {T}
+     */
+    static _cacheSet<T>(series: any, key: string, value: T): T;
+    /**
      * Simple moving average of close prices.
      * @param {import("../types.js").Series} series
      * @param {number} period

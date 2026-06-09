@@ -2,12 +2,56 @@ import Utils from "../utils/Utils";
 
 class Indicators {
   /**
+   * Per-series memoization cache. Keyed on the series array identity (so a new
+   * data array naturally invalidates and the old entry is GC'd), then on a
+   * string describing the method + its parameters.
+   *
+   * Indicator math is pure, so caching is safe. Callers must treat the returned
+   * arrays as read-only (they do today — results are mapped into new arrays).
+   * @type {WeakMap<object, Map<string, *>>}
+   */
+  static _cache = new WeakMap();
+
+  /**
+   * @param {*} series
+   * @param {string} key
+   * @returns {*} The cached value, or `undefined` if absent.
+   */
+  static _cacheGet(series, key) {
+    if (!series || typeof series !== "object") return undefined;
+    const perSeries = Indicators._cache.get(series);
+    return perSeries ? perSeries.get(key) : undefined;
+  }
+
+  /**
+   * Stores and returns `value` for `(series, key)`.
+   * @template T
+   * @param {*} series
+   * @param {string} key
+   * @param {T} value
+   * @returns {T}
+   */
+  static _cacheSet(series, key, value) {
+    if (series && typeof series === "object") {
+      let perSeries = Indicators._cache.get(series);
+      if (!perSeries) {
+        perSeries = new Map();
+        Indicators._cache.set(series, perSeries);
+      }
+      perSeries.set(key, value);
+    }
+    return value;
+  }
+
+  /**
    * Simple moving average of close prices.
    * @param {import("../types.js").Series} series
    * @param {number} period
    * @returns {Array<number|null>}
    */
   static calculateMovingAverage(series, period) {
+    const cached = Indicators._cacheGet(series, "ma:" + period);
+    if (cached !== undefined) return cached;
     const ma = [];
     for (let i = 0; i < series.length; i++) {
       if (i < period - 1) {
@@ -20,7 +64,7 @@ class Indicators {
         ma.push(Utils.truncateNumber(sum / period));
       }
     }
-    return ma;
+    return Indicators._cacheSet(series, "ma:" + period, ma);
   }
 
   /**
@@ -30,6 +74,8 @@ class Indicators {
    * @returns {Array<number|null>}
    */
   static calculateRSI(series, period) {
+    const cached = Indicators._cacheGet(series, "rsi:" + period);
+    if (cached !== undefined) return cached;
     const rsi = [];
     let gains = 0,
       losses = 0;
@@ -69,7 +115,7 @@ class Indicators {
         }
       }
     }
-    return rsi;
+    return Indicators._cacheSet(series, "rsi:" + period, rsi);
   }
 
   /**
@@ -80,6 +126,8 @@ class Indicators {
    * @returns {{ middle: Array<number|null>, upper: Array<number|null>, lower: Array<number|null> }}
    */
   static calculateBollingerBands(series, period, stdDev) {
+    const cached = Indicators._cacheGet(series, "bb:" + period + ":" + stdDev);
+    if (cached !== undefined) return cached;
     const middle = Indicators.calculateMovingAverage(series, period);
     const upper = [],
       lower = [];
@@ -98,7 +146,11 @@ class Indicators {
         lower.push(Utils.truncateNumber(middle[i] - stdDev * stdDevValue));
       }
     }
-    return { middle, upper, lower };
+    return Indicators._cacheSet(series, "bb:" + period + ":" + stdDev, {
+      middle,
+      upper,
+      lower,
+    });
   }
 
   /**
@@ -164,6 +216,8 @@ class Indicators {
    * @returns {Array<number|null>}
    */
   static calculateEMA(series, period) {
+    const cached = Indicators._cacheGet(series, "ema:" + period);
+    if (cached !== undefined) return cached;
     const ema = [];
     const multiplier = 2 / (period + 1);
     let sum = 0;
@@ -184,7 +238,7 @@ class Indicators {
         );
       }
     }
-    return ema;
+    return Indicators._cacheSet(series, "ema:" + period, ema);
   }
 
   /**

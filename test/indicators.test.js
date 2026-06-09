@@ -232,6 +232,35 @@ describe("Bollinger-derived oscillators", () => {
   });
 });
 
+describe("memoization", () => {
+  it("returns the identical cached reference for the same (series, params)", () => {
+    const series = ohlc([10, 20, 30, 40, 50]);
+    const a = Indicators.calculateMovingAverage(series, 3);
+    const b = Indicators.calculateMovingAverage(series, 3);
+    expect(b).toBe(a); // same reference -> served from cache
+  });
+
+  it("does not collide across different params or series", () => {
+    const series = ohlc([10, 20, 30, 40, 50]);
+    const p3 = Indicators.calculateMovingAverage(series, 3);
+    const p2 = Indicators.calculateMovingAverage(series, 2);
+    expect(p2).not.toBe(p3);
+
+    const other = ohlc([10, 20, 30, 40, 50]); // equal values, different identity
+    const p3b = Indicators.calculateMovingAverage(other, 3);
+    expect(p3b).not.toBe(p3);
+    expect(p3b).toEqual(p3); // same values though
+  });
+
+  it("EMA memoization still yields correct values", () => {
+    const series = ohlc([10, 20, 30, 40, 50]);
+    const first = Indicators.calculateEMA(series, 3);
+    const second = Indicators.calculateEMA(series, 3);
+    expect(second).toBe(first);
+    expect(first).toEqual([null, null, 20, 30, 40]);
+  });
+});
+
 describe("TSI and Accelerator oscillator", () => {
   it("calculateTSI returns tsi/signal aligned to the series length", () => {
     const series = longSeries(60);
