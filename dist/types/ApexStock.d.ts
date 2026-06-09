@@ -172,6 +172,14 @@ export default class ApexStock {
      */
     getCurrentZoomState(): import("./types.js").ZoomState | null;
     /**
+     * Tear down and rebuild the given indicators so they reflect new data or
+     * theme colors. The teardown is required because {@link updateIndicator}
+     * toggles: calling it on an already-active indicator would remove it.
+     * @param {string[]} indicatorKeys - Keys of currently active indicators.
+     * @returns {void}
+     */
+    refreshIndicators(indicatorKeys: string[]): void;
+    /**
      * Add or refresh a technical indicator pane/overlay, preserving zoom state.
      * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
      * @returns {void}

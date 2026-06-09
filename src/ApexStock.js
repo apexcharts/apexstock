@@ -582,15 +582,8 @@ export default class ApexStock {
     // Reinitialize xaxis range with new data
     this.initializeXAxisRange();
 
-    // Remove all indicators temporarily
-    activeIndicators.forEach((indicator) => {
-      this.removeIndicator(indicator);
-    });
-
-    // Re-add indicators with updated data
-    activeIndicators.forEach((indicator) => {
-      this.updateIndicator(indicator);
-    });
+    // Rebuild active indicators against the new data.
+    this.refreshIndicators(activeIndicators);
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
@@ -944,6 +937,22 @@ export default class ApexStock {
   }
 
   /**
+   * Tear down and rebuild the given indicators so they reflect new data or
+   * theme colors. The teardown is required because {@link updateIndicator}
+   * toggles: calling it on an already-active indicator would remove it.
+   * @param {string[]} indicatorKeys - Keys of currently active indicators.
+   * @returns {void}
+   */
+  refreshIndicators(indicatorKeys) {
+    indicatorKeys.forEach((indicator) => {
+      this.removeIndicator(indicator);
+    });
+    indicatorKeys.forEach((indicator) => {
+      this.updateIndicator(indicator);
+    });
+  }
+
+  /**
    * Add or refresh a technical indicator pane/overlay, preserving zoom state.
    * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
    * @returns {void}
@@ -1044,15 +1053,8 @@ export default class ApexStock {
     const activeIndicators = Object.keys(this.indicatorChartMap);
     const activeOscillator = this.activeOscillator;
 
-    // Remove all indicators
-    activeIndicators.forEach((indicator) => {
-      this.removeIndicator(indicator);
-    });
-
-    // Re-add indicators with updated theme
-    activeIndicators.forEach((indicator) => {
-      this.updateIndicator(indicator);
-    });
+    // Rebuild active indicators so they pick up the new theme colors.
+    this.refreshIndicators(activeIndicators);
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;

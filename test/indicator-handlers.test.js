@@ -113,6 +113,29 @@ describe("IndicatorHandlers — overlays", () => {
   });
 });
 
+describe("ApexStock.update — indicator restoration", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("re-applies active overlays after a data update without throwing", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("moving average");
+    expect(inst.indicatorChartMap["moving average"]).toBe(true);
+
+    const newData = ohlcData(70);
+    expect(() => inst.update({ series: [{ name: "Price", data: newData }] })).not.toThrow();
+
+    // The overlay is restored and the internal series is the new data.
+    expect(inst.indicatorChartMap["moving average"]).toBe(true);
+    expect(inst.series).toBe(newData);
+    const series = inst.chart.updateSeries.mock.calls.at(-1)[0];
+    expect(series.find((s) => s.name === "Moving Average")).toBeTruthy();
+  });
+});
+
 describe("IndicatorHandlers — fibonacci (annotations)", () => {
   beforeEach(() => installApexChartsMock());
   afterEach(() => {
