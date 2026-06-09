@@ -1,89 +1,284 @@
 import Utils from "../utils/Utils";
 
-export default class IndicatorHandlers {
-  /**
-   * Updates or adds an indicator to the chart
-   * @param {string} indicatorKey - The key/name of the indicator to update
-   * @param {Object} context - The ApexStock instance
-   */
-  static updateIndicator(indicatorKey, context) {
-    if (!indicatorKey) return;
-    indicatorKey = indicatorKey.toLowerCase();
+/**
+ * Maps a numeric (or null) value array to {x, y} points aligned to the series.
+ * @param {object} context - ApexStock instance.
+ * @param {Array<number|null>} values
+ * @returns {Array<{x: *, y: number|null}>}
+ */
+function toPoints(context, values) {
+  return values.map((value, index) => ({
+    x: context.series[index].x,
+    y: value,
+  }));
+}
 
-    if (context.indicatorChartMap[indicatorKey]) {
-      context.removeIndicator(indicatorKey);
-      return;
-    }
-
-    // Define common chart properties for all indicator charts
-    const commonChartOptions = {
-      chart: {
-        parentHeightOffset: 0,
-        animations: { enabled: false },
-        group: context.groupID,
-        background: "transparent",
-        events: {
-          zoomed: context.handleZoom.bind(context),
-          scrolled: context.handleScroll.bind(context),
-          beforeResetZoom: context.handleBeforeResetZoom.bind(context),
-        },
-        toolbar: {
-          show: false,
-          autoSelected: "pan", // accepts -> zoom, pan, selection
-        },
-        zoom: {
-          enabled: true,
-          type: "x",
-          autoScaleYaxis: true,
-          allowMouseWheelZoom: true,
-        },
-        // Apply theme setting
-        theme: {
-          mode: context.theme,
-        },
+/**
+ * Builds the chart options shared by every oscillator pane.
+ * @param {object} context - ApexStock instance.
+ */
+function buildCommonChartOptions(context) {
+  return {
+    chart: {
+      parentHeightOffset: 0,
+      animations: { enabled: false },
+      group: context.groupID,
+      background: "transparent",
+      events: {
+        zoomed: context.handleZoom.bind(context),
+        scrolled: context.handleScroll.bind(context),
+        beforeResetZoom: context.handleBeforeResetZoom.bind(context),
       },
-      xaxis: {
-        labels: { show: false },
-        axisTicks: { show: false },
-        tooltip: {
-          enabled: false,
-        },
+      toolbar: {
+        show: false,
+        autoSelected: "pan", // accepts -> zoom, pan, selection
       },
-      yaxis: context.mainChartOptions.yaxis[0],
-      stroke: { width: 1 },
-      legend: { show: false },
-      dataLabels: { enabled: false },
-      grid: {
-        ...context.mainChartOptions.grid,
-        borderColor: context.isDarkTheme ? "#404040" : "#e9ecef",
+      zoom: {
+        enabled: true,
+        type: "x",
+        autoScaleYaxis: true,
+        allowMouseWheelZoom: true,
       },
-      theme: context.mainChartOptions.theme,
-      tooltip: {
-        x: {
-          show: false,
-        },
-        marker: {
-          show: false,
-        },
-        theme: context.theme,
-        cssClass: "",
-        style: {
-          fontSize: "11px",
-        },
+      theme: {
+        mode: context.theme,
       },
-    };
+    },
+    xaxis: {
+      labels: { show: false },
+      axisTicks: { show: false },
+      tooltip: { enabled: false },
+    },
+    yaxis: context.mainChartOptions.yaxis[0],
+    stroke: { width: 1 },
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    grid: {
+      ...context.mainChartOptions.grid,
+      borderColor: context.isDarkTheme ? "#404040" : "#e9ecef",
+    },
+    theme: context.mainChartOptions.theme,
+    tooltip: {
+      x: { show: false },
+      marker: { show: false },
+      theme: context.theme,
+      cssClass: "",
+      style: { fontSize: "11px" },
+    },
+  };
+}
 
-    // Get current indicator parameters if oscillator settings are available
-    const indicatorParams = context.oscillatorSettings
-      ? context.oscillatorSettings.getIndicatorParams(indicatorKey)
-      : {};
+/**
+ * Applies (or re-applies) the Fibonacci retracement y-axis annotations for the
+ * currently visible range, and stores a map entry whose `update()` recomputes
+ * them on zoom/scroll.
+ * @param {object} context - ApexStock instance.
+ */
+function applyFibonacci(context) {
+  const zoomState = context.getCurrentZoomState();
+  let startIndex = 0;
+  let endIndex = context.series.length - 1;
 
-    let indicatorChartOptions = {};
+  if (
+    zoomState &&
+    zoomState.minX !== undefined &&
+    zoomState.maxX !== undefined
+  ) {
+    startIndex = Math.max(0, Math.floor(zoomState.minX));
+    endIndex = Math.min(context.series.length - 1, Math.ceil(zoomState.maxX));
+  }
 
-    // For overlays that are drawn on the main chart
-    if (indicatorKey === "bollinger bands") {
-      const period = indicatorParams.period || 20;
-      const stdDev = indicatorParams.stdDev || 2;
+  const levels = context.calculateFibonacciRetracementsForRange(
+    context.series,
+    startIndex,
+    endIndex
+  );
+
+  const annotations = levels.map((level, l) => ({
+    id: "fib-anno-" + context.FIBLEVELS[l].toString().replace(/\./g, ""),
+    y: level,
+    borderColor: context.colors.indicators.fibonacci[l],
+    strokeDashArray: 0,
+    label: {
+      text: `${Utils.truncateNumber(context.FIBLEVELS[l] * 100)}%`,
+      textAnchor: "start",
+      position: "left",
+      style: {
+        background: context.colors.indicators.fibonacci[l],
+        color: "#fff",
+        fontSize: "10px",
+      },
+    },
+  }));
+
+  const currentOptions = context.chart.w.config.annotations || {};
+  const currentYAxisAnnotations = (currentOptions.yaxis || []).filter(
+    (anno) => !anno.id || !anno.id.startsWith("fib-anno-")
+  );
+
+  const updatedAnnotations = {
+    ...currentOptions,
+    yaxis: [...currentYAxisAnnotations, ...annotations],
+  };
+
+  context.chart.updateOptions({ annotations: updatedAnnotations });
+
+  context.indicatorChartMap["fibonacci retracements"] = {
+    // Called when zoom or scroll occurs — recompute levels for the new range.
+    update: function () {
+      const currentZoom = context.getCurrentZoomState();
+      let newStartIndex = 0;
+      let newEndIndex = context.series.length - 1;
+
+      if (
+        currentZoom &&
+        currentZoom.minX !== undefined &&
+        currentZoom.maxX !== undefined
+      ) {
+        newStartIndex = Math.max(0, Math.floor(currentZoom.minX));
+        newEndIndex = Math.min(
+          context.series.length - 1,
+          Math.ceil(currentZoom.maxX)
+        );
+      }
+
+      const newLevels = context.calculateFibonacciRetracementsForRange(
+        context.series,
+        newStartIndex,
+        newEndIndex
+      );
+
+      context.FIBLEVELS.forEach((level) => {
+        const id = "fib-anno-" + level.toString().replace(/\./g, "");
+        context.chart.removeAnnotation(id);
+      });
+
+      newLevels.forEach((level, i) => {
+        const id =
+          "fib-anno-" + context.FIBLEVELS[i].toString().replace(/\./g, "");
+        context.chart.addYaxisAnnotation({
+          id: id,
+          y: level,
+          borderColor: context.colors.indicators.fibonacci[i],
+          strokeDashArray: 0,
+          label: {
+            text: `${Utils.truncateNumber(context.FIBLEVELS[i] * 100)}%`,
+            textAnchor: "start",
+            position: "left",
+            style: {
+              background: context.colors.indicators.fibonacci[i],
+              color: "#fff",
+              fontSize: "10px",
+            },
+          },
+        });
+      });
+    },
+  };
+}
+
+/**
+ * Helper for the many oscillators that render one or more line series in a
+ * separate pane. Returns the common-derived chart options.
+ */
+function lineOscillator(context, common, { id, series, strokeColors }) {
+  return {
+    ...common,
+    chart: {
+      ...common.chart,
+      type: "line",
+      id: id + context.groupID,
+    },
+    series,
+    stroke: {
+      ...common.stroke,
+      colors: strokeColors,
+    },
+  };
+}
+
+/**
+ * Indicator registry. Each entry declares its `kind` and a builder:
+ * - overlay:    build(context, params) -> { series, replaceNames }
+ * - oscillator: build(context, params, common) -> chart options (or null to skip)
+ * - custom:     apply(context, params) and remove(context) handle the chart directly
+ *
+ * Adding a new indicator means adding one entry here — no branching to touch.
+ * @type {Object.<string, object>}
+ */
+const INDICATOR_REGISTRY = {
+  // ---- Overlays (drawn on the main chart) ----
+  "moving average": {
+    kind: "overlay",
+    replaceNames: ["Moving Average"],
+    build(context, params) {
+      const period = params.period || 10;
+      const data = toPoints(
+        context,
+        context.calculateMovingAverage(context.series, period)
+      );
+      return {
+        replaceNames: ["Moving Average"],
+        series: [
+          {
+            name: "Moving Average",
+            type: "line",
+            data,
+            color: context.colors.indicators.movingAverage,
+          },
+        ],
+      };
+    },
+  },
+
+  "exponential moving average": {
+    kind: "overlay",
+    replaceNames: ["EMA"],
+    build(context, params) {
+      const period = params.period || 10;
+      const data = toPoints(
+        context,
+        context.calculateEMA(context.series, period)
+      );
+      return {
+        replaceNames: ["EMA"],
+        series: [
+          {
+            name: "EMA",
+            type: "line",
+            data,
+            color: context.colors.indicators.ema,
+          },
+        ],
+      };
+    },
+  },
+
+  "linear regression": {
+    kind: "overlay",
+    replaceNames: ["Linear Regression"],
+    build(context, params) {
+      const period = params.period || 14;
+      const data = context.calculateLinearRegression(context.series, period);
+      return {
+        replaceNames: ["Linear Regression"],
+        series: [
+          {
+            name: "Linear Regression",
+            type: "line",
+            data,
+            color: context.colors.indicators.linearRegression,
+          },
+        ],
+      };
+    },
+  },
+
+  "bollinger bands": {
+    kind: "overlay",
+    replaceNames: ["Bollinger Bands"],
+    build(context, params) {
+      const period = params.period || 20;
+      const stdDev = params.stdDev || 2;
       const { upper, lower } = context.calculateBollingerBands(
         context.series,
         period,
@@ -105,181 +300,14 @@ export default class IndicatorHandlers {
           context.indicators["bollinger bands"].chartOptions
         );
       }
-      const currentSeries = context.chart.w.config.series.filter(
-        (s) => s.name !== "Bollinger Bands"
-      );
-      context.chart.updateSeries([...currentSeries, bbSeries]);
-      context.indicatorChartMap[indicatorKey] = true;
-      return;
-    } else if (indicatorKey === "moving average") {
-      const period = indicatorParams.period || 10;
-      const maData = context.calculateMovingAverage(context.series, period);
-      const maSeries = {
-        name: "Moving Average",
-        type: "line",
-        data: maData.map((value, index) => ({
-          x: context.series[index].x,
-          y: value,
-        })),
-        color: context.colors.indicators.movingAverage,
-      };
-      const currentSeries = context.chart.w.config.series.filter(
-        (s) => s.name !== "Moving Average"
-      );
-      context.chart.updateSeries([...currentSeries, maSeries]);
-      context.indicatorChartMap[indicatorKey] = true;
-      return;
-    } else if (indicatorKey === "exponential moving average") {
-      const period = indicatorParams.period || 10;
-      const emaData = context.calculateEMA(context.series, period);
-      const emaSeries = {
-        name: "EMA",
-        type: "line",
-        data: emaData.map((value, index) => ({
-          x: context.series[index].x,
-          y: value,
-        })),
-        color: context.colors.indicators.ema,
-      };
-      const currentSeries = context.chart.w.config.series.filter(
-        (s) => s.name !== "EMA"
-      );
-      context.chart.updateSeries([...currentSeries, emaSeries]);
-      context.indicatorChartMap[indicatorKey] = true;
-      return;
-    } else if (indicatorKey === "fibonacci retracements") {
-      // Get the current zoom state
-      const zoomState = context.getCurrentZoomState();
-      let startIndex = 0;
-      let endIndex = context.series.length - 1;
+      return { replaceNames: ["Bollinger Bands"], series: [bbSeries] };
+    },
+  },
 
-      // If there's an active zoom, use those indices
-      if (
-        zoomState &&
-        zoomState.minX !== undefined &&
-        zoomState.maxX !== undefined
-      ) {
-        startIndex = Math.max(0, Math.floor(zoomState.minX));
-        endIndex = Math.min(
-          context.series.length - 1,
-          Math.ceil(zoomState.maxX)
-        );
-      }
-
-      // Calculate levels based on the visible range
-      const levels = context.calculateFibonacciRetracementsForRange(
-        context.series,
-        startIndex,
-        endIndex
-      );
-
-      // Create annotations with the calculated levels
-      const annotations = levels.map((level, l) => ({
-        id: "fib-anno-" + context.FIBLEVELS[l].toString().replace(/\./g, ""),
-        y: level,
-        borderColor: context.colors.indicators.fibonacci[l],
-        strokeDashArray: 0,
-        label: {
-          text: `${Utils.truncateNumber(context.FIBLEVELS[l] * 100)}%`,
-          textAnchor: "start",
-          position: "left",
-          style: {
-            background: context.colors.indicators.fibonacci[l],
-            color: "#fff",
-            fontSize: "10px",
-          },
-        },
-      }));
-
-      // Get existing annotations (if any)
-      const currentOptions = context.chart.w.config.annotations || {};
-      const currentYAxisAnnotations = (currentOptions.yaxis || []).filter(
-        (anno) => !anno.id || !anno.id.startsWith("fib-anno-")
-      );
-
-      // Merge new Fibonacci annotations with existing annotations
-      const updatedAnnotations = {
-        ...currentOptions,
-        yaxis: [...currentYAxisAnnotations, ...annotations],
-      };
-
-      // Update the chart with merged annotations
-      context.chart.updateOptions({ annotations: updatedAnnotations });
-
-      // Store the indicator in the map, but use a special object with update method
-      context.indicatorChartMap[indicatorKey] = {
-        // This special update method will be called when zoom or scroll occurs
-        update: function () {
-          // When called, calculate new Fibonacci levels based on current zoom
-          const currentZoom = context.getCurrentZoomState();
-          let newStartIndex = 0;
-          let newEndIndex = context.series.length - 1;
-
-          if (
-            currentZoom &&
-            currentZoom.minX !== undefined &&
-            currentZoom.maxX !== undefined
-          ) {
-            newStartIndex = Math.max(0, Math.floor(currentZoom.minX));
-            newEndIndex = Math.min(
-              context.series.length - 1,
-              Math.ceil(currentZoom.maxX)
-            );
-          }
-
-          const newLevels = context.calculateFibonacciRetracementsForRange(
-            context.series,
-            newStartIndex,
-            newEndIndex
-          );
-
-          // Remove old Fibonacci annotations
-          context.FIBLEVELS.forEach((level) => {
-            const id = "fib-anno-" + level.toString().replace(/\./g, "");
-            context.chart.removeAnnotation(id);
-          });
-
-          // Create and add new annotations
-          newLevels.forEach((level, i) => {
-            const id =
-              "fib-anno-" + context.FIBLEVELS[i].toString().replace(/\./g, "");
-            context.chart.addYaxisAnnotation({
-              id: id,
-              y: level,
-              borderColor: context.colors.indicators.fibonacci[i],
-              strokeDashArray: 0,
-              label: {
-                text: `${Utils.truncateNumber(context.FIBLEVELS[i] * 100)}%`,
-                textAnchor: "start",
-                position: "left",
-                style: {
-                  background: context.colors.indicators.fibonacci[i],
-                  color: "#fff",
-                  fontSize: "10px",
-                },
-              },
-            });
-          });
-        },
-      };
-
-      return;
-    } else if (indicatorKey === "linear regression") {
-      const period = indicatorParams.period || 14;
-      const lrData = context.calculateLinearRegression(context.series, period);
-      const lrSeries = {
-        name: "Linear Regression",
-        type: "line",
-        data: lrData,
-        color: context.colors.indicators.linearRegression,
-      };
-      const currentSeries = context.chart.w.config.series.filter(
-        (s) => s.name !== "Linear Regression"
-      );
-      context.chart.updateSeries([...currentSeries, lrSeries]);
-      context.indicatorChartMap[indicatorKey] = true;
-      return;
-    } else if (indicatorKey === "ichimoku cloud indicator") {
+  "ichimoku cloud indicator": {
+    kind: "overlay",
+    replaceNames: ["Tenkan-sen", "Kijun-sen"],
+    build(context) {
       const ichimoku = context.calculateIchimoku(context.series);
       const tenkanSeries = {
         name: "Tenkan-sen",
@@ -295,23 +323,39 @@ export default class IndicatorHandlers {
         type: "line",
         data: ichimoku.kijun.map((value, index) => ({
           x: context.series[index].x,
-          y: value,
+          y: value.y,
         })),
         color: context.colors.indicators.kijunSen,
       };
-      const currentSeries = context.chart.w.config.series.filter(
-        (s) => s.name !== "Tenkan-sen" && s.name !== "Kijun-sen"
-      );
-      context.chart.updateSeries([...currentSeries, tenkanSeries, kijunSeries]);
-      context.indicatorChartMap[indicatorKey] = true;
-      return;
-    }
+      return {
+        replaceNames: ["Tenkan-sen", "Kijun-sen"],
+        series: [tenkanSeries, kijunSeries],
+      };
+    },
+  },
 
-    // For oscillators that are drawn in separate charts
-    if (indicatorKey === "volumes") {
+  // ---- Custom (annotations) ----
+  "fibonacci retracements": {
+    kind: "custom",
+    apply(context) {
+      applyFibonacci(context);
+    },
+    remove(context) {
+      context.FIBLEVELS.forEach((level) => {
+        context.chart.removeAnnotation(
+          "fib-anno-" + level.toString().replace(/\./g, "")
+        );
+      });
+    },
+  },
+
+  // ---- Oscillators (drawn in separate panes) ----
+  volumes: {
+    kind: "oscillator",
+    build(context, params, common) {
       if (!context.volumesData || context.volumesData.length === 0) {
         Utils.warn("No volumes data available.");
-        return;
+        return null;
       }
       const defaultSeries = [
         {
@@ -320,74 +364,81 @@ export default class IndicatorHandlers {
           color: context.colors.indicators.volume,
         },
       ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
+      let options = {
+        ...common,
         chart: {
-          ...commonChartOptions.chart,
+          ...common.chart,
           type: "area",
           id: "volume" + context.groupID,
         },
         series: defaultSeries,
         stroke: {
-          ...commonChartOptions.stroke,
+          ...common.stroke,
           curve: "linestep",
           colors: [context.colors.indicators.volume],
         },
         fill: { type: "solid", opacity: 0.2 },
       };
       if (context.indicators.volumes?.chartOptions) {
-        indicatorChartOptions = Object.assign(
+        options = Object.assign(
           {},
-          indicatorChartOptions,
+          options,
           context.indicators.volumes.chartOptions
         );
-        if (!indicatorChartOptions.series)
-          indicatorChartOptions.series = defaultSeries;
+        if (!options.series) options.series = defaultSeries;
       }
-    } else if (indicatorKey === "rsi") {
-      const period = indicatorParams.period || 14;
+      return options;
+    },
+  },
+
+  rsi: {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 14;
       const rsiData = context.calculateRSI(context.series, period);
       const defaultSeries = [
         {
           name: "RSI",
-          data: rsiData.map((value, index) => ({
-            x: context.series[index].x,
-            y: value,
-          })),
+          data: toPoints(context, rsiData),
           color: context.colors.indicators.rsi,
         },
       ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
+      let options = {
+        ...common,
         chart: {
-          ...commonChartOptions.chart,
+          ...common.chart,
           type: "line",
           id: "rsi" + context.groupID,
         },
         series: defaultSeries,
         yaxis: {
-          ...commonChartOptions.yaxis,
+          ...common.yaxis,
           min: 0,
           max: 100,
         },
         stroke: {
-          ...commonChartOptions.stroke,
+          ...common.stroke,
           colors: [context.colors.indicators.rsi],
         },
       };
       if (context.indicators.rsi?.chartOptions) {
-        indicatorChartOptions = Object.assign(
+        options = Object.assign(
           {},
-          indicatorChartOptions,
+          options,
           context.indicators.rsi.chartOptions
         );
-        if (!indicatorChartOptions.series)
-          indicatorChartOptions.series = defaultSeries;
+        if (!options.series) options.series = defaultSeries;
       }
-    } else if (indicatorKey === "macd") {
-      const fastPeriod = indicatorParams.fastPeriod || 12;
-      const slowPeriod = indicatorParams.slowPeriod || 26;
-      const signalPeriod = indicatorParams.signalPeriod || 9;
+      return options;
+    },
+  },
+
+  macd: {
+    kind: "oscillator",
+    build(context, params, common) {
+      const fastPeriod = params.fastPeriod || 12;
+      const slowPeriod = params.slowPeriod || 26;
+      const signalPeriod = params.signalPeriod || 9;
 
       const { macd, signal, histogram } = context.calculateMACD(
         context.series,
@@ -424,16 +475,16 @@ export default class IndicatorHandlers {
           })),
         },
       ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
+      let options = {
+        ...common,
         chart: {
-          ...commonChartOptions.chart,
+          ...common.chart,
           type: "line",
           id: "macd" + context.groupID,
         },
         series: defaultSeries,
         stroke: {
-          ...commonChartOptions.stroke,
+          ...common.stroke,
           width: [1, 1, 0],
           colors: [
             context.colors.indicators.macd,
@@ -460,354 +511,327 @@ export default class IndicatorHandlers {
         },
       };
       if (context.indicators.macd?.chartOptions) {
-        indicatorChartOptions = Object.assign(
+        options = Object.assign(
           {},
-          indicatorChartOptions,
+          options,
           context.indicators.macd.chartOptions
         );
-        if (!indicatorChartOptions.series)
-          indicatorChartOptions.series = defaultSeries;
+        if (!options.series) options.series = defaultSeries;
       }
-    } else if (indicatorKey === "price volume trend") {
-      const pvtData = context.calculatePVT(context.series);
-      const defaultSeries = [
-        {
-          name: "PVT",
-          data: pvtData,
-          color: context.colors.indicators.pvt,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "pvt" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.pvt],
-        },
-      };
-    } else if (indicatorKey === "stochastic oscillator") {
-      const period = indicatorParams.period || 14;
-      const smoothPeriod = indicatorParams.smoothPeriod || 3;
+      return options;
+    },
+  },
 
+  "price volume trend": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const pvtData = context.calculatePVT(context.series);
+      return lineOscillator(context, common, {
+        id: "pvt",
+        series: [
+          {
+            name: "PVT",
+            data: pvtData,
+            color: context.colors.indicators.pvt,
+          },
+        ],
+        strokeColors: [context.colors.indicators.pvt],
+      });
+    },
+  },
+
+  "stochastic oscillator": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 14;
+      const smoothPeriod = params.smoothPeriod || 3;
       const { k, d } = context.calculateStochastic(
         context.series,
         period,
         smoothPeriod
       );
+      return lineOscillator(context, common, {
+        id: "stochastic",
+        series: [
+          {
+            name: "Stochastic %K",
+            data: k,
+            color: context.colors.indicators.stochasticK,
+          },
+          {
+            name: "Stochastic %D",
+            data: d,
+            color: context.colors.indicators.stochasticD,
+          },
+        ],
+        strokeColors: [
+          context.colors.indicators.stochasticK,
+          context.colors.indicators.stochasticD,
+        ],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "Stochastic %K",
-          data: k,
-          color: context.colors.indicators.stochasticK,
-        },
-        {
-          name: "Stochastic %D",
-          data: d,
-          color: context.colors.indicators.stochasticD,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "stochastic" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [
-            context.colors.indicators.stochasticK,
-            context.colors.indicators.stochasticD,
-          ],
-        },
-      };
-    } else if (indicatorKey === "standard deviation indicator") {
-      const period = indicatorParams.period || 14;
+  "standard deviation indicator": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 14;
       const stdData = context.calculateStdDevIndicator(context.series, period);
+      return lineOscillator(context, common, {
+        id: "stddev",
+        series: [
+          {
+            name: "Std Dev",
+            data: stdData,
+            color: context.colors.indicators.stdDev,
+          },
+        ],
+        strokeColors: [context.colors.indicators.stdDev],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "Std Dev",
-          data: stdData,
-          color: context.colors.indicators.stdDev,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "stddev" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.stdDev],
-        },
-      };
-    } else if (indicatorKey === "average directional index") {
-      const period = indicatorParams.period || 14;
+  "average directional index": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 14;
       const adxData = context.calculateADX(context.series, period);
+      return lineOscillator(context, common, {
+        id: "adx",
+        series: [
+          {
+            name: "ADX",
+            data: adxData,
+            color: context.colors.indicators.adx,
+          },
+        ],
+        strokeColors: [context.colors.indicators.adx],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "ADX",
-          data: adxData,
-          color: context.colors.indicators.adx,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "adx" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.adx],
-        },
-      };
-    } else if (indicatorKey === "chaikin oscillator") {
-      const shortPeriod = indicatorParams.shortPeriod || 3;
-      const longPeriod = indicatorParams.longPeriod || 10;
-
-      // Update the calculation function to use custom parameters if needed
+  "chaikin oscillator": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const shortPeriod = params.shortPeriod || 3;
+      const longPeriod = params.longPeriod || 10;
       const chaikin = context.calculateChaikinOsc(
         context.series,
         shortPeriod,
         longPeriod
       );
+      return lineOscillator(context, common, {
+        id: "chaikin",
+        series: [
+          {
+            name: "Chaikin Osc",
+            data: chaikin,
+            color: context.colors.indicators.chaikin,
+          },
+        ],
+        strokeColors: [context.colors.indicators.chaikin],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "Chaikin Osc",
-          data: chaikin,
-          color: context.colors.indicators.chaikin,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "chaikin" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.chaikin],
-        },
-      };
-    } else if (indicatorKey === "commodity channel index") {
-      const period = indicatorParams.period || 20;
+  "commodity channel index": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 20;
       const cciData = context.calculateCCI(context.series, period);
+      return lineOscillator(context, common, {
+        id: "cci",
+        series: [
+          {
+            name: "CCI",
+            data: cciData,
+            color: context.colors.indicators.cci,
+          },
+        ],
+        strokeColors: [context.colors.indicators.cci],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "CCI",
-          data: cciData,
-          color: context.colors.indicators.cci,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "cci" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.cci],
-        },
-      };
-    } else if (indicatorKey === "trend strength index") {
-      const longPeriod = indicatorParams.longPeriod || 25;
-      const shortPeriod = indicatorParams.shortPeriod || 13;
-      const signalPeriod = indicatorParams.signalPeriod || 7;
-
+  "trend strength index": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const longPeriod = params.longPeriod || 25;
+      const shortPeriod = params.shortPeriod || 13;
+      const signalPeriod = params.signalPeriod || 7;
       const tsiData = context.calculateTSI(
         context.series,
         longPeriod,
         shortPeriod,
         signalPeriod
       );
+      return lineOscillator(context, common, {
+        id: "tsi",
+        series: [
+          {
+            name: "TSI",
+            data: tsiData.tsi,
+            color: context.colors.indicators.tsi,
+          },
+        ],
+        strokeColors: [context.colors.indicators.tsi],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "TSI",
-          data: tsiData.tsi,
-          color: context.colors.indicators.tsi,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "tsi" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.tsi],
-        },
-      };
-    } else if (indicatorKey === "accelerator oscillator") {
-      const period = indicatorParams.period || 5;
+  "accelerator oscillator": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 5;
       const acData = context.calculateAcceleratorOsc(context.series, period);
+      return lineOscillator(context, common, {
+        id: "ac",
+        series: [
+          {
+            name: "AC",
+            data: acData,
+            color: context.colors.indicators.ac,
+          },
+        ],
+        strokeColors: [context.colors.indicators.ac],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "AC",
-          data: acData,
-          color: context.colors.indicators.ac,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "ac" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.ac],
-        },
-      };
-    } else if (indicatorKey === "bollinger bands %b") {
-      const period = indicatorParams.period || 20;
-      const stdDev = indicatorParams.stdDev || 2;
-
-      const bb = context.calculateBollingerBands(
-        context.series,
-        period,
-        stdDev
-      );
+  "bollinger bands %b": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 20;
+      const stdDev = params.stdDev || 2;
+      const bb = context.calculateBollingerBands(context.series, period, stdDev);
       const bBPercent = context.calculateBBPercent(
         context.series,
         bb.lower,
         bb.upper
       );
+      return lineOscillator(context, common, {
+        id: "bbb",
+        series: [
+          {
+            name: "Bollinger %B",
+            data: bBPercent,
+            color: context.colors.indicators.bPercent,
+          },
+        ],
+        strokeColors: [context.colors.indicators.bPercent],
+      });
+    },
+  },
 
-      const defaultSeries = [
-        {
-          name: "Bollinger %B",
-          data: bBPercent,
-          color: context.colors.indicators.bPercent,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "bbb" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.bPercent],
-        },
-      };
-    } else if (indicatorKey === "bollinger bands width") {
-      const period = indicatorParams.period || 20;
-      const stdDev = indicatorParams.stdDev || 2;
-
-      const bb = context.calculateBollingerBands(
-        context.series,
-        period,
-        stdDev
-      );
+  "bollinger bands width": {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 20;
+      const stdDev = params.stdDev || 2;
+      const bb = context.calculateBollingerBands(context.series, period, stdDev);
       const bBWidth = context.calculateBBWidth(
         context.series,
         bb.middle,
         bb.upper,
         bb.lower
       );
+      return lineOscillator(context, common, {
+        id: "bbw",
+        series: [
+          {
+            name: "Bollinger Width",
+            data: bBWidth,
+            color: context.colors.indicators.bWidth,
+          },
+        ],
+        strokeColors: [context.colors.indicators.bWidth],
+      });
+    },
+  },
+};
 
-      const defaultSeries = [
-        {
-          name: "Bollinger Width",
-          data: bBWidth,
-          color: context.colors.indicators.bWidth,
-        },
-      ];
-      indicatorChartOptions = {
-        ...commonChartOptions,
-        chart: {
-          ...commonChartOptions.chart,
-          type: "line",
-          id: "bbw" + context.groupID,
-        },
-        series: defaultSeries,
-        stroke: {
-          ...commonChartOptions.stroke,
-          colors: [context.colors.indicators.bWidth],
-        },
+export default class IndicatorHandlers {
+  /**
+   * Updates or adds an indicator to the chart. If the indicator is already
+   * active, this toggles it off (removes it).
+   * @param {string} indicatorKey - The key/name of the indicator to update.
+   * @param {import("../ApexStock.js").default} context - The ApexStock instance.
+   */
+  static updateIndicator(indicatorKey, context) {
+    if (!indicatorKey) return;
+    indicatorKey = indicatorKey.toLowerCase();
+
+    if (context.indicatorChartMap[indicatorKey]) {
+      context.removeIndicator(indicatorKey);
+      return;
+    }
+
+    const def = INDICATOR_REGISTRY[indicatorKey];
+    if (!def) return; // unknown indicator — no-op
+
+    const params = context.oscillatorSettings
+      ? context.oscillatorSettings.getIndicatorParams(indicatorKey)
+      : {};
+
+    // Custom (annotation-driven) indicators handle the chart themselves.
+    if (def.kind === "custom") {
+      def.apply(context, params);
+      if (context.xaxis) context.xaxis.ensureXAxisIsLast();
+      return;
+    }
+
+    // Overlays add series to the existing main chart.
+    if (def.kind === "overlay") {
+      const { series, replaceNames } = def.build(context, params);
+      const retained = context.chart.w.config.series.filter(
+        (s) => !replaceNames.includes(s.name)
+      );
+      context.chart.updateSeries([...retained, ...series]);
+      context.indicatorChartMap[indicatorKey] = true;
+      if (context.xaxis) context.xaxis.ensureXAxisIsLast();
+      return;
+    }
+
+    // Oscillators render in a separate pane.
+    const common = buildCommonChartOptions(context);
+    const indicatorChartOptions = def.build(context, params, common);
+    if (!indicatorChartOptions) return; // builder opted out (e.g. no volume data)
+
+    // Theme settings for the oscillator pane.
+    indicatorChartOptions.tooltip = {
+      ...indicatorChartOptions.tooltip,
+      theme: context.theme,
+    };
+    if (context.isDarkTheme) {
+      indicatorChartOptions.grid = {
+        ...indicatorChartOptions.grid,
+        borderColor: "#404040",
+        strokeDashArray: 3,
       };
     }
 
-    // Additional theme settings for all indicator charts
-    if (indicatorChartOptions) {
-      // Apply theme settings to tooltip
-      indicatorChartOptions.tooltip = {
-        ...indicatorChartOptions.tooltip,
-        theme: context.theme,
-      };
+    const indicatorDiv = document.createElement("div");
+    indicatorDiv.dataset.indicator = indicatorKey;
+    indicatorDiv.style.width = "100%";
+    context.indicatorContainer.appendChild(indicatorDiv);
 
-      // Apply grid color adjustments for dark theme
-      if (context.isDarkTheme) {
-        indicatorChartOptions.grid = {
-          ...indicatorChartOptions.grid,
-          borderColor: "#404040",
-          strokeDashArray: 3,
-        };
-      }
-    }
+    context.updateAllChartHeights();
+    if (!indicatorChartOptions.chart) indicatorChartOptions.chart = {};
+    const { indicatorHeight } = context.computeHeights(1); // one oscillator pane
+    indicatorChartOptions.chart.height = indicatorHeight;
 
-    // For oscillators (non-overlays), create a separate chart
-    if (!context.isOverlay(indicatorKey)) {
-      // Create an indicator div for the oscillator
-      const indicatorDiv = document.createElement("div");
-      indicatorDiv.dataset.indicator = indicatorKey;
-      indicatorDiv.style.width = "100%";
-      context.indicatorContainer.appendChild(indicatorDiv);
+    const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
+    chartInstance.render();
+    context.indicatorChartMap[indicatorKey] = chartInstance;
 
-      context.updateAllChartHeights();
-      if (!indicatorChartOptions.chart) indicatorChartOptions.chart = {};
-      const { indicatorHeight } = context.computeHeights(1); // Always use 1 as we only show one oscillator
-      indicatorChartOptions.chart.height = indicatorHeight;
-
-      const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
-      chartInstance.render();
-      context.indicatorChartMap[indicatorKey] = chartInstance;
-
-      // Create settings control for this oscillator
-      if (context.oscillatorSettings) {
-        // Create a settings control for the oscillator
-        const settingsControl =
-          context.oscillatorSettings.createSettingsControl(
-            indicatorKey,
-            context.indicatorContainer
-          );
-
-        // Show the settings immediately
-        if (settingsControl) {
-          settingsControl.show();
-        }
+    // Create the settings control for this oscillator.
+    if (context.oscillatorSettings) {
+      const settingsControl = context.oscillatorSettings.createSettingsControl(
+        indicatorKey,
+        context.indicatorContainer
+      );
+      if (settingsControl) {
+        settingsControl.show();
       }
     }
 
@@ -817,56 +841,25 @@ export default class IndicatorHandlers {
   }
 
   /**
-   * Removes an indicator from the chart
-   * @param {string} indicatorKey - The key/name of the indicator to remove
-   * @param {Object} context - The ApexStock instance
+   * Removes an indicator from the chart.
+   * @param {string} indicatorKey - The key/name of the indicator to remove.
+   * @param {import("../ApexStock.js").default} context - The ApexStock instance.
    */
   static removeIndicator(indicatorKey, context) {
     indicatorKey = indicatorKey.toLowerCase();
+    const def = INDICATOR_REGISTRY[indicatorKey];
 
-    // Handle overlay indicators first
-    if (indicatorKey === "bollinger bands") {
-      const currentSeries = context.chart.w.config.series;
-      const newSeries = currentSeries.filter(
-        (s) => s.name !== "Bollinger Bands"
+    if (def && def.kind === "overlay") {
+      const newSeries = context.chart.w.config.series.filter(
+        (s) => !def.replaceNames.includes(s.name)
       );
       context.chart.updateSeries(newSeries);
       delete context.indicatorChartMap[indicatorKey];
-    } else if (indicatorKey === "fibonacci retracements") {
-      context.FIBLEVELS.forEach((level) => {
-        context.chart.removeAnnotation(
-          "fib-anno-" + level.toString().replace(/\./g, "")
-        );
-      });
-      delete context.indicatorChartMap[indicatorKey];
-    } else if (indicatorKey === "moving average") {
-      const currentSeries = context.chart.w.config.series;
-      const newSeries = currentSeries.filter(
-        (s) => s.name !== "Moving Average"
-      );
-      context.chart.updateSeries(newSeries);
-      delete context.indicatorChartMap[indicatorKey];
-    } else if (indicatorKey === "exponential moving average") {
-      const currentSeries = context.chart.w.config.series;
-      const newSeries = currentSeries.filter((s) => s.name !== "EMA");
-      context.chart.updateSeries(newSeries);
-      delete context.indicatorChartMap[indicatorKey];
-    } else if (indicatorKey === "linear regression") {
-      const currentSeries = context.chart.w.config.series;
-      const newSeries = currentSeries.filter(
-        (s) => s.name !== "Linear Regression"
-      );
-      context.chart.updateSeries(newSeries);
-      delete context.indicatorChartMap[indicatorKey];
-    } else if (indicatorKey === "ichimoku cloud indicator") {
-      const currentSeries = context.chart.w.config.series;
-      const newSeries = currentSeries.filter(
-        (s) => s.name !== "Tenkan-sen" && s.name !== "Kijun-sen"
-      );
-      context.chart.updateSeries(newSeries);
+    } else if (def && def.kind === "custom") {
+      def.remove(context);
       delete context.indicatorChartMap[indicatorKey];
     } else {
-      // Handle oscillator indicators
+      // Oscillator: tear down its separate chart and pane.
       const chartInstance = context.indicatorChartMap[indicatorKey];
       if (chartInstance && typeof chartInstance !== "boolean") {
         chartInstance.destroy();
@@ -878,12 +871,10 @@ export default class IndicatorHandlers {
         });
         delete context.indicatorChartMap[indicatorKey];
 
-        // If this was the active oscillator, clear it
         if (context.activeOscillator === indicatorKey) {
           context.activeOscillator = null;
         }
 
-        // Hide the settings control
         if (context.oscillatorSettings) {
           context.oscillatorSettings.hideSettings(indicatorKey);
         }
@@ -891,6 +882,7 @@ export default class IndicatorHandlers {
         context.updateAllChartHeights();
       }
     }
+
     if (context.xaxis) {
       context.xaxis.ensureXAxisIsLast();
     }
