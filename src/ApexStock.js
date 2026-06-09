@@ -19,6 +19,36 @@ export default class ApexStock {
    * @param {Object} chartOptions - The ApexCharts options object.
    */
   constructor(chartEl, chartOptions) {
+    // --- Validate the public boundary with clear, actionable errors ---
+    if (!chartEl || typeof chartEl.appendChild !== "function") {
+      throw new Error(
+        "[ApexStock] A valid container DOM element must be provided as the first argument."
+      );
+    }
+    if (typeof ApexCharts === "undefined") {
+      throw new Error(
+        "[ApexStock] ApexCharts was not found. Install the `apexcharts` peer dependency and ensure it is loaded before creating an ApexStock instance."
+      );
+    }
+    if (
+      !chartOptions ||
+      typeof chartOptions !== "object" ||
+      !chartOptions.chart
+    ) {
+      throw new Error(
+        "[ApexStock] `chartOptions` with a `chart` object is required."
+      );
+    }
+    if (
+      !Array.isArray(chartOptions.series) ||
+      !chartOptions.series[0] ||
+      !Array.isArray(chartOptions.series[0].data)
+    ) {
+      throw new Error(
+        "[ApexStock] `chartOptions.series[0].data` must be an array of OHLC data points."
+      );
+    }
+
     this.chartEl = chartEl;
     this.chartOptions = chartOptions;
     this.totalHeight = chartOptions.chart.height || 350;
@@ -965,7 +995,7 @@ export default class ApexStock {
    */
   updateTheme(newTheme) {
     if (newTheme !== "light" && newTheme !== "dark") {
-      console.warn('Invalid theme. Use "light" or "dark".');
+      Utils.warn('Invalid theme. Use "light" or "dark".');
       return;
     }
 

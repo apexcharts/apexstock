@@ -1,4 +1,40 @@
 class Utils {
+  /**
+   * When true, suppresses non-error log/warn output. Errors always surface.
+   * Consumers can silence library logging via `Utils.silent = true`.
+   * @type {boolean}
+   */
+  static silent = false;
+
+  /** @type {string} Prefix prepended to all library log output. */
+  static logPrefix = "[ApexStock]";
+
+  /**
+   * Logs an informational message (suppressed when `Utils.silent` is true).
+   * @param {...*} args
+   */
+  static log(...args) {
+    if (Utils.silent) return;
+    console.log(Utils.logPrefix, ...args);
+  }
+
+  /**
+   * Logs a warning (suppressed when `Utils.silent` is true).
+   * @param {...*} args
+   */
+  static warn(...args) {
+    if (Utils.silent) return;
+    console.warn(Utils.logPrefix, ...args);
+  }
+
+  /**
+   * Logs an error. Always surfaces, even when `Utils.silent` is true.
+   * @param {...*} args
+   */
+  static error(...args) {
+    console.error(Utils.logPrefix, ...args);
+  }
+
   static truncateNumber(val) {
     if (val === null) return val;
     return Number(val.toFixed(2));
@@ -63,6 +99,51 @@ class Utils {
     }
     return output;
   }
+  /**
+   * Coalesces rapid calls into at most one invocation per animation frame,
+   * always using the most recent arguments. Useful for high-frequency events
+   * (mousemove, scroll) where only the latest state matters.
+   *
+   * Note: this defers work to a later frame, so it must NOT wrap logic that
+   * needs a synchronous `preventDefault()`/`stopPropagation()` — call those
+   * before invoking the throttled function.
+   *
+   * @param {Function} fn - The function to throttle.
+   * @returns {Function & { cancel: () => void }} Throttled wrapper exposing
+   *   a `cancel()` method that drops any pending frame.
+   */
+  static rafThrottle(fn) {
+    const raf =
+      typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame
+        : (cb) => setTimeout(cb, 16);
+    const caf =
+      typeof cancelAnimationFrame === "function"
+        ? cancelAnimationFrame
+        : clearTimeout;
+
+    let rafId = null;
+    let lastArgs = null;
+
+    const throttled = function (...args) {
+      lastArgs = args;
+      if (rafId !== null) return;
+      rafId = raf(() => {
+        rafId = null;
+        fn.apply(this, lastArgs);
+      });
+    };
+
+    throttled.cancel = () => {
+      if (rafId !== null) {
+        caf(rafId);
+        rafId = null;
+      }
+    };
+
+    return throttled;
+  }
+
   /**
    * Generates a unique ID for an element
    * @param {string} type - Element type

@@ -1,3 +1,4 @@
+import Utils from "../utils/Utils";
 /**
  * ZoomControls component for ApexStock
  * Adds zoom in and zoom out buttons to the chart
@@ -106,7 +107,7 @@ export default class ZoomControls {
       // Apply to all charts
       this.context.applyZoomToAllCharts({ minX: newMinX, maxX: newMaxX });
     } catch (err) {
-      console.error("Error during zoom in:", err);
+      Utils.error("Error during zoom in:", err);
     }
   }
 
@@ -139,7 +140,7 @@ export default class ZoomControls {
       // Apply to all charts
       this.context.applyZoomToAllCharts({ minX: newMinX, maxX: newMaxX });
     } catch (err) {
-      console.error("Error during zoom out:", err);
+      Utils.error("Error during zoom out:", err);
     }
   }
 

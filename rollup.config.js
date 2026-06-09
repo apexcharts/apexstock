@@ -1,4 +1,4 @@
-import { terser } from "rollup-plugin-terser";
+import terser from "@rollup/plugin-terser";
 import babel from "@rollup/plugin-babel";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
@@ -137,7 +137,7 @@ export default {
         [
           "@babel/preset-env",
           {
-            targets: "> 0.25%, not dead",
+            // Browser targets are read from the "browserslist" field in package.json
             useBuiltIns: "usage",
             corejs: 3,
           },

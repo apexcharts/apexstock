@@ -1,3 +1,4 @@
+import Utils from "../utils/Utils";
 // EventManager.js - Manages all event listeners for drawing tools
 class EventManager {
   /**
@@ -28,7 +29,6 @@ class EventManager {
     this.chartDiv = chartDiv;
     this.svgOverlay = svgOverlay;
     this.syncOverlayPosition = syncOverlayPosition;
-    this.intervalId = null;
 
     // Bind the handlers to preserve context
     this.boundMouseDown = mouseDownHandler;
@@ -74,13 +74,8 @@ class EventManager {
       subtree: true,
     });
 
-    // Use a fallback interval regardless of addEventListener availability
-    // This ensures we always sync the overlay position
-    this.intervalId = setInterval(() => {
-      if (typeof this.syncOverlayPosition === "function") {
-        this.syncOverlayPosition();
-      }
-    }, 1000);
+    // Keep a reference so we can disconnect on destroy()
+    this.mutationObserver = observer;
 
     // Try to listen for chart events if available
     try {
@@ -109,7 +104,7 @@ class EventManager {
         });
       }
     } catch (err) {
-      console.error("Error setting up chart event listeners:", err);
+      Utils.error("Error setting up chart event listeners:", err);
     }
   }
 
@@ -126,9 +121,9 @@ class EventManager {
     this.chartDiv.removeEventListener("wheel", this.boundWheelEvent);
     this.svgOverlay.removeEventListener("wheel", this.boundWheelEvent);
 
-    // Clear any intervals
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
+    // Disconnect the mutation observer
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
     }
   }
 }

@@ -1,3 +1,4 @@
+import Utils from "./Utils";
 // CoordinateConverter.js - Handles coordinate conversions between screen and data space
 class CoordinateConverter {
   /**
@@ -37,7 +38,7 @@ class CoordinateConverter {
         yaxis = this.chart.w.globals.minY;
         yaxisMax = this.chart.w.globals.maxY;
       } catch (err) {
-        console.warn("Could not access chart axis values:", err);
+        Utils.warn("Could not access chart axis values:", err);
         // Fallback to arbitrary values if chart values aren't available
         this.cachedBounds = {
           xaxis: 0,
@@ -63,7 +64,7 @@ class CoordinateConverter {
         gridWidth = this.chart.w.globals.gridWidth;
         gridHeight = this.chart.w.globals.gridHeight;
       } catch (err) {
-        console.warn("Could not access chart grid values:", err);
+        Utils.warn("Could not access chart grid values:", err);
         // If we can't get the chart's internal dimensions, use the element dimensions
         leftMargin = 0;
         translateY = 0;
@@ -94,7 +95,7 @@ class CoordinateConverter {
       this.lastUpdateTime = now;
       return this.cachedBounds;
     } catch (err) {
-      console.error("Error getting chart bounds:", err);
+      Utils.error("Error getting chart bounds:", err);
       return {
         xaxis: 0,
         xaxisMax: 100,
@@ -128,13 +129,13 @@ class CoordinateConverter {
 
       // Validate output
       if (isNaN(dataX) || isNaN(dataY)) {
-        console.warn("Invalid data coordinates calculated:", dataX, dataY);
+        Utils.warn("Invalid data coordinates calculated:", dataX, dataY);
         return { x, y }; // fallback to screen coordinates
       }
 
       return { x: dataX, y: dataY };
     } catch (err) {
-      console.error("Error converting screen to data coordinates:", err);
+      Utils.error("Error converting screen to data coordinates:", err);
       // Return the screen coordinates as fallback
       return { x, y };
     }
@@ -160,7 +161,7 @@ class CoordinateConverter {
 
       // Validate output
       if (isNaN(screenX) || isNaN(screenY)) {
-        console.warn(
+        Utils.warn(
           "Invalid screen coordinates calculated:",
           screenX,
           screenY
@@ -170,7 +171,7 @@ class CoordinateConverter {
 
       return { x: screenX, y: screenY };
     } catch (err) {
-      console.error("Error converting data to screen coordinates:", err);
+      Utils.error("Error converting data to screen coordinates:", err);
       // In case of any error, return the data coordinates
       return { x: dataX, y: dataY };
     }
@@ -196,7 +197,7 @@ class CoordinateConverter {
 
       return { x: dataDeltaX, y: dataDeltaY };
     } catch (err) {
-      console.error("Error converting screen delta to data delta:", err);
+      Utils.error("Error converting screen delta to data delta:", err);
       return { x: 0, y: 0 };
     }
   }

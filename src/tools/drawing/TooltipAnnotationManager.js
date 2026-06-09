@@ -33,7 +33,7 @@ export default class TooltipAnnotationManager {
 
       // If still invalid, return null
       if (!dataPoint || isNaN(dataPoint.x) || isNaN(dataPoint.y)) {
-        console.warn("Could not determine data coordinates for tooltip");
+        Utils.warn("Could not determine data coordinates for tooltip");
         return null;
       }
     }
@@ -298,7 +298,7 @@ export default class TooltipAnnotationManager {
 
     // Validate ID match if provided
     if (id && tooltipId !== id) {
-      console.warn(`Tooltip ID mismatch! Expected: ${id}, Found: ${tooltipId}`);
+      Utils.warn(`Tooltip ID mismatch! Expected: ${id}, Found: ${tooltipId}`);
 
       // Find the correct element with the specified ID
       const correctElement = document.querySelector(

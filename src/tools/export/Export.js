@@ -1,3 +1,4 @@
+import Utils from "../../utils/Utils";
 /**
  * ApexStock Chart Export Functionality
  * This module adds a screenshot/export capability to ApexStock charts
@@ -111,7 +112,7 @@ export default class Export {
             `;
           })
           .catch((error) => {
-            console.error("Error capturing chart:", error);
+            Utils.error("Error capturing chart:", error);
 
             // Reset button state
             this.buttonContainer.style.display = "block";
@@ -279,7 +280,7 @@ export default class Export {
             img.setAttributeNS("http://www.w3.org/1999/xlink", "href", base64);
           })
           .catch((error) => {
-            console.error("Error converting image to base64:", error);
+            Utils.error("Error converting image to base64:", error);
           });
       }
       return Promise.resolve();

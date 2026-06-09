@@ -476,7 +476,7 @@ class TextAnnotationManager {
       // Insert background before text (to be behind it)
       this.currentGroup.insertBefore(background, textElem);
     } catch (e) {
-      console.error("Error measuring text:", e);
+      Utils.error("Error measuring text:", e);
 
       // Fallback if getBBox fails
       background.setAttribute("x", this.clickX - 5);
@@ -685,7 +685,7 @@ class TextAnnotationManager {
       background.setAttribute("width", bbox.width + padding * 2);
       background.setAttribute("height", bbox.height + padding * 2);
     } catch (e) {
-      console.error("Error measuring text:", e);
+      Utils.error("Error measuring text:", e);
 
       // Fallback if getBBox fails
       background.setAttribute("x", x - 5);

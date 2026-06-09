@@ -97,6 +97,10 @@ export default class DrawingTools {
     );
     this.toolbarContainer = this.toolbarManager.toolbarContainer;
 
+    // rAF-throttled drag updater: coalesces high-frequency mousemove work
+    // (coordinate conversion + DOM mutation) into one update per frame.
+    this.throttledDrawMove = Utils.rafThrottle(this.drawMove.bind(this));
+
     // Initialize the event manager
     this.eventManager = new EventManager(
       this.chart,
@@ -310,6 +314,28 @@ export default class DrawingTools {
     // Skip for text - text is handled by TextAnnotationManager with inline editing
     if (this.currentTool === "text") return;
 
+    // Prevent default to avoid text selection during drawing. This must run
+    // synchronously, so it stays here rather than in the throttled body below.
+    e.preventDefault();
+
+    // Only stop propagation for specific tools that should block chart interaction
+    if (this.currentTool === "brush" || this.currentTool === "highlighter") {
+      e.stopPropagation();
+    }
+
+    // Coalesce the expensive coordinate conversion + DOM update into a single
+    // update per animation frame (see constructor: this.throttledDrawMove).
+    this.throttledDrawMove(e);
+  }
+
+  /**
+   * Performs the actual element update for a drawing drag. Invoked at most
+   * once per animation frame via the rAF-throttled wrapper.
+   * @param {MouseEvent} e - The most recent mouse move event
+   */
+  drawMove(e) {
+    if (!this.isDrawing || !this.currentElement) return;
+
     // Get mouse position relative to overlay
     const rect = this.overlayWrapper.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -324,14 +350,6 @@ export default class DrawingTools {
     } else {
       // Update the current element based on the current tool
       this.updateElement(x, y, dataPoint);
-    }
-
-    // Prevent default to avoid text selection during drawing
-    e.preventDefault();
-
-    // Only stop propagation for specific tools that should block chart interaction
-    if (this.currentTool === "brush" || this.currentTool === "highlighter") {
-      e.stopPropagation();
     }
   }
 
@@ -431,6 +449,11 @@ export default class DrawingTools {
     if (!this.isDrawing) return;
 
     this.isDrawing = false;
+
+    // Drop any drag update still queued for the next frame.
+    if (this.throttledDrawMove) {
+      this.throttledDrawMove.cancel();
+    }
 
     // For text tool, the elements are handled by TextAnnotationManager
     if (this.currentElement && this.currentTool !== "text") {
@@ -899,6 +922,11 @@ export default class DrawingTools {
    * Clean up event listeners and resources
    */
   destroy() {
+    // Drop any pending throttled drag update
+    if (this.throttledDrawMove) {
+      this.throttledDrawMove.cancel();
+    }
+
     // Clean up event listeners
     this.eventManager.destroy();
 
