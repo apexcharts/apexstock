@@ -42,6 +42,12 @@ those are called out explicitly below.
 
 ### Changed
 
+- **Modernized the toolbar UI**: replaced the inconsistent Unicode-glyph/emoji
+  drawing-tool icons with a consistent monochrome SVG icon set (theme-aware via
+  `currentColor`); refreshed buttons, dropdowns, color/width inputs, and the
+  zoom control (pill); softened the toolbar divider; added keyboard focus rings;
+  and gave the indicator dropdown proper dark-theme styling (previously unstyled
+  in dark mode).
 - **Indicator math is memoized** per series-array identity (SMA/EMA/RSI/Bollinger
   and everything that builds on them), avoiding recomputation within an update.
 - `IndicatorHandlers` replaced its 28-branch `if/else` dispatch with the registry

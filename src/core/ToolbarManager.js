@@ -39,17 +39,68 @@ class ToolbarManager {
     toolbarContainer.setAttribute("role", "toolbar");
     toolbarContainer.setAttribute("aria-label", "Drawing tools");
 
+    // Clean, consistent monochrome SVG icons (stroke = currentColor, so they
+    // adapt to the active theme). Feather/Lucide-style line icons.
+    const icon = (paths) =>
+      `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
+
     // Define all possible tools
     const allTools = [
-      { name: "line", icon: "╱", tooltip: "Line" },
-      { name: "brush", icon: "∿", tooltip: "Brush" },
-      { name: "highlighter", icon: "🖌️", tooltip: "Highlighter" },
-      { name: "rectangle", icon: "▢", tooltip: "Rectangle" },
-      { name: "circle", icon: "◯", tooltip: "Circle" },
-      { name: "ellipse", icon: "⬭", tooltip: "Ellipse" },
-      { name: "text", icon: "T", tooltip: "Text Annotation" },
-      { name: "pin", icon: "📌", tooltip: "Pin Tooltips" },
-      { name: "clear", icon: "🗑", tooltip: "Clear All" },
+      {
+        name: "line",
+        icon: icon(
+          '<line x1="5" y1="19" x2="19" y2="5"/><circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.6" fill="currentColor" stroke="none"/>'
+        ),
+        tooltip: "Line",
+      },
+      {
+        name: "brush",
+        icon: icon('<path d="M3 17c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/>'),
+        tooltip: "Brush",
+      },
+      {
+        name: "highlighter",
+        icon: icon(
+          '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'
+        ),
+        tooltip: "Highlighter",
+      },
+      {
+        name: "rectangle",
+        icon: icon('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/>'),
+        tooltip: "Rectangle",
+      },
+      {
+        name: "circle",
+        icon: icon('<circle cx="12" cy="12" r="8.5"/>'),
+        tooltip: "Circle",
+      },
+      {
+        name: "ellipse",
+        icon: icon('<ellipse cx="12" cy="12" rx="9" ry="6"/>'),
+        tooltip: "Ellipse",
+      },
+      {
+        name: "text",
+        icon: icon(
+          '<polyline points="5 7 5 5 19 5 19 7"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="9.5" y1="19" x2="14.5" y2="19"/>'
+        ),
+        tooltip: "Text Annotation",
+      },
+      {
+        name: "pin",
+        icon: icon(
+          '<line x1="12" y1="17" x2="12" y2="22"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>'
+        ),
+        tooltip: "Pin Tooltips",
+      },
+      {
+        name: "clear",
+        icon: icon(
+          '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="16"/><line x1="14" y1="11" x2="14" y2="16"/>'
+        ),
+        tooltip: "Clear All",
+      },
     ];
 
     // Filter tools based on configuration
@@ -104,7 +155,7 @@ class ToolbarManager {
       button.className = "apexstock-drawing-tool";
       button.type = "button";
       button.dataset.tool = tool.name;
-      button.textContent = tool.icon;
+      button.innerHTML = tool.icon;
       button.title = tool.tooltip;
       button.setAttribute("aria-label", tool.tooltip);
 

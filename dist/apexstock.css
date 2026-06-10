@@ -4,38 +4,47 @@
 :root {
   /* Light Theme Colors */
   --light-bg: #ffffff;
-  --light-border: #ced4da;
-  --light-hover: #f5f5f5;
-  --light-text: #333333;
-  --light-selected: #e6f7ff;
-  --light-divider: #dddddd;
-  --light-shadow: rgba(0, 0, 0, 0.15);
+  --light-surface-2: #f8fafc;
+  --light-border: #e4e7ec;
+  --light-border-strong: #d0d5dd;
+  --light-hover: #f2f4f7;
+  --light-text: #1f2937;
+  --light-muted: #667085;
+  --light-selected: #eef4ff;
+  --light-divider: #e4e7ec;
+  --light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
 
   /* Dark Theme Colors */
-  --dark-bg: #343A3F;
-  --dark-bg-alpha: rgba(1, 1, 1, 0.65);
-  --dark-border: #495057;
-  --dark-hover: #555555;
-  --dark-text: #e9ecef;
-  --dark-selected: #495057;
-  --dark-divider: #444444;
-  --dark-shadow: rgba(0, 0, 0, 0.3);
+  --dark-bg: #1e242b;
+  --dark-surface-2: #272e36;
+  --dark-bg-alpha: rgba(255, 255, 255, 0.04);
+  --dark-border: #3a434d;
+  --dark-border-strong: #4a545f;
+  --dark-hover: #2d353e;
+  --dark-text: #e6eaf0;
+  --dark-muted: #9aa4b2;
+  --dark-selected: #2b3a55;
+  --dark-divider: #3a434d;
+  --dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 
   /* Accent Colors */
-  --blue: #007bff;
+  --blue: #2563eb;
+  --blue-hover: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.1);
   --danger: #dc3545;
   --danger-light: #f8d7da;
   --success: #28a745;
 
   /* Common Sizing */
-  --button-size: 30px;
-  --border-radius-sm: 3px;
-  --border-radius-md: 4px;
-  --border-radius-lg: 8px;
+  --button-size: 32px;
+  --border-radius-sm: 6px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 10px;
   --font-size-sm: 10px;
   --gap-sm: 5px;
   --gap-md: 8px;
   --gap-lg: 10px;
+  --as-ease: 0.15s ease;
 }
 
 [class^=apexstock-] * {
@@ -51,19 +60,28 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 0;
+  gap: var(--gap-md);
+  padding: 8px 10px;
   width: 100%;
   position: relative;
-  margin-bottom: 5px;
-  border-bottom: 2px solid #000;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--light-border);
   z-index: 1000;
+  color: var(--light-text);
+}
+
+/* Consistent keyboard focus ring across all toolbar controls. */
+.apexstock-toolbar :focus-visible,
+.apexstock-zoom-controls :focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
 }
 
 .apexstock-toolbar-left {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--gap-lg);
+  gap: var(--gap-md);
 }
 
 .apexstock-toolbar-right {
@@ -78,16 +96,15 @@
   position: relative;
   display: inline-block;
   z-index: 100;
-  margin-right: var(--gap-lg);
   background: var(--light-bg);
   border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--border-radius-md);
 }
 
 .apexstock-chart-type-trigger {
   background: transparent;
   border: none;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--border-radius-md);
   cursor: pointer;
   padding: 5px;
   display: flex;
@@ -95,6 +112,8 @@
   justify-content: center;
   height: var(--button-size);
   width: var(--button-size);
+  color: var(--light-text);
+  transition: background-color var(--as-ease);
 }
 
 .apexstock-chart-type-trigger:hover {
@@ -106,22 +125,25 @@
   background-color: var(--light-bg);
   border: 1px solid var(--light-border);
   border-radius: var(--border-radius-md);
-  box-shadow: 0 2px 8px var(--light-shadow);
+  box-shadow: var(--light-shadow);
   z-index: 1000;
-  width: 150px;
+  width: 168px;
   left: 0;
   top: 100%;
   display: none;
-  margin-top: 2px;
+  margin-top: 6px;
+  padding: 4px;
 }
 
 .apexstock-chart-type-option {
   display: flex;
   align-items: center;
   gap: var(--gap-md);
-  padding: 8px 12px;
+  padding: 8px 10px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  border-radius: var(--border-radius-sm);
+  color: var(--light-text);
+  transition: background-color var(--as-ease);
 }
 
 .apexstock-chart-type-option .chart-icon {
@@ -142,8 +164,9 @@
 }
 
 .apexstock-chart-type-option.active {
-  background-color: var(--light-hover);
-  font-weight: bold;
+  background-color: var(--accent-soft);
+  color: var(--blue);
+  font-weight: 600;
 }
 
 /* ==============================
@@ -151,54 +174,74 @@
  * ============================== */
 .apexstock-custom-select-wrapper {
   position: relative;
-  width: 200px;
+  width: 190px;
   user-select: none;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .apexstock-custom-select-trigger {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 7px;
+  padding: 0 30px 0 12px;
   background: var(--light-bg);
   border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--border-radius-md);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   height: var(--button-size);
+  color: var(--light-text);
+  transition: border-color var(--as-ease), background-color var(--as-ease);
+}
+
+.apexstock-custom-select-trigger:hover {
+  background: var(--light-hover);
+  border-color: var(--light-border-strong);
 }
 
 .apexstock-custom-select-trigger:after {
-  content: "▼";
+  content: "";
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  color: #999;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--light-muted);
+  border-bottom: 2px solid var(--light-muted);
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform var(--as-ease);
+}
+
+.apexstock-custom-select-trigger[aria-expanded="true"]:after {
+  transform: translateY(-25%) rotate(225deg);
 }
 
 .apexstock-custom-options {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   background: var(--light-bg);
-  border: 1px solid var(--light-bg);
-  border-top: none;
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--light-shadow);
   z-index: 999;
-  max-height: 200px;
+  max-height: 260px;
   overflow-y: auto;
   display: none;
-  margin-top: 2px;
+  padding: 4px;
 }
 
 .apexstock-custom-option {
-  padding: 10px;
+  position: relative;
+  padding: 8px 10px 8px 30px;
   cursor: pointer;
+  border-radius: var(--border-radius-sm);
+  color: var(--light-text);
+  transition: background-color var(--as-ease);
 }
 
 .apexstock-custom-option:hover {
@@ -206,13 +249,21 @@
 }
 
 .apexstock-custom-option.selected {
-  background: var(--light-selected);
+  background: var(--accent-soft);
+  color: var(--blue);
+  font-weight: 500;
 }
 
 .apexstock-custom-option.selected:before {
-  content: "✔";
-  margin-right: 5px;
-  color: var(--blue);
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid var(--blue);
+  border-bottom: 2px solid var(--blue);
+  transform: translateY(-60%) rotate(45deg);
 }
 
 /* ==============================
@@ -221,51 +272,77 @@
 .apexstock-drawing-toolbar {
   display: flex;
   align-items: center;
+  gap: 2px;
   z-index: 11;
-  margin-left: 20px;
+  padding-left: 10px;
+  margin-left: 8px;
+  border-left: 1px solid var(--light-border);
 }
 
 .apexstock-drawing-tool {
   width: var(--button-size);
   height: var(--button-size);
-  margin: 0 2px;
   cursor: pointer;
-  background: var(--light-bg);
-  border: 1px solid var(--light-border);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--border-radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  color: var(--light-text);
+  transition: background-color var(--as-ease), color var(--as-ease),
+    border-color var(--as-ease);
 }
 
-.apexstock-drawing-tool[data-tool="brush"] {
-  font-size: 30px;
-  align-items: self-end;
-  line-height: 34px;
-}
-
-.apexstock-drawing-tool[data-tool="pin"] {
-  font-size: 18px;
-  line-height: 26px;
+.apexstock-drawing-tool:hover {
+  background: var(--light-hover);
 }
 
 .apexstock-drawing-tool.active {
-  background: var(--light-hover);
-  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.2);
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--blue);
 }
 
 .apexstock-drawing-color-picker {
   width: var(--button-size);
   height: var(--button-size);
-  border: none;
-  padding: 0;
-  margin-right: 5px;
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  padding: 2px;
+  margin-right: 4px;
+  background: var(--light-bg);
   cursor: pointer;
+  transition: border-color var(--as-ease);
+}
+
+.apexstock-drawing-color-picker:hover {
+  border-color: var(--light-border-strong);
+}
+
+/* Native color input internals: round the swatch a touch. */
+.apexstock-drawing-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.apexstock-drawing-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
 }
 
 .apexstock-drawing-toolbar select {
+  height: var(--button-size);
+  padding: 0 8px;
   border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  background: var(--light-bg);
+  color: var(--light-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--as-ease);
+}
+
+.apexstock-drawing-toolbar select:hover {
+  border-color: var(--light-border-strong);
 }
 
 /* Drawing overlay wrapper should not block chart interactions */
@@ -296,19 +373,21 @@
 .apexstock-export-btn {
   background-color: var(--light-bg);
   border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--border-radius-md);
   padding: 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
+  transition: background-color var(--as-ease), border-color var(--as-ease);
   width: var(--button-size);
   height: var(--button-size);
+  color: var(--light-text);
 }
 
 .apexstock-export-btn:hover {
   background-color: var(--light-hover);
+  border-color: var(--light-border-strong);
 }
 
 /* ==============================
@@ -564,10 +643,28 @@
 /* ==============================
  * 12. Dark Theme Overrides
  * ============================== */
+.apexstock-theme-dark .apexstock-toolbar {
+  color: var(--dark-text);
+  border-bottom-color: var(--dark-border);
+}
+
+/* Outlined surface controls (chart-type, export) */
 .apexstock-theme-dark .apexstock-chart-type-wrapper,
-.apexstock-theme-dark .apexstock-export-btn-container button,
-.apexstock-theme-dark .apexstock-chart-type-wrapper:hover button {
-  background-color: var(--dark-bg-alpha) !important;
+.apexstock-theme-dark .apexstock-export-btn,
+.apexstock-theme-dark .apexstock-export-btn-container button {
+  background-color: var(--dark-bg);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-trigger {
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-trigger:hover,
+.apexstock-theme-dark .apexstock-export-btn:hover {
+  background-color: var(--dark-hover);
+  border-color: var(--dark-border-strong);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-wrapper svg,
@@ -575,8 +672,15 @@
   stroke: var(--dark-text);
 }
 
-.apexstock-theme-dark .apexstock-chart-type-option {
+/* Chart-type dropdown menu */
+.apexstock-theme-dark .apexstock-chart-type-dropdown {
   background-color: var(--dark-bg);
+  border-color: var(--dark-border);
+  box-shadow: var(--dark-shadow);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-option {
+  color: var(--dark-text);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-option:hover {
@@ -584,25 +688,80 @@
 }
 
 .apexstock-theme-dark .apexstock-chart-type-option.active {
-  background-color: var(--dark-hover);
+  background-color: var(--accent-soft);
+  color: #7aa7ff;
 }
 
-.apexstock-theme-dark select,
-.apexstock-theme-dark input,
-.apexstock-theme-dark .apexstock-drawing-tool {
-  background-color: var(--dark-bg-alpha);
+/* Indicator dropdown */
+.apexstock-theme-dark .apexstock-custom-select-trigger {
+  background: var(--dark-bg);
+  border-color: var(--dark-border);
   color: var(--dark-text);
-  border: 1px solid var(--light-border);
+}
+
+.apexstock-theme-dark .apexstock-custom-select-trigger:hover {
+  background: var(--dark-hover);
+  border-color: var(--dark-border-strong);
+}
+
+.apexstock-theme-dark .apexstock-custom-select-trigger:after {
+  border-color: var(--dark-muted);
+}
+
+.apexstock-theme-dark .apexstock-custom-options {
+  background: var(--dark-bg);
+  border-color: var(--dark-border);
+  box-shadow: var(--dark-shadow);
+}
+
+.apexstock-theme-dark .apexstock-custom-option {
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-custom-option:hover {
+  background: var(--dark-hover);
+}
+
+.apexstock-theme-dark .apexstock-custom-option.selected {
+  background: var(--accent-soft);
+  color: #7aa7ff;
+}
+
+.apexstock-theme-dark .apexstock-custom-option.selected:before {
+  border-color: #7aa7ff;
+}
+
+/* Form controls */
+.apexstock-theme-dark select,
+.apexstock-theme-dark input {
+  background-color: var(--dark-surface-2);
+  color: var(--dark-text);
+  border: 1px solid var(--dark-border);
   border-radius: var(--border-radius-sm);
+}
+
+/* Drawing tools: transparent buttons, icons follow currentColor */
+.apexstock-theme-dark .apexstock-drawing-toolbar {
+  border-left-color: var(--dark-border);
+}
+
+.apexstock-theme-dark .apexstock-drawing-tool {
+  background: transparent;
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-drawing-tool:hover {
+  background: var(--dark-hover);
+}
+
+.apexstock-theme-dark .apexstock-drawing-tool.active {
+  background: var(--accent-soft);
+  color: #7aa7ff;
 }
 
 .apexstock-theme-dark .apexstock-text-toolbar select,
 .apexstock-theme-dark .apexstock-text-toolbar input {
   color: #222;
-}
-
-.apexstock-theme-dark .apexstock-drawing-tool.active {
-  background: var(--dark-bg) !important;
 }
 
 .apexstock-theme-dark .apexstock-xaxis-tooltip {
@@ -673,39 +832,50 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  padding: 3px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--light-border);
+  border-radius: 999px;
+  box-shadow: var(--light-shadow);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .apexstock-zoom-in,
 .apexstock-zoom-out {
-  width: 29px;
-  height: 22px;
-  border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.7);
-  color: #333;
+  width: 28px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--light-text);
   font-size: 18px;
+  line-height: 1;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: background-color var(--as-ease);
 }
 
 .apexstock-zoom-in:hover,
 .apexstock-zoom-out:hover {
-  background-color: rgba(255, 255, 255, 1);
+  background-color: var(--light-hover);
+}
+
+.apexstock-theme-dark .apexstock-zoom-controls {
+  background-color: rgba(30, 36, 43, 0.8);
+  border-color: var(--dark-border);
 }
 
 .apexstock-theme-dark .apexstock-zoom-in,
 .apexstock-theme-dark .apexstock-zoom-out {
-  background-color: rgba(70, 70, 70, 0.7);
-  color: #f1f1f1;
+  color: var(--dark-text);
 }
 
 .apexstock-theme-dark .apexstock-zoom-in:hover,
 .apexstock-theme-dark .apexstock-zoom-out:hover {
-  background-color: rgba(70, 70, 70, 1);
+  background-color: var(--dark-hover);
 }
 
 /* ==============================
