@@ -568,6 +568,10 @@ export default class DrawingTools {
       this.drawingGroup.removeChild(this.drawingGroup.firstChild);
     }
 
+    // Build all elements off-DOM and attach them in a single append to avoid
+    // a reflow per drawn element.
+    const fragment = document.createDocumentFragment();
+
     // Redraw each element
     this.elements.forEach((item) => {
       const data = item.data;
@@ -734,11 +738,14 @@ export default class DrawingTools {
           element.dataset.elementId = data.id;
         }
 
-        this.drawingGroup.appendChild(element);
+        fragment.appendChild(element);
         // Update the element reference in the elements array
         item.element = element;
       }
     });
+
+    // Single DOM write for all redrawn elements.
+    this.drawingGroup.appendChild(fragment);
 
     // Recreate the visual elements for the element interaction manager
     if (this.elementInteractionManager) {
