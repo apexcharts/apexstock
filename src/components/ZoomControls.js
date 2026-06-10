@@ -40,6 +40,8 @@ export default class ZoomControls {
   createContainer() {
     this.controlsContainer = document.createElement("div");
     this.controlsContainer.className = "apexstock-zoom-controls";
+    this.controlsContainer.setAttribute("role", "group");
+    this.controlsContainer.setAttribute("aria-label", "Chart zoom controls");
 
     this.chartEl.appendChild(this.controlsContainer);
   }
@@ -51,11 +53,15 @@ export default class ZoomControls {
     // Create zoom in button
     this.zoomInButton = document.createElement("button");
     this.zoomInButton.className = "apexstock-zoom-in";
+    this.zoomInButton.type = "button";
+    this.zoomInButton.setAttribute("aria-label", "Zoom in");
     this.zoomInButton.innerHTML = "+";
 
     // Create zoom out button
     this.zoomOutButton = document.createElement("button");
     this.zoomOutButton.className = "apexstock-zoom-out";
+    this.zoomOutButton.type = "button";
+    this.zoomOutButton.setAttribute("aria-label", "Zoom out");
     this.zoomOutButton.innerHTML = "−";
 
     // Add buttons to container

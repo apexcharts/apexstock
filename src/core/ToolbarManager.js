@@ -36,6 +36,8 @@ class ToolbarManager {
   createDrawingToolbar() {
     const toolbarContainer = document.createElement("div");
     toolbarContainer.className = "apexstock-drawing-toolbar";
+    toolbarContainer.setAttribute("role", "toolbar");
+    toolbarContainer.setAttribute("aria-label", "Drawing tools");
 
     // Define all possible tools
     const allTools = [
@@ -64,6 +66,7 @@ class ToolbarManager {
     colorPicker.classList.add("apexstock-drawing-color-picker");
 
     colorPicker.title = "Color";
+    colorPicker.setAttribute("aria-label", "Drawing color");
     colorPicker.addEventListener("input", (e) => {
       this.drawingColor = e.target.value;
       if (typeof this.onColorChange === "function") {
@@ -77,6 +80,7 @@ class ToolbarManager {
     widthSelector.style.marginRight = "5px";
     widthSelector.style.height = "30px";
     widthSelector.title = "Line Width";
+    widthSelector.setAttribute("aria-label", "Line width");
     [1, 2, 3, 5, 8].forEach((width) => {
       const option = document.createElement("option");
       option.value = width;
@@ -98,9 +102,11 @@ class ToolbarManager {
     tools.forEach((tool) => {
       const button = document.createElement("button");
       button.className = "apexstock-drawing-tool";
+      button.type = "button";
       button.dataset.tool = tool.name;
       button.textContent = tool.icon;
       button.title = tool.tooltip;
+      button.setAttribute("aria-label", tool.tooltip);
 
       // Add special style for selection tool
       if (tool.name === "select") {

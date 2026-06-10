@@ -113,6 +113,41 @@ describe("IndicatorHandlers — overlays", () => {
   });
 });
 
+describe("accessibility (after render)", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("labels the interactive controls", () => {
+    const inst = makeInstance();
+    inst.render();
+
+    const zoomIn = document.querySelector(".apexstock-zoom-in");
+    expect(zoomIn.getAttribute("aria-label")).toBe("Zoom in");
+    expect(document.querySelector(".apexstock-zoom-out").getAttribute("aria-label")).toBe(
+      "Zoom out"
+    );
+
+    const toolbar = document.querySelector('[role="toolbar"]');
+    expect(toolbar.getAttribute("aria-label")).toBe("Drawing tools");
+    const toolButtons = toolbar.querySelectorAll("button.apexstock-drawing-tool");
+    expect(toolButtons.length).toBeGreaterThan(0);
+    toolButtons.forEach((b) => expect(b.getAttribute("aria-label")).toBeTruthy());
+
+    const trigger = document.querySelector(".apexstock-custom-select-trigger");
+    expect(trigger.getAttribute("role")).toBe("button");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    const listbox = document.querySelector('[role="listbox"]');
+    expect(listbox).toBeTruthy();
+    expect(
+      listbox.querySelectorAll('[role="option"]').length
+    ).toBeGreaterThan(0);
+  });
+});
+
 describe("IndicatorHandlers.getDefaultConfig (registry-derived)", () => {
   beforeEach(() => installApexChartsMock());
   afterEach(() => {

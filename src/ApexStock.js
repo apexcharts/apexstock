@@ -671,11 +671,16 @@ export default class ApexStock {
     const trigger = document.createElement("div");
     trigger.classList.add("apexstock-custom-select-trigger");
     trigger.innerText = `Select ${title}`;
+    trigger.setAttribute("role", "button");
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
 
     wrapper.appendChild(trigger);
 
     const optionsContainer = document.createElement("div");
     optionsContainer.classList.add("apexstock-custom-options");
+    optionsContainer.setAttribute("role", "listbox");
+    optionsContainer.setAttribute("aria-label", title);
 
     Object.keys(indicators).forEach((key) => {
       const displayName =
@@ -687,6 +692,8 @@ export default class ApexStock {
       const option = document.createElement("div");
       option.classList.add("apexstock-custom-option");
       option.dataset.value = key;
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
 
       // Determine if this is an oscillator or overlay
       const isOscillator = Object.keys(this.oscillators).includes(key);
@@ -747,19 +754,31 @@ export default class ApexStock {
                 .map((opt) => opt.innerText)
                 .join(", ")}`
             : `Select ${title}`;
+
+        // Keep aria-selected in sync with the visual selection state.
+        optionsContainer
+          .querySelectorAll(".apexstock-custom-option")
+          .forEach((opt) => {
+            opt.setAttribute(
+              "aria-selected",
+              opt.classList.contains("selected") ? "true" : "false"
+            );
+          });
       });
     });
 
     wrapper.appendChild(optionsContainer);
     trigger.addEventListener("click", () => {
-      optionsContainer.style.display =
-        optionsContainer.style.display === "block" ? "none" : "block";
+      const isOpen = optionsContainer.style.display === "block";
+      optionsContainer.style.display = isOpen ? "none" : "block";
+      trigger.setAttribute("aria-expanded", isOpen ? "false" : "true");
     });
 
     // Track dropdown state and timeout for delayed closing
     let dropdownTimeout = null;
     const closeDropdown = () => {
       optionsContainer.style.display = "none";
+      trigger.setAttribute("aria-expanded", "false");
     };
 
     // Add mouseleave event to the wrapper
