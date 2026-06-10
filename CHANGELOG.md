@@ -11,6 +11,15 @@ those are called out explicitly below.
 
 ### Added
 
+- **Indicator registry**: technical indicators are defined in a single
+  `INDICATOR_REGISTRY` (overlay | oscillator | custom). Adding an indicator is
+  one registry entry; the available-indicator config is derived from it.
+- **Accessibility baseline**: ARIA roles/labels on the zoom controls, drawing
+  toolbar, and indicator dropdown (`aria-expanded`/`aria-selected` kept in sync).
+  Full keyboard navigation is still a follow-up.
+- **Standalone `dist/apexstock.css`** (in addition to the inlined CSS), exposed
+  via the `apexstock/apexstock.css` export subpath.
+- `CONTRIBUTING.md` with an architecture overview and the testing approach.
 - **TypeScript type definitions**: shipped `.d.ts` files (generated from JSDoc
   via `tsc`, no TS rewrite). Core domain types live in `src/types.js`
   (`OHLCPoint`, `Series`, `StockChartOptions`, `IndicatorConfig`,
@@ -33,6 +42,15 @@ those are called out explicitly below.
 
 ### Changed
 
+- **Indicator math is memoized** per series-array identity (SMA/EMA/RSI/Bollinger
+  and everything that builds on them), avoiding recomputation within an update.
+- `IndicatorHandlers` replaced its 28-branch `if/else` dispatch with the registry
+  (behavior-preserving; cyclomatic complexity ~28 → ~4).
+- `update()` now rebuilds indicators only when the series data or theme actually
+  changed (option-only updates no longer churn the panes).
+- Pure layout/height math extracted into `LayoutManager`; shared indicator-refresh
+  loop extracted into `refreshIndicators()`.
+- `redrawElements()` batches drawn-element DOM writes through a `DocumentFragment`.
 - Swapped the deprecated `rollup-plugin-terser` for the maintained
   `@rollup/plugin-terser`.
 - Drawing drag updates (`mousemove`) are now rAF-throttled, reducing coordinate
@@ -47,3 +65,5 @@ those are called out explicitly below.
 - Removed a redundant 1-second `setInterval` overlay-sync poll in `EventManager`
   (the `MutationObserver` and chart events already cover syncing) and disconnect
   the observer on `destroy()` to avoid a leak.
+- Removed a duplicate `toolbar` key in the indicator chart options.
+- Unknown indicator keys are now a no-op instead of creating a broken empty chart.
