@@ -13,6 +13,7 @@
       "require": "./dist/apexstock.umd.js",
       "default": "./dist/apexstock.umd.js"
     },
+    "./apexstock.css": "./dist/apexstock.css",
     "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },

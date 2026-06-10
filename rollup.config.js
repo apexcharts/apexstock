@@ -123,6 +123,23 @@ export default {
           console.error("Error setting up CSS file watching:", error);
         }
       },
+      // Emit a standalone dist/apexstock.css (in addition to the inlined CSS)
+      // for consumers who manage their own stylesheet pipeline. Runs once,
+      // after all output formats are written.
+      closeBundle() {
+        try {
+          const css = fs.readFileSync(
+            path.resolve("./src/ApexStock.css"),
+            "utf8"
+          );
+          if (!fs.existsSync("./dist")) {
+            fs.mkdirSync("./dist", { recursive: true });
+          }
+          fs.writeFileSync(path.resolve("./dist/apexstock.css"), css);
+        } catch (error) {
+          console.error("Error writing standalone CSS:", error);
+        }
+      },
     },
 
     resolve({

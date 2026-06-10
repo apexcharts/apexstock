@@ -1,0 +1,996 @@
+/* ==============================
+ * 1. Common & Variables
+ * ============================== */
+:root {
+  /* Light Theme Colors */
+  --light-bg: #ffffff;
+  --light-border: #ced4da;
+  --light-hover: #f5f5f5;
+  --light-text: #333333;
+  --light-selected: #e6f7ff;
+  --light-divider: #dddddd;
+  --light-shadow: rgba(0, 0, 0, 0.15);
+
+  /* Dark Theme Colors */
+  --dark-bg: #343A3F;
+  --dark-bg-alpha: rgba(1, 1, 1, 0.65);
+  --dark-border: #495057;
+  --dark-hover: #555555;
+  --dark-text: #e9ecef;
+  --dark-selected: #495057;
+  --dark-divider: #444444;
+  --dark-shadow: rgba(0, 0, 0, 0.3);
+
+  /* Accent Colors */
+  --blue: #007bff;
+  --danger: #dc3545;
+  --danger-light: #f8d7da;
+  --success: #28a745;
+
+  /* Common Sizing */
+  --button-size: 30px;
+  --border-radius-sm: 3px;
+  --border-radius-md: 4px;
+  --border-radius-lg: 8px;
+  --font-size-sm: 10px;
+  --gap-sm: 5px;
+  --gap-md: 8px;
+  --gap-lg: 10px;
+}
+
+[class^=apexstock-] * {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ==============================
+ * 2. Toolbar Layout
+ * ============================== */
+.apexstock-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  width: 100%;
+  position: relative;
+  margin-bottom: 5px;
+  border-bottom: 2px solid #000;
+  z-index: 1000;
+}
+
+.apexstock-toolbar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap-lg);
+}
+
+.apexstock-toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+/* ==============================
+ * 3. Chart Type Dropdown
+ * ============================== */
+.apexstock-chart-type-wrapper {
+  position: relative;
+  display: inline-block;
+  z-index: 100;
+  margin-right: var(--gap-lg);
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+}
+
+.apexstock-chart-type-trigger {
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--button-size);
+  width: var(--button-size);
+}
+
+.apexstock-chart-type-trigger:hover {
+  background-color: var(--light-hover);
+}
+
+.apexstock-chart-type-dropdown {
+  position: absolute;
+  background-color: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 2px 8px var(--light-shadow);
+  z-index: 1000;
+  width: 150px;
+  left: 0;
+  top: 100%;
+  display: none;
+  margin-top: 2px;
+}
+
+.apexstock-chart-type-option {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.apexstock-chart-type-option .chart-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  /* Fixed width for all icons */
+}
+
+.apexstock-chart-type-option .chart-text {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.apexstock-chart-type-option:hover {
+  background-color: var(--light-hover);
+}
+
+.apexstock-chart-type-option.active {
+  background-color: var(--light-hover);
+  font-weight: bold;
+}
+
+/* ==============================
+ * 4. Indicator Dropdown
+ * ============================== */
+.apexstock-custom-select-wrapper {
+  position: relative;
+  width: 200px;
+  user-select: none;
+  font-size: 14px;
+}
+
+.apexstock-custom-select-trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 7px;
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: var(--button-size);
+}
+
+.apexstock-custom-select-trigger:after {
+  content: "▼";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: #999;
+}
+
+.apexstock-custom-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--light-bg);
+  border: 1px solid var(--light-bg);
+  border-top: none;
+  z-index: 999;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  margin-top: 2px;
+}
+
+.apexstock-custom-option {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.apexstock-custom-option:hover {
+  background: var(--light-hover);
+}
+
+.apexstock-custom-option.selected {
+  background: var(--light-selected);
+}
+
+.apexstock-custom-option.selected:before {
+  content: "✔";
+  margin-right: 5px;
+  color: var(--blue);
+}
+
+/* ==============================
+ * 5. Drawing Tools
+ * ============================== */
+.apexstock-drawing-toolbar {
+  display: flex;
+  align-items: center;
+  z-index: 11;
+  margin-left: 20px;
+}
+
+.apexstock-drawing-tool {
+  width: var(--button-size);
+  height: var(--button-size);
+  margin: 0 2px;
+  cursor: pointer;
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.apexstock-drawing-tool[data-tool="brush"] {
+  font-size: 30px;
+  align-items: self-end;
+  line-height: 34px;
+}
+
+.apexstock-drawing-tool[data-tool="pin"] {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.apexstock-drawing-tool.active {
+  background: var(--light-hover);
+  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.apexstock-drawing-color-picker {
+  width: var(--button-size);
+  height: var(--button-size);
+  border: none;
+  padding: 0;
+  margin-right: 5px;
+  cursor: pointer;
+}
+
+.apexstock-drawing-toolbar select {
+  border: 1px solid var(--light-border);
+}
+
+/* Drawing overlay wrapper should not block chart interactions */
+.apexstock-drawing-overlay-wrapper,
+.apexstock-drawing-overlay {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9;
+}
+
+/* When a drawing tool is active, we need to capture events on the drawing area */
+.apexstock-drawing-overlay.active-drawing {
+  pointer-events: all;
+}
+
+/* ==============================
+ * 6. Export Button
+ * ============================== */
+.apexstock-export-btn-container {
+  z-index: 100;
+  position: relative;
+}
+
+.apexstock-export-btn {
+  background-color: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  padding: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  width: var(--button-size);
+  height: var(--button-size);
+}
+
+.apexstock-export-btn:hover {
+  background-color: var(--light-hover);
+}
+
+/* ==============================
+ * 7. X-Axis Styling
+ * ============================== */
+.apexstock-xaxis-tooltip {
+  position: absolute;
+  display: none;
+  padding: 6px;
+  border-radius: var(--border-radius-md);
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  transform: translateX(-50%) translateY(1px);
+  background-color: #eceff1;
+  border: 1px solid #90a4ae;
+}
+
+/* ==============================
+ * 8. Element Interactions
+ * ============================== */
+.apexstock-drawing-overlay path,
+.apexstock-drawing-overlay line,
+.apexstock-drawing-overlay rect,
+.apexstock-drawing-overlay circle,
+.apexstock-drawing-overlay ellipse,
+.apexstock-drawing-overlay .apexstock-text-annotation {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+/* ==============================
+ * 9. Element Popup
+ * ============================== */
+.apexstock-element-popup {
+  box-shadow: 0 2px 8px var(--light-shadow);
+  border-radius: var(--border-radius-lg);
+  background-color: var(--light-bg);
+  min-width: 220px;
+  padding: 12px;
+  position: absolute;
+  z-index: 1010;
+  /* Above tooltips */
+  pointer-events: auto;
+  display: none;
+  border: 1px solid var(--light-border);
+}
+
+.apexstock-style-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-md);
+  margin-bottom: var(--gap-md);
+  padding: 4px;
+}
+
+.apexstock-color-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.apexstock-color-container label,
+.apexstock-opacity-container label {
+  font-size: var(--font-size-sm);
+  margin-bottom: 2px;
+  color: #666;
+}
+
+.apexstock-stroke-color-picker,
+.apexstock-fill-color-picker {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--light-border);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.apexstock-stroke-color-picker:hover,
+.apexstock-fill-color-picker:hover {
+  transform: scale(1.1);
+}
+
+.apexstock-opacity-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.apexstock-opacity-container>div {
+  display: flex;
+  align-items: center;
+}
+
+.apexstock-opacity-slider {
+  width: 60px;
+  height: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.apexstock-divider {
+  width: 100%;
+  height: 1px;
+  margin: 4px 0;
+  background-color: var(--light-divider);
+}
+
+.apexstock-element-delete-btn {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--border-radius-sm);
+  color: var(--light-text);
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.apexstock-element-delete-btn:hover {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+/* ==============================
+ * 10. Text Annotations
+ * ============================== */
+.apexstock-text-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  background-color: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 2px 8px var(--light-shadow);
+  padding: 12px;
+  min-width: 300px;
+  z-index: 1001;
+  position: absolute;
+  display: none;
+}
+
+.apexstock-text-toolbar .font-controls,
+.apexstock-text-toolbar .color-controls,
+.apexstock-text-toolbar .action-controls {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.apexstock-text-toolbar .action-controls {
+  justify-content: flex-end;
+}
+
+.apexstock-text-toolbar button {
+  width: 28px;
+  height: 28px;
+  margin: 0 2px;
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.apexstock-text-toolbar button:hover {
+  background-color: var(--light-hover);
+  border-color: #adb5bd;
+}
+
+.apexstock-text-toolbar select {
+  height: 28px;
+  margin: 0 2px;
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+}
+
+.apexstock-text-toolbar .color-wrapper {
+  display: inline-block;
+  position: relative;
+}
+
+.apexstock-text-toolbar .color-wrapper+.color-wrapper,
+.apexstock-text-toolbar .opacity-wrapper {
+  margin-left: 5px;
+}
+
+.apexstock-text-toolbar .color-wrapper label,
+.apexstock-text-toolbar .opacity-wrapper label {
+  font-size: 10px;
+  display: block;
+  text-align: center;
+}
+
+.apexstock-text-toolbar .color-wrapper input[type="color"] {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
+.apexstock-text-toolbar .opacity-wrapper input[type="range"] {
+  width: 60px;
+  height: 8px;
+  margin-top: 8px;
+}
+
+.apexstock-text-editor {
+  min-width: 100px;
+  min-height: 14px;
+  padding: 5px;
+  border: 1px solid var(--blue);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 2px 5px var(--light-shadow);
+  outline: none;
+  position: absolute;
+  z-index: 1000;
+}
+
+/* ==============================
+ * 11. Tooltip Annotations
+ * ============================== */
+.apexstock-tooltip-annotation {
+  pointer-events: all;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.apexstock-tooltip-annotation rect {
+  box-shadow: 0 2px 5px var(--light-shadow);
+}
+
+/* Make sure tooltip content is visible */
+.apexstock-tooltip-annotation foreignObject {
+  overflow: visible;
+}
+
+/* Hover effect for pinned tooltips */
+.apexstock-tooltip-annotation:hover rect {
+  filter: brightness(0.95);
+}
+
+/* ==============================
+ * 12. Dark Theme Overrides
+ * ============================== */
+.apexstock-theme-dark .apexstock-chart-type-wrapper,
+.apexstock-theme-dark .apexstock-export-btn-container button,
+.apexstock-theme-dark .apexstock-chart-type-wrapper:hover button {
+  background-color: var(--dark-bg-alpha) !important;
+}
+
+.apexstock-theme-dark .apexstock-chart-type-wrapper svg,
+.apexstock-theme-dark .apexstock-export-btn-container svg {
+  stroke: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-option {
+  background-color: var(--dark-bg);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-option:hover {
+  background-color: var(--dark-hover);
+}
+
+.apexstock-theme-dark .apexstock-chart-type-option.active {
+  background-color: var(--dark-hover);
+}
+
+.apexstock-theme-dark select,
+.apexstock-theme-dark input,
+.apexstock-theme-dark .apexstock-drawing-tool {
+  background-color: var(--dark-bg-alpha);
+  color: var(--dark-text);
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar select,
+.apexstock-theme-dark .apexstock-text-toolbar input {
+  color: #222;
+}
+
+.apexstock-theme-dark .apexstock-drawing-tool.active {
+  background: var(--dark-bg) !important;
+}
+
+.apexstock-theme-dark .apexstock-xaxis-tooltip {
+  background: rgba(0, 0, 0, .8);
+  border: 1px solid rgba(0, 0, 0, .5);
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-tooltip-annotation:hover rect {
+  filter: brightness(1.1);
+}
+
+.apexstock-theme-dark .apexstock-element-popup {
+  background-color: var(--dark-bg);
+  border: 1px solid var(--dark-border);
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-color-container label,
+.apexstock-theme-dark .apexstock-opacity-container label {
+  color: #adb5bd;
+}
+
+.apexstock-theme-dark .apexstock-stroke-color-picker,
+.apexstock-theme-dark .apexstock-fill-color-picker {
+  border-color: var(--dark-border);
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn {
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-element-delete-btn:hover {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: var(--danger-light);
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar {
+  background-color: var(--dark-bg);
+  border-color: var(--dark-border);
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar button,
+.apexstock-theme-dark .apexstock-text-toolbar select {
+  background-color: var(--dark-border);
+  border-color: #6c757d;
+  color: var(--dark-text);
+}
+
+.apexstock-theme-dark .apexstock-text-toolbar button:hover {
+  background-color: #5a6268;
+}
+
+.apexstock-theme-dark .apexstock-text-editor {
+  background-color: var(--dark-bg);
+  border-color: var(--blue);
+  color: var(--dark-text);
+}
+
+/* ==============================
+ * 13. Zoom Controls
+ * ============================== */
+.apexstock-zoom-controls {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.apexstock-zoom-in,
+.apexstock-zoom-out {
+  width: 29px;
+  height: 22px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.7);
+  color: #333;
+  font-size: 18px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.apexstock-zoom-in:hover,
+.apexstock-zoom-out:hover {
+  background-color: rgba(255, 255, 255, 1);
+}
+
+.apexstock-theme-dark .apexstock-zoom-in,
+.apexstock-theme-dark .apexstock-zoom-out {
+  background-color: rgba(70, 70, 70, 0.7);
+  color: #f1f1f1;
+}
+
+.apexstock-theme-dark .apexstock-zoom-in:hover,
+.apexstock-theme-dark .apexstock-zoom-out:hover {
+  background-color: rgba(70, 70, 70, 1);
+}
+
+/* ==============================
+ * Settings Control Component Styles
+ * ============================== */
+
+/* Base settings control styles */
+.apexstock-settings-control {
+  position: absolute;
+  border: 1px dashed var(--light-border);
+  padding: 10px;
+  z-index: 900;
+  min-width: 200px;
+  font-size: 12px;
+  display: none;
+}
+
+/* Positioning variations */
+.apexstock-settings-control.position-top-left {
+  top: 10px;
+  left: 10px;
+}
+
+/* Header styles */
+.apexstock-settings-header {
+  font-weight: bold;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--light-divider);
+  color: var(--light-text);
+}
+
+/* Control group and form elements */
+.apexstock-settings-control-group label {
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
+}
+
+.apexstock-settings-control-group input[type="number"],
+.apexstock-settings-control-group input[type="text"],
+.apexstock-settings-control-group select {
+  padding: 4px 8px;
+  border: 1px solid var(--light-border);
+  border-radius: var(--border-radius-sm);
+  background: var(--light-bg);
+  color: var(--light-text);
+  font-size: 11px;
+  margin: 0 5px;
+}
+
+/* Range input container */
+.apexstock-settings-range-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.apexstock-settings-range-container input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--light-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+/* Range input thumb styles */
+.apexstock-settings-range-container input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apexstock-settings-range-container input[type="range"]::-webkit-slider-thumb:hover {
+  background: #0056b3;
+}
+
+.apexstock-settings-range-container input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.apexstock-settings-range-container input[type="range"]::-moz-range-thumb:hover {
+  background: #0056b3;
+}
+
+/* Range value display */
+.apexstock-settings-range-value {
+  min-width: 35px;
+  text-align: right;
+  font-weight: 500;
+  color: var(--blue);
+}
+
+/* Toggle switch styles */
+.apexstock-settings-toggle {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+}
+
+.apexstock-settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.apexstock-settings-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .2s;
+  border-radius: 18px;
+}
+
+.apexstock-settings-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+
+.apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider {
+  background-color: var(--blue);
+}
+
+.apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider:before {
+  transform: translateX(16px);
+}
+
+/* ==============================
+ * Dark Theme Support
+ * ============================== */
+.apexstock-settings-control.apexstock-theme-dark {
+  border-color: var(--dark-border);
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-header {
+  color: var(--dark-text);
+  border-color: var(--dark-divider);
+}
+
+.apexstock-settings-control.apexstock-theme-dark label {
+  color: #adb5bd;
+}
+
+.apexstock-settings-control.apexstock-theme-dark input[type="number"],
+.apexstock-settings-control.apexstock-theme-dark input[type="text"],
+.apexstock-settings-control.apexstock-theme-dark select {
+  background: var(--dark-bg-alpha);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-range-container input[type="range"] {
+  background: var(--dark-border);
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-range-value {
+  color: #64b5f6;
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-toggle-slider {
+  background-color: #6c757d;
+}
+
+.apexstock-settings-control.apexstock-theme-dark .apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider {
+  background-color: #64b5f6;
+}
+
+/* ==============================
+ * Oscillator Settings Styles
+ * ============================== */
+.apexstock-oscillator-settings-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  /* Important: zero height to not affect layout */
+  pointer-events: none;
+  /* Let clicks pass through to charts by default */
+  z-index: 110;
+  /* Above charts but below tooltips */
+}
+
+/* Minimal settings style */
+.apexstock-settings-minimal {
+  border: none !important;
+  padding: 6px 8px !important;
+  transition: opacity 0.2s ease, transform 0.15s ease !important;
+  border-radius: 4px;
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* Layout for controls inside minimal settings */
+.apexstock-settings-minimal .apexstock-settings-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.apexstock-settings-minimal .apexstock-settings-control-group {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.apexstock-settings-minimal label {
+  margin-right: 5px;
+  margin-bottom: 0;
+  font-size: 10px;
+  min-width: auto;
+  white-space: nowrap;
+}
+
+.apexstock-settings-minimal input[type="number"] {
+  width: 45px;
+  margin: 0;
+  padding: 1px 3px;
+  font-size: 10px;
+  height: 18px;
+  border-radius: 2px;
+}
+
+/* Add these styles to your ApexStock.css file */
+
+.apexstock-watermark {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  color: #666;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  z-index: 1000;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+
+/* ==============================
+ * 14. Responsive Adjustments
+ * ============================== */
+@media (max-width: 768px) {
+  .apexstock-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .apexstock-toolbar-left {
+    margin-bottom: 10px;
+    width: 100%;
+  }
+
+  .apexstock-toolbar-right {
+    align-self: flex-end;
+  }
+}
