@@ -113,6 +113,56 @@ describe("IndicatorHandlers — overlays", () => {
   });
 });
 
+describe("IndicatorHandlers.getDefaultConfig (registry-derived)", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("exposes the expected overlay and oscillator key sets", () => {
+    const inst = makeInstance();
+    expect(new Set(Object.keys(inst.overlays))).toEqual(
+      new Set([
+        "moving average",
+        "bollinger bands",
+        "exponential moving average",
+        "fibonacci retracements",
+        "linear regression",
+        "ichimoku cloud indicator",
+      ])
+    );
+    expect(new Set(Object.keys(inst.oscillators))).toEqual(
+      new Set([
+        "rsi",
+        "macd",
+        "volumes",
+        "price volume trend",
+        "stochastic oscillator",
+        "standard deviation indicator",
+        "average directional index",
+        "chaikin oscillator",
+        "commodity channel index",
+        "trend strength index",
+        "accelerator oscillator",
+        "bollinger bands %b",
+        "bollinger bands width",
+      ])
+    );
+    // Each entry defaults to enabled.
+    expect(inst.overlays["moving average"]).toEqual({ enabled: true });
+  });
+
+  it("classifies overlays (incl. fibonacci) vs oscillators via isOverlay()", () => {
+    const inst = makeInstance();
+    expect(inst.isOverlay("moving average")).toBe(true);
+    expect(inst.isOverlay("bollinger bands")).toBe(true);
+    expect(inst.isOverlay("fibonacci retracements")).toBe(true);
+    expect(inst.isOverlay("rsi")).toBe(false);
+    expect(inst.isOverlay("macd")).toBe(false);
+  });
+});
+
 describe("ApexStock.update — indicator restoration", () => {
   beforeEach(() => installApexChartsMock());
   afterEach(() => {

@@ -120,31 +120,11 @@ export default class ApexStock {
 
     this.SettingsControl = SettingsControl;
 
-    // Define overlays and oscillators
-    this.overlays = {
-      "moving average": { enabled: true },
-      "bollinger bands": { enabled: true },
-      "exponential moving average": { enabled: true },
-      "fibonacci retracements": { enabled: true },
-      "linear regression": { enabled: true },
-      "ichimoku cloud indicator": { enabled: true },
-    };
-
-    this.oscillators = {
-      rsi: { enabled: true },
-      macd: { enabled: true },
-      volumes: { enabled: true },
-      "price volume trend": { enabled: true },
-      "stochastic oscillator": { enabled: true },
-      "standard deviation indicator": { enabled: true },
-      "average directional index": { enabled: true },
-      "chaikin oscillator": { enabled: true },
-      "commodity channel index": { enabled: true },
-      "trend strength index": { enabled: true },
-      "accelerator oscillator": { enabled: true },
-      "bollinger bands %b": { enabled: true },
-      "bollinger bands width": { enabled: true },
-    };
+    // Overlays and oscillators are derived from the indicator registry, so the
+    // set of supported indicators is defined in exactly one place.
+    const defaultIndicatorConfig = IndicatorHandlers.getDefaultConfig();
+    this.overlays = defaultIndicatorConfig.overlays;
+    this.oscillators = defaultIndicatorConfig.oscillators;
 
     // Merge both for backward compatibility
     this.indicators = { ...this.overlays, ...this.oscillators };

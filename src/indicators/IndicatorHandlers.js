@@ -752,6 +752,23 @@ const INDICATOR_REGISTRY = {
 
 export default class IndicatorHandlers {
   /**
+   * Default indicator-availability config, derived from the registry so the
+   * set of supported indicators lives in exactly one place. Oscillators render
+   * in separate panes; everything else (overlays + the annotation-based
+   * fibonacci) is grouped with the overlays. Each entry defaults to enabled.
+   * @returns {{ overlays: Object.<string, {enabled: boolean}>, oscillators: Object.<string, {enabled: boolean}> }}
+   */
+  static getDefaultConfig() {
+    const overlays = {};
+    const oscillators = {};
+    for (const [key, def] of Object.entries(INDICATOR_REGISTRY)) {
+      const target = def.kind === "oscillator" ? oscillators : overlays;
+      target[key] = { enabled: true };
+    }
+    return { overlays, oscillators };
+  }
+
+  /**
    * Updates or adds an indicator to the chart. If the indicator is already
    * active, this toggles it off (removes it).
    * @param {string} indicatorKey - The key/name of the indicator to update.

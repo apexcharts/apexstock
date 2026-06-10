@@ -37,68 +37,23 @@ export default class ApexStock {
     series: import("./types.js").Series;
     SettingsControl: typeof SettingsControl;
     overlays: {
-        "moving average": {
-            enabled: boolean;
-        };
-        "bollinger bands": {
-            enabled: boolean;
-        };
-        "exponential moving average": {
-            enabled: boolean;
-        };
-        "fibonacci retracements": {
-            enabled: boolean;
-        };
-        "linear regression": {
-            enabled: boolean;
-        };
-        "ichimoku cloud indicator": {
+        [x: string]: {
             enabled: boolean;
         };
     };
     oscillators: {
-        rsi: {
-            enabled: boolean;
-        };
-        macd: {
-            enabled: boolean;
-        };
-        volumes: {
-            enabled: boolean;
-        };
-        "price volume trend": {
-            enabled: boolean;
-        };
-        "stochastic oscillator": {
-            enabled: boolean;
-        };
-        "standard deviation indicator": {
-            enabled: boolean;
-        };
-        "average directional index": {
-            enabled: boolean;
-        };
-        "chaikin oscillator": {
-            enabled: boolean;
-        };
-        "commodity channel index": {
-            enabled: boolean;
-        };
-        "trend strength index": {
-            enabled: boolean;
-        };
-        "accelerator oscillator": {
-            enabled: boolean;
-        };
-        "bollinger bands %b": {
-            enabled: boolean;
-        };
-        "bollinger bands width": {
+        [x: string]: {
             enabled: boolean;
         };
     };
     indicators: {
         [x: string]: import("./types.js").IndicatorConfig;
+    } | {
+        [x: string]: {
+            enabled: boolean;
+        } | {
+            enabled: boolean;
+        };
     };
     volumesData: {
         x: string | number | Date;
