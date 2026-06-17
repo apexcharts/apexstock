@@ -460,31 +460,42 @@ export default class ChartSwitch {
     // Create the dropdown container
     const dropdown = document.createElement("div");
     dropdown.classList.add("apexstock-chart-type-dropdown");
+    dropdown.setAttribute("role", "listbox");
+    dropdown.setAttribute("aria-label", "Chart type");
+
+    // The trigger is a <button> (already focusable; Enter/Space natively fire
+    // click), so we only add the ARIA state + ArrowDown/Escape below.
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+
+    // Select a chart type (shared by mouse click and keyboard).
+    const selectType = (option) => {
+      this.changeChartType(option.dataset.type);
+      dropdown.querySelectorAll(".apexstock-chart-type-option").forEach((el) => {
+        el.classList.remove("active");
+        el.setAttribute("aria-selected", "false");
+      });
+      option.classList.add("active");
+      option.setAttribute("aria-selected", "true");
+    };
 
     // Add chart type options to dropdown
     this.chartTypes.forEach((type) => {
       const option = document.createElement("div");
       option.classList.add("apexstock-chart-type-option");
       option.dataset.type = type.id;
+      option.setAttribute("role", "option");
+      option.setAttribute("tabindex", "-1");
       option.innerHTML = `<span class="chart-icon">${type.icon}</span><span class="chart-text">${type.name}</span>`;
 
       // Highlight the currently selected chart type
-      if (type.id === this.currentType) {
-        option.classList.add("active");
-      }
+      const isActive = type.id === this.currentType;
+      if (isActive) option.classList.add("active");
+      option.setAttribute("aria-selected", isActive ? "true" : "false");
 
-      // Add click event to change chart type
       option.addEventListener("click", () => {
-        this.changeChartType(type.id);
-        dropdown.style.display = "none";
-
-        // Update active state
-        document
-          .querySelectorAll(".apexstock-chart-type-option")
-          .forEach((el) => {
-            el.classList.remove("active");
-          });
-        option.classList.add("active");
+        selectType(option);
+        closeDropdown();
       });
 
       dropdown.appendChild(option);
@@ -492,16 +503,90 @@ export default class ChartSwitch {
 
     chartSwitchWrapper.appendChild(dropdown);
 
-    // Toggle dropdown on trigger click
+    // --- Open/close + keyboard (ARIA listbox pattern) ---
+    const getOptions = () =>
+      Array.from(dropdown.querySelectorAll(".apexstock-chart-type-option"));
+    const isOpen = () => dropdown.style.display === "block";
+    const focusOption = (idx) => {
+      const opts = getOptions();
+      if (!opts.length) return;
+      const i = Math.max(0, Math.min(idx, opts.length - 1));
+      opts.forEach((o, n) => o.setAttribute("tabindex", n === i ? "0" : "-1"));
+      opts[i].focus();
+    };
+    const closeDropdown = (returnFocus) => {
+      dropdown.style.display = "none";
+      trigger.setAttribute("aria-expanded", "false");
+      if (returnFocus) trigger.focus();
+    };
+    const openDropdown = (focusActive) => {
+      dropdown.style.display = "block";
+      trigger.setAttribute("aria-expanded", "true");
+      if (focusActive) {
+        const opts = getOptions();
+        const sel = opts.findIndex((o) => o.classList.contains("active"));
+        focusOption(sel >= 0 ? sel : 0);
+      }
+    };
+
+    // Toggle dropdown on trigger click (Enter/Space reach here via the button).
     trigger.addEventListener("click", () => {
-      dropdown.style.display =
-        dropdown.style.display === "block" ? "none" : "block";
+      if (isOpen()) closeDropdown();
+      else openDropdown(false);
+    });
+    trigger.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        openDropdown(true);
+      } else if (e.key === "Escape" && isOpen()) {
+        e.preventDefault();
+        closeDropdown();
+      }
+    });
+
+    // Arrow / Home / End / Enter / Space / Escape / Tab within the listbox.
+    dropdown.addEventListener("keydown", (e) => {
+      const opts = getOptions();
+      const current = opts.indexOf(document.activeElement);
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          focusOption(current + 1);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          focusOption(current - 1);
+          break;
+        case "Home":
+          e.preventDefault();
+          focusOption(0);
+          break;
+        case "End":
+          e.preventDefault();
+          focusOption(opts.length - 1);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          if (current >= 0) {
+            selectType(opts[current]);
+            closeDropdown(true);
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          closeDropdown(true);
+          break;
+        case "Tab":
+          closeDropdown();
+          break;
+      }
     });
 
     // Close dropdown when clicking outside
     document.addEventListener("click", (e) => {
       if (!chartSwitchWrapper.contains(e.target)) {
-        dropdown.style.display = "none";
+        closeDropdown();
       }
     });
 
