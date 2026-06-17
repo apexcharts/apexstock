@@ -1,0 +1,64 @@
+/* ============================================================================
+ * ApexStock theme template
+ * ----------------------------------------------------------------------------
+ * Copy this file, change the values you care about, and load it AFTER the
+ * ApexStock styles. Every token is listed at its built-in default.
+ *
+ * Replace `.apexstock-theme-light` / `.apexstock-theme-dark` below with your
+ * own scoping if you only want to theme a single chart, e.g.
+ *   .my-chart .apexstock-theme-light [class^="apexstock-"] { ... }
+ *
+ * The `[class^="apexstock-"]` part is required: it matches the same elements
+ * the library declares the tokens on, at higher specificity, so your values
+ * win regardless of stylesheet load order. See THEMING.md for the full guide.
+ * ========================================================================== */
+
+/* ---- Light mode ---------------------------------------------------------- */
+.apexstock-theme-light [class^="apexstock-"] {
+  --apexstock-light-bg: #ffffff;
+  --apexstock-light-surface-2: #f8fafc;
+  --apexstock-light-border: #e4e7ec;
+  --apexstock-light-border-strong: #d0d5dd;
+  --apexstock-light-hover: #f2f4f7;
+  --apexstock-light-text: #1f2937;
+  --apexstock-light-muted: #667085;
+  --apexstock-light-selected: #eef4ff;
+  --apexstock-light-divider: #e4e7ec;
+  --apexstock-light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
+}
+
+/* ---- Dark mode ----------------------------------------------------------- */
+.apexstock-theme-dark [class^="apexstock-"] {
+  --apexstock-dark-bg: #1e242b;
+  --apexstock-dark-surface-2: #272e36;
+  --apexstock-dark-bg-alpha: rgba(255, 255, 255, 0.04);
+  --apexstock-dark-border: #3a434d;
+  --apexstock-dark-border-strong: #4a545f;
+  --apexstock-dark-hover: #2d353e;
+  --apexstock-dark-text: #e6eaf0;
+  --apexstock-dark-muted: #9aa4b2;
+  --apexstock-dark-selected: #2b3a55;
+  --apexstock-dark-divider: #3a434d;
+  --apexstock-dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Accent + sizing (shared by both modes) ------------------------------ */
+.apexstock-theme-light [class^="apexstock-"],
+.apexstock-theme-dark [class^="apexstock-"] {
+  --apexstock-blue: #2563eb;
+  --apexstock-blue-hover: #1d4ed8;
+  --apexstock-accent-soft: rgba(37, 99, 235, 0.1);
+  --apexstock-danger: #dc3545;
+  --apexstock-danger-light: #f8d7da;
+  --apexstock-success: #28a745;
+
+  --apexstock-button-size: 32px;
+  --apexstock-border-radius-sm: 6px;
+  --apexstock-border-radius-md: 8px;
+  --apexstock-border-radius-lg: 10px;
+  --apexstock-font-size-sm: 10px;
+  --apexstock-gap-sm: 5px;
+  --apexstock-gap-md: 8px;
+  --apexstock-gap-lg: 10px;
+  --apexstock-as-ease: 0.15s ease;
+}
