@@ -404,17 +404,55 @@ export default class ApexStock {
   }
 
   /**
+   * Resolve a zoom/scroll-event x bound to a timestamp for the custom x-axis.
+   *
+   * ApexCharts reports `e.xaxis.min/max` in the axis's own value space, and the
+   * declared `xaxis.type` is not a reliable discriminator (a category-style
+   * candlestick axis can still report `type: "numeric"`). What IS reliable is
+   * magnitude: on a category/index axis the bound is a small 1-based data index
+   * (≤ the number of points), whereas on a numeric/datetime axis — what
+   * numeric-timestamp `x` data produces — it is the x value itself, an epoch-ms
+   * timestamp that dwarfs any index. So:
+   *   - index-sized bound  -> look up `data[round(val - 1)].x`
+   *   - timestamp-sized    -> the bound already IS the timestamp
+   * The old code always did the index lookup, which on a numeric axis read past
+   * the end of the array, yielded `NaN`, and froze the labels on scroll/zoom.
+   *
+   * @param {object} ctx - The ApexCharts context.
+   * @param {number} val - `e.xaxis.min` or `e.xaxis.max`.
+   * @param {number} fallback - Value to keep if resolution fails.
+   * @returns {number} Timestamp in ms.
+   */
+  resolveXToTimestamp(ctx, val, fallback) {
+    if (typeof val !== "number" || Number.isNaN(val)) return fallback;
+    const data = ctx.w.config.series[0] && ctx.w.config.series[0].data;
+    const isIndex = Array.isArray(data) && val <= data.length + 1;
+    if (isIndex) {
+      const point = data[Math.round(val - 1)];
+      const ts = point ? new Date(point.x).getTime() : NaN;
+      return Number.isNaN(ts) ? fallback : ts;
+    }
+    // numeric / datetime: the bound is already the x value (timestamp).
+    const ts = new Date(val).getTime();
+    return Number.isNaN(ts) ? fallback : ts;
+  }
+
+  /**
    * Handle zoom events from the chart
    * @param {Object} e - The zoom event data
    */
   handleZoom(ctx, e) {
     if (e && e.xaxis) {
-      this.xaxisRange.min = new Date(
-        ctx.w.config.series[0].data[Math.round(e.xaxis.min - 1)]?.x
-      ).getTime();
-      this.xaxisRange.max = new Date(
-        ctx.w.config.series[0].data[Math.round(e.xaxis.max - 1)]?.x
-      ).getTime();
+      this.xaxisRange.min = this.resolveXToTimestamp(
+        ctx,
+        e.xaxis.min,
+        this.xaxisRange.min
+      );
+      this.xaxisRange.max = this.resolveXToTimestamp(
+        ctx,
+        e.xaxis.max,
+        this.xaxisRange.max
+      );
 
       // Update the custom x-axis if it exists
       if (this.xaxis) {
@@ -437,12 +475,16 @@ export default class ApexStock {
    */
   handleScroll(ctx, e) {
     if (e && e.xaxis) {
-      this.xaxisRange.min = new Date(
-        ctx.w.config.series[0].data[Math.round(e.xaxis.min - 1)]?.x
-      ).getTime();
-      this.xaxisRange.max = new Date(
-        ctx.w.config.series[0].data[Math.round(e.xaxis.max - 1)]?.x
-      ).getTime();
+      this.xaxisRange.min = this.resolveXToTimestamp(
+        ctx,
+        e.xaxis.min,
+        this.xaxisRange.min
+      );
+      this.xaxisRange.max = this.resolveXToTimestamp(
+        ctx,
+        e.xaxis.max,
+        this.xaxisRange.max
+      );
 
       // Update the custom x-axis if it exists
       if (this.xaxis) {

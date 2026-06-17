@@ -138,6 +138,16 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **Zoom buttons and the custom x-axis now work on numeric/datetime axes**
+  (e.g. epoch-timestamp `x` data, as produced by `aggregateOHLC` and used in
+  `examples/timeframe.html`). The zoom controls previously clamped the new
+  range to `dataPoints` — an index count — which is meaningless against a
+  timestamp range, so the buttons silently no-op'd; and the scroll/zoom handlers
+  always treated `e.xaxis.min/max` as data indices, so on a numeric axis they
+  read past the end of the array, produced `NaN`, and froze the x-axis labels
+  while the candles panned. Both now detect index-vs-value by magnitude and
+  operate in the axis's own value space, so category (index) axes and
+  numeric/datetime (timestamp) axes both zoom and keep their labels in sync.
 - **Data edge-case hardening.** Malformed or out-of-order input no longer throws
   or silently corrupts output:
   - A new `Utils.normalizeOHLC()` runs at the data boundary (constructor and

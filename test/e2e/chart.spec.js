@@ -51,6 +51,26 @@ test.describe("ApexStock toolbar + chart", () => {
     await expect(page.locator("#chart .apexcharts-svg")).toBeVisible();
   });
 
+  test("zoom buttons change the visible range on a timestamp axis", async ({
+    page,
+  }) => {
+    // The fixture uses epoch-timestamp x (numeric axis) — the case that used to
+    // make the zoom buttons no-op.
+    const range = () =>
+      page.evaluate(() => {
+        const z = window.__chart.getCurrentZoomState();
+        return z.maxX - z.minX;
+      });
+
+    const before = await range();
+    await page.locator(".apexstock-zoom-in").click();
+    await expect.poll(range).toBeLessThan(before); // zoomed in -> smaller range
+
+    const zoomedIn = await range();
+    await page.locator(".apexstock-zoom-out").click();
+    await expect.poll(range).toBeGreaterThan(zoomedIn); // zoomed back out
+  });
+
   test("draws a trendline on the overlay", async ({ page }) => {
     // Activate the line (trendline) tool.
     await page.locator('.apexstock-drawing-tool[data-tool="line"]').click();

@@ -4,6 +4,9 @@ import Utils from "../utils/Utils";
  * Adds zoom in and zoom out buttons to the chart
  */
 export default class ZoomControls {
+  /** Fraction of the visible range each zoom-in/out click adds or removes. */
+  static ZOOM_FACTOR = 0.25;
+
   /**
    * Creates zoom control buttons
    * @param {import("../ApexStock.js").default} context - The ApexStock instance
@@ -85,7 +88,21 @@ export default class ZoomControls {
   }
 
   /**
-   * Zoom in on the chart
+   * Apply a new visible range to the main chart and all indicator panes.
+   * `minX`/`maxX` are in the axis's own value space (timestamps for a
+   * numeric/datetime axis, data indices for a category axis) — the same space
+   * `getCurrentZoomState()` reports and `zoomX()` expects.
+   * @param {number} minX
+   * @param {number} maxX
+   */
+  applyRange(minX, maxX) {
+    if (!(maxX > minX)) return;
+    this.chart.zoomX(minX, maxX);
+    this.context.applyZoomToAllCharts({ minX, maxX });
+  }
+
+  /**
+   * Zoom in on the chart (shrink the visible range around its center).
    */
   zoomIn() {
     if (!this.chart) return;
@@ -96,29 +113,21 @@ export default class ZoomControls {
 
       const { minX, maxX } = currentZoom;
       const range = maxX - minX;
-      const zoomFactor = 0.25; // Zoom in by 25%
+      if (!(range > 0)) return;
 
-      // Calculate new zoom range (centered zoom)
-      const newRange = range * (1 - zoomFactor);
-      const padding = (range - newRange) / 2;
-      const newMinX = Math.max(0, minX + padding);
-      const newMaxX = Math.min(
-        this.chart.w.globals.dataPoints - 1,
-        maxX - padding
-      );
-
-      // Apply zoom
-      this.chart.zoomX(newMinX, newMaxX);
-
-      // Apply to all charts
-      this.context.applyZoomToAllCharts({ minX: newMinX, maxX: newMaxX });
+      // Shrink toward the center. The new range is a subset of the current one,
+      // so no clamping is needed. The previous code clamped to `dataPoints` (an
+      // index count), which is meaningless against a timestamp range and made
+      // the buttons no-op on numeric/datetime axes.
+      const padding = (range * ZoomControls.ZOOM_FACTOR) / 2;
+      this.applyRange(minX + padding, maxX - padding);
     } catch (err) {
       Utils.error("Error during zoom in:", err);
     }
   }
 
   /**
-   * Zoom out on the chart
+   * Zoom out on the chart (grow the visible range, bounded by the full data).
    */
   zoomOut() {
     if (!this.chart) return;
@@ -129,22 +138,22 @@ export default class ZoomControls {
 
       const { minX, maxX } = currentZoom;
       const range = maxX - minX;
-      const zoomFactor = 0.25; // Zoom out by 25%
+      if (!(range > 0)) return;
 
-      // Calculate new zoom range (centered zoom)
-      const newRange = range * (1 + zoomFactor);
-      const padding = (newRange - range) / 2;
-      const newMinX = Math.max(0, minX - padding);
-      const newMaxX = Math.min(
-        this.chart.w.globals.dataPoints - 1,
-        maxX + padding
+      const padding = (range * ZoomControls.ZOOM_FACTOR) / 2;
+
+      // Clamp to the chart's full data extent, expressed in the SAME value space
+      // as the zoom state (ApexCharts exposes it as initialMinX/initialMaxX).
+      const g = this.chart.w.globals;
+      const fullMin =
+        typeof g.initialMinX === "number" ? g.initialMinX : minX - padding;
+      const fullMax =
+        typeof g.initialMaxX === "number" ? g.initialMaxX : maxX + padding;
+
+      this.applyRange(
+        Math.max(fullMin, minX - padding),
+        Math.min(fullMax, maxX + padding)
       );
-
-      // Apply zoom
-      this.chart.zoomX(newMinX, newMaxX);
-
-      // Apply to all charts
-      this.context.applyZoomToAllCharts({ minX: newMinX, maxX: newMaxX });
     } catch (err) {
       Utils.error("Error during zoom out:", err);
     }
