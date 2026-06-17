@@ -12,6 +12,7 @@ import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
 import SettingsControl from "./components/SettingsControl";
 import { LicenseManager, Watermark } from "apex-commons";
+import { aggregateOHLC, INTERVALS } from "./utils/Aggregation";
 
 /**
  * ApexStock — a financial-charting layer on top of ApexCharts. Renders an OHLC
@@ -284,6 +285,24 @@ export default class ApexStock {
   static setLicense(key) {
     LicenseManager.setLicense(key);
   }
+
+  /**
+   * Roll fine-grained OHLC candles up into a coarser time frame (e.g. 1m → 1h,
+   * 1h → 1d). Pure helper — pass the result to `new ApexStock(...)` or
+   * `update({ series })` to re-render at the chosen interval.
+   * @param {import("./types.js").Series} series - OHLC points to aggregate.
+   * @param {string} interval - one of {@link ApexStock.INTERVALS}.
+   * @returns {import("./types.js").Series} Aggregated candles (new array).
+   */
+  static aggregateOHLC(series, interval) {
+    return aggregateOHLC(series, interval);
+  }
+
+  /**
+   * The time-frame intervals accepted by {@link ApexStock.aggregateOHLC}.
+   * @type {string[]}
+   */
+  static INTERVALS = INTERVALS;
 
   /**
    * Drop a present-but-nullish top-level `theme` before handing options to

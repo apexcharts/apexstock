@@ -11,6 +11,13 @@ those are called out explicitly below.
 
 ### Added
 
+- **Time-frame aggregation**: `ApexStock.aggregateOHLC(series, interval)` rolls
+  fine-grained candles up into a coarser time frame (`1m`,`5m`,`15m`,`30m`,`1h`,
+  `2h`,`4h`,`12h`,`1d`,`1w`,`1M`) — open = first, high = max, low = min,
+  close = last, volume summed. UTC/epoch-aligned buckets (`1w` Monday-anchored,
+  `1M` by calendar month); accepts timestamp/`Date`/date-string `x`; pure (no
+  mutation). `ApexStock.INTERVALS` lists the accepted keys. See
+  `examples/timeframe.html` for an interval switcher wired to `update()`.
 - **Large-dataset performance options pass through to the whole stock chart.**
   `chart.dataReducer` (zoom-aware LTTB / OHLC downsampling) and
   `chart.zoom.autoScaleYaxis` (rescale Y to the visible window) — both native

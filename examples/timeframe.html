@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Time-frame Aggregation</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      #chart-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      .bar {
+        max-width: 1200px;
+        margin: 0 auto 12px;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .bar button {
+        border: 1px solid #d0d5dd;
+        background: #fff;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .bar button.active {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+      }
+    </style>
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div class="bar">
+      <span style="color: #555">Interval:</span>
+      <button data-interval="1h">1H</button>
+      <button data-interval="4h">4H</button>
+      <button data-interval="12h">12H</button>
+      <button data-interval="1d" class="active">1D</button>
+      <button data-interval="1w">1W</button>
+    </div>
+    <div id="chart-container"><div id="chart"></div></div>
+
+    <script>
+      // 60 days of deterministic hourly candles (the fine-grained base series).
+      function generateHourly(hours) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let last = 100;
+        for (let i = 0; i < hours; i++) {
+          let n = Math.sin(i * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 3).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2).toFixed(2);
+          data.push({ x: base + i * 3600000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const base = generateHourly(24 * 60); // 1440 hourly candles
+
+        const chart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 420 },
+          series: [{ data: ApexStock.aggregateOHLC(base, "1d") }],
+        });
+        chart.render();
+        window.__chart = chart;
+        window.__base = base;
+
+        document.querySelectorAll(".bar button").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const interval = btn.dataset.interval;
+            document
+              .querySelectorAll(".bar button")
+              .forEach((b) => b.classList.toggle("active", b === btn));
+            // Re-aggregate the base series to the chosen interval and update.
+            chart.update({
+              series: [{ data: ApexStock.aggregateOHLC(base, interval) }],
+            });
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
