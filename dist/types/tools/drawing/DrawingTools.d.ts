@@ -50,6 +50,7 @@ export default class DrawingTools {
     };
     eventManager: EventManager;
     elementInteractionManager: ElementInteractionManager;
+    _boundEscapeKey: any;
     /**
      * Set up handler for pinning tooltips on click
      */
@@ -91,6 +92,17 @@ export default class DrawingTools {
      * @param {Object} dataPoint - Current data point with x, y coordinates
      */
     updateElement(x: number, y: number, dataPoint: any): void;
+    /**
+     * Abort an in-progress drawing (Escape). Removes the half-drawn element and
+     * resets state without committing it to the elements array. No-op if no draw
+     * is active.
+     */
+    cancelDrawing(): void;
+    /**
+     * Document-level Escape handler: cancels an in-progress drawing.
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    handleEscapeKey(e: KeyboardEvent): void;
     /**
      * Handle mouseup event to finish drawing
      */
