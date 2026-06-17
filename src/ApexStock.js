@@ -758,6 +758,65 @@ export default class ApexStock {
     optionsContainer.setAttribute("role", "listbox");
     optionsContainer.setAttribute("aria-label", title);
 
+    // Selection logic shared by mouse click and keyboard (Enter/Space). Toggles
+    // the option (overlays = checkbox, oscillators = radio), refreshes the
+    // trigger label, and keeps `aria-selected` in sync.
+    const toggleOption = (option) => {
+      const optionValue = option.dataset.value;
+      const isOscillatorOption = option.dataset.type === "oscillator";
+
+      if (isOscillatorOption) {
+        if (option.classList.contains("selected")) {
+          option.classList.remove("selected");
+          this.removeIndicator(optionValue);
+          this.activeOscillator = null;
+        } else {
+          // Radio behavior: clear any previously selected oscillator first.
+          optionsContainer
+            .querySelectorAll(
+              '.apexstock-custom-option[data-type="oscillator"]'
+            )
+            .forEach((opt) => {
+              if (opt.classList.contains("selected")) {
+                opt.classList.remove("selected");
+                this.removeIndicator(opt.dataset.value);
+              }
+            });
+          option.classList.add("selected");
+          this.activeOscillator = optionValue;
+          this.updateIndicator(optionValue);
+        }
+      } else {
+        // Checkbox behavior for overlays.
+        if (option.classList.contains("selected")) {
+          option.classList.remove("selected");
+          this.removeIndicator(optionValue);
+        } else {
+          option.classList.add("selected");
+          this.updateIndicator(optionValue);
+        }
+      }
+
+      const selectedOptions = optionsContainer.querySelectorAll(
+        ".apexstock-custom-option.selected"
+      );
+      trigger.innerText =
+        selectedOptions.length > 0
+          ? `${title}: ${Array.from(selectedOptions)
+              .map((opt) => opt.innerText)
+              .join(", ")}`
+          : `Select ${title}`;
+
+      optionsContainer
+        .querySelectorAll(".apexstock-custom-option")
+        .forEach((opt) => {
+          opt.setAttribute(
+            "aria-selected",
+            opt.classList.contains("selected") ? "true" : "false"
+          );
+        });
+    };
+
     Object.keys(indicators).forEach((key) => {
       const displayName =
         key === "rsi" || key === "macd"
@@ -770,6 +829,8 @@ export default class ApexStock {
       option.dataset.value = key;
       option.setAttribute("role", "option");
       option.setAttribute("aria-selected", "false");
+      // Roving tabindex: the active option becomes 0 while the listbox is open.
+      option.setAttribute("tabindex", "-1");
 
       // Determine if this is an oscillator or overlay
       const isOscillator = Object.keys(this.oscillators).includes(key);
@@ -778,84 +839,103 @@ export default class ApexStock {
       option.innerText = displayName;
       optionsContainer.appendChild(option);
 
-      option.addEventListener("click", (e) => {
-        const optionValue = e.currentTarget.dataset.value;
-        const isOscillatorOption =
-          e.currentTarget.dataset.type === "oscillator";
-
-        if (isOscillatorOption) {
-          // For oscillators, implement radio button behavior
-          if (e.currentTarget.classList.contains("selected")) {
-            // If clicking on already selected oscillator, deselect it
-            e.currentTarget.classList.remove("selected");
-            this.removeIndicator(optionValue);
-            this.activeOscillator = null;
-          } else {
-            // Clear any previously selected oscillator (radio button behavior)
-            const allOscillatorOptions = optionsContainer.querySelectorAll(
-              '.apexstock-custom-option[data-type="oscillator"]'
-            );
-
-            allOscillatorOptions.forEach((opt) => {
-              if (opt.classList.contains("selected")) {
-                opt.classList.remove("selected");
-                this.removeIndicator(opt.dataset.value);
-              }
-            });
-
-            // Select new oscillator
-            e.currentTarget.classList.add("selected");
-            this.activeOscillator = optionValue;
-            this.updateIndicator(optionValue);
-          }
-        } else {
-          // For overlays, keep checkbox behavior
-          if (e.currentTarget.classList.contains("selected")) {
-            e.currentTarget.classList.remove("selected");
-            this.removeIndicator(optionValue);
-          } else {
-            e.currentTarget.classList.add("selected");
-            this.updateIndicator(optionValue);
-          }
-        }
-
-        // Update dropdown text
-        const selectedOptions = optionsContainer.querySelectorAll(
-          ".apexstock-custom-option.selected"
-        );
-
-        trigger.innerText =
-          selectedOptions.length > 0
-            ? `${title}: ${Array.from(selectedOptions)
-                .map((opt) => opt.innerText)
-                .join(", ")}`
-            : `Select ${title}`;
-
-        // Keep aria-selected in sync with the visual selection state.
-        optionsContainer
-          .querySelectorAll(".apexstock-custom-option")
-          .forEach((opt) => {
-            opt.setAttribute(
-              "aria-selected",
-              opt.classList.contains("selected") ? "true" : "false"
-            );
-          });
-      });
+      option.addEventListener("click", () => toggleOption(option));
     });
 
     wrapper.appendChild(optionsContainer);
-    trigger.addEventListener("click", () => {
-      const isOpen = optionsContainer.style.display === "block";
-      optionsContainer.style.display = isOpen ? "none" : "block";
-      trigger.setAttribute("aria-expanded", isOpen ? "false" : "true");
-    });
 
-    // Track dropdown state and timeout for delayed closing
+    // --- Keyboard support (ARIA listbox pattern) ---
+    const getOptions = () =>
+      Array.from(optionsContainer.querySelectorAll(".apexstock-custom-option"));
+    const isOpen = () => optionsContainer.style.display === "block";
+
+    // Roving tabindex: only the active option is in the tab order; focus it.
+    const focusOption = (idx) => {
+      const opts = getOptions();
+      if (!opts.length) return;
+      const i = Math.max(0, Math.min(idx, opts.length - 1));
+      opts.forEach((o, n) => o.setAttribute("tabindex", n === i ? "0" : "-1"));
+      opts[i].focus();
+    };
+
     let dropdownTimeout = null;
-    const closeDropdown = () => {
+    const closeDropdown = (returnFocus) => {
       optionsContainer.style.display = "none";
       trigger.setAttribute("aria-expanded", "false");
+      if (returnFocus) trigger.focus();
     };
+    const openDropdown = (focusActive) => {
+      optionsContainer.style.display = "block";
+      trigger.setAttribute("aria-expanded", "true");
+      if (focusActive) {
+        const opts = getOptions();
+        const sel = opts.findIndex((o) => o.classList.contains("selected"));
+        focusOption(sel >= 0 ? sel : 0);
+      }
+    };
+
+    // Trigger is operable via mouse and keyboard.
+    trigger.setAttribute("tabindex", "0");
+    trigger.addEventListener("click", () => {
+      if (isOpen()) closeDropdown();
+      else openDropdown(false);
+    });
+    trigger.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          if (isOpen()) closeDropdown();
+          else openDropdown(true);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          openDropdown(true);
+          break;
+        case "Escape":
+          if (isOpen()) {
+            e.preventDefault();
+            closeDropdown();
+          }
+          break;
+      }
+    });
+
+    // Arrow / Home / End / Enter / Space / Escape / Tab within the listbox.
+    optionsContainer.addEventListener("keydown", (e) => {
+      const opts = getOptions();
+      const current = opts.indexOf(document.activeElement);
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          focusOption(current + 1);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          focusOption(current - 1);
+          break;
+        case "Home":
+          e.preventDefault();
+          focusOption(0);
+          break;
+        case "End":
+          e.preventDefault();
+          focusOption(opts.length - 1);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          if (current >= 0) toggleOption(opts[current]);
+          break;
+        case "Escape":
+          e.preventDefault();
+          closeDropdown(true);
+          break;
+        case "Tab":
+          closeDropdown();
+          break;
+      }
+    });
 
     // Add mouseleave event to the wrapper
     wrapper.addEventListener("mouseleave", () => {

@@ -136,6 +136,10 @@ export default class DrawingTools {
 
     // Add tooltip click handler
     this.setupTooltipPinningHandler();
+
+    // Escape cancels an in-progress drawing (bound once for clean removal).
+    this._boundEscapeKey = this.handleEscapeKey.bind(this);
+    document.addEventListener("keydown", this._boundEscapeKey);
   }
 
   /**
@@ -439,6 +443,46 @@ export default class DrawingTools {
         this.currentElementData.rx = dataRx;
         this.currentElementData.ry = dataRy;
         break;
+    }
+  }
+
+  /**
+   * Abort an in-progress drawing (Escape). Removes the half-drawn element and
+   * resets state without committing it to the elements array. No-op if no draw
+   * is active.
+   */
+  cancelDrawing() {
+    if (!this.isDrawing) return;
+
+    this.isDrawing = false;
+
+    // Drop any drag update still queued for the next frame.
+    if (this.throttledDrawMove) {
+      this.throttledDrawMove.cancel();
+    }
+
+    // Remove the uncommitted element from the DOM (text is owned by the
+    // TextAnnotationManager and handled by its own Escape handler).
+    if (
+      this.currentElement &&
+      this.currentTool !== "text" &&
+      this.currentElement.parentNode
+    ) {
+      this.currentElement.parentNode.removeChild(this.currentElement);
+    }
+
+    this.currentElement = null;
+    this.currentElementData = null;
+  }
+
+  /**
+   * Document-level Escape handler: cancels an in-progress drawing.
+   * @param {KeyboardEvent} e - Keyboard event
+   */
+  handleEscapeKey(e) {
+    if (e.key === "Escape" && this.isDrawing) {
+      this.cancelDrawing();
+      e.preventDefault();
     }
   }
 
@@ -932,6 +976,11 @@ export default class DrawingTools {
     // Drop any pending throttled drag update
     if (this.throttledDrawMove) {
       this.throttledDrawMove.cancel();
+    }
+
+    // Remove the Escape key listener
+    if (this._boundEscapeKey) {
+      document.removeEventListener("keydown", this._boundEscapeKey);
     }
 
     // Clean up event listeners

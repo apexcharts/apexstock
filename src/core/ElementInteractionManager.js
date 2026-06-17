@@ -696,12 +696,18 @@ export default class ElementInteractionManager {
    * @param {KeyboardEvent} e - Keyboard event
    */
   handleKeyDown(e) {
-    // Delete or Backspace key
+    // Delete or Backspace key — remove the selected element.
     if (
       (e.key === "Delete" || e.key === "Backspace") &&
       this.selectedElementId
     ) {
       this.deleteSelectedElement();
+      e.preventDefault();
+    }
+
+    // Escape key — deselect the current element.
+    if (e.key === "Escape" && this.selectedElementId) {
+      this.clearSelection();
       e.preventDefault();
     }
   }

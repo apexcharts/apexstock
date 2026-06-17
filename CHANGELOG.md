@@ -22,9 +22,15 @@ those are called out explicitly below.
 - **Indicator registry**: technical indicators are defined in a single
   `INDICATOR_REGISTRY` (overlay | oscillator | custom). Adding an indicator is
   one registry entry; the available-indicator config is derived from it.
-- **Accessibility baseline**: ARIA roles/labels on the zoom controls, drawing
-  toolbar, and indicator dropdown (`aria-expanded`/`aria-selected` kept in sync).
-  Full keyboard navigation is still a follow-up.
+- **Keyboard accessibility**: the indicator dropdown is now fully keyboard
+  operable (ARIA listbox pattern) — the trigger is focusable and responds to
+  `Enter`/`Space`/`ArrowDown` to open; `↑`/`↓`/`Home`/`End` move between options
+  via a roving tabindex; `Enter`/`Space` toggles selection; `Esc` closes and
+  returns focus to the trigger; `Tab` closes. On the drawing canvas, `Esc`
+  cancels an in-progress drawing and deselects the selected element (`Delete`/
+  `Backspace` already removed it). Builds on the existing ARIA roles/labels
+  (`aria-expanded`/`aria-selected` kept in sync) on the zoom controls, drawing
+  toolbar, and indicator dropdown.
 - **Standalone `dist/apexstock.css`** (in addition to the inlined CSS), exposed
   via the `apexstock/apexstock.css` export subpath.
 - `CONTRIBUTING.md` with an architecture overview and the testing approach.
