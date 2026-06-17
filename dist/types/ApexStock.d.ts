@@ -115,6 +115,27 @@ export default class ApexStock {
      */
     handleBeforeResetZoom(ctx: any, e: any): void;
     /**
+     * Resolve a zoom/scroll-event x bound to a timestamp for the custom x-axis.
+     *
+     * ApexCharts reports `e.xaxis.min/max` in the axis's own value space, and the
+     * declared `xaxis.type` is not a reliable discriminator (a category-style
+     * candlestick axis can still report `type: "numeric"`). What IS reliable is
+     * magnitude: on a category/index axis the bound is a small 1-based data index
+     * (≤ the number of points), whereas on a numeric/datetime axis — what
+     * numeric-timestamp `x` data produces — it is the x value itself, an epoch-ms
+     * timestamp that dwarfs any index. So:
+     *   - index-sized bound  -> look up `data[round(val - 1)].x`
+     *   - timestamp-sized    -> the bound already IS the timestamp
+     * The old code always did the index lookup, which on a numeric axis read past
+     * the end of the array, yielded `NaN`, and froze the labels on scroll/zoom.
+     *
+     * @param {object} ctx - The ApexCharts context.
+     * @param {number} val - `e.xaxis.min` or `e.xaxis.max`.
+     * @param {number} fallback - Value to keep if resolution fails.
+     * @returns {number} Timestamp in ms.
+     */
+    resolveXToTimestamp(ctx: object, val: number, fallback: number): number;
+    /**
      * Handle zoom events from the chart
      * @param {Object} e - The zoom event data
      */
