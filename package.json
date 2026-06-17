@@ -21,6 +21,9 @@
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "apex-commons": "^0.1.0"
+  },
   "scripts": {
     "build": "rollup -c && npm run build:types",
     "build:types": "tsc -p tsconfig.json",

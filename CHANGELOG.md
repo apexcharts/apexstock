@@ -42,6 +42,15 @@ those are called out explicitly below.
 
 ### Changed
 
+- **Licensing & watermark now come from the shared `apex-commons` package**
+  instead of being duplicated in-tree. `ApexStock.setLicense()` delegates to
+  `apex-commons`' `LicenseManager` (which adds domain-locking and a more robust
+  key parser), and the licensing watermark is the shared `apex-commons` overlay.
+  The local `src/licensing/LicenseManager.js` and `Watermark.js` were removed,
+  along with the now-unused `.apexstock-watermark` CSS. `apex-commons` is bundled
+  inline, so the standalone builds remain self-contained. Note: the watermark
+  changed from the small "Powered by apexcharts.com" corner badge to the shared
+  repeating-diagonal overlay.
 - **Modernized the toolbar UI**: replaced the inconsistent Unicode-glyph/emoji
   drawing-tool icons with a consistent monochrome SVG icon set (theme-aware via
   `currentColor`); refreshed buttons, dropdowns, color/width inputs, and the

@@ -1127,23 +1127,8 @@
   border-radius: 2px;
 }
 
-/* Add these styles to your ApexStock.css file */
-
-.apexstock-watermark {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  color: #666;
-  font-family: Arial, sans-serif;
-  font-size: 14px;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  z-index: 1000;
-  opacity: 0.7;
-  transition: opacity 0.3s;
-}
+/* The licensing watermark is provided by the apex-commons package, which
+ * injects its overlay element with inline styles — no rule is needed here. */
 
 
 /* ==============================

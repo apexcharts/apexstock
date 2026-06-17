@@ -11,8 +11,7 @@ import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
 import SettingsControl from "./components/SettingsControl";
-import LicenseManager from "./licensing/LicenseManager";
-import Watermark from "./licensing/Watermark";
+import { LicenseManager, Watermark } from "apex-commons";
 
 /**
  * ApexStock — a financial-charting layer on top of ApexCharts. Renders an OHLC
@@ -264,8 +263,9 @@ export default class ApexStock {
   }
 
   /**
-   * Register a license key globally. An invalid/expired key causes the
-   * "Powered by apexcharts.com" watermark to be shown.
+   * Register a license key globally (delegates to apex-commons `LicenseManager`).
+   * An invalid, expired, or missing key causes the apex-commons watermark
+   * overlay to be shown on the chart.
    * @param {string} key - License key in the form `APEX-{encoded}`.
    * @returns {void}
    */

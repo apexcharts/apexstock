@@ -1340,6 +1340,11 @@ ajv@^6.14.0:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
+apex-commons@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.npmjs.org/apex-commons/-/apex-commons-0.1.0.tgz#b9a748b13b850c38aae7cec290a6ec3e9d35222b"
+  integrity sha512-A026WkCgt5XvZn9I5FODJRfpwUR/gUlEFOJRn3VhgioUNdvd8g9VaZp2h5rfuqbVL4Qzn7+oRMHv8TmcQGG1Eg==
+
 assertion-error@^2.0.1:
   version "2.0.1"
   resolved "https://registry.npmjs.org/assertion-error/-/assertion-error-2.0.1.tgz#f641a196b335690b1070bf00b6e7593fec190bf7"
