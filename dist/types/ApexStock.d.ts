@@ -4,8 +4,18 @@
  */
 export default class ApexStock {
     /**
-     * Register a license key globally. An invalid/expired key causes the
-     * "Powered by apexcharts.com" watermark to be shown.
+     * Per-scope reference count for the shared `<style id="apexstock-css">` tag.
+     * Keyed by the node the style is looked up on (the host `Document` or an
+     * enclosing `ShadowRoot`) so the tag is injected once per scope and removed
+     * only when the last instance sharing it is destroyed — preventing the
+     * stylesheet from leaking into `<head>` across SPA navigation.
+     * @type {WeakMap<Document | ShadowRoot, number>}
+     */
+    static _styleRefs: WeakMap<Document | ShadowRoot, number>;
+    /**
+     * Register a license key globally (delegates to apex-commons `LicenseManager`).
+     * An invalid, expired, or missing key causes the apex-commons watermark
+     * overlay to be shown on the chart.
      * @param {string} key - License key in the form `APEX-{encoded}`.
      * @returns {void}
      */
@@ -62,6 +72,17 @@ export default class ApexStock {
     mainChartOptions: any;
     chart: any;
     oscillatorSettings: OscillatorSettings;
+    /**
+     * Drop a present-but-nullish top-level `theme` before handing options to
+     * ApexCharts. ApexCharts v5 dereferences `config.theme.mode` unconditionally,
+     * and an explicit `theme: undefined` (e.g. `theme: someUnsetVar`) overwrites
+     * its default rather than being back-filled — so it would throw. Deleting the
+     * key lets ApexCharts apply its own default; a valid `theme` object is left
+     * untouched.
+     * @param {object} options - A chart-options object, mutated in place.
+     * @returns {void}
+     */
+    sanitizeTheme(options: object): void;
     handleWatermark(): void;
     /**
      * Initialize the xaxis range from the series data
@@ -99,6 +120,25 @@ export default class ApexStock {
     chartSwitch: ChartSwitch;
     xaxis: XAxis;
     zoomControls: ZoomControls;
+    /**
+     * Inject the shared `<style id="apexstock-css">` into the chart's root — the
+     * host document's `<head>`, or the enclosing `ShadowRoot`. Deduped by id so
+     * it is added once per scope no matter how many charts mount, and reference-
+     * counted (see {@link ApexStock._styleRefs}) so {@link ApexStock#destroy} can
+     * remove it once the last chart in that scope is gone. Idempotent per
+     * instance.
+     * @returns {void}
+     */
+    _injectStyles(): void;
+    _styleScope: Document | Node;
+    /**
+     * Release this instance's reference to the shared stylesheet and, when no
+     * instances remain in the same scope, remove the injected `<style>` so it
+     * does not linger in `<head>` after the chart is torn down (e.g. SPA
+     * navigation). Idempotent — safe to call more than once.
+     * @returns {void}
+     */
+    _removeStyles(): void;
     /**
      * Apply new options/data to the chart, preserving active indicators, zoom
      * state, theme, and chart type across the update.
