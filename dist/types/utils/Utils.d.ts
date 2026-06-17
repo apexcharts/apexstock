@@ -28,6 +28,23 @@ declare class Utils {
     static isObject(item: any): boolean;
     static extend(target: any, source: any): any;
     /**
+     * Validate and normalize an OHLC series before it enters the chart pipeline.
+     * Drops malformed points (a nullish/unparseable `x`, or a `y` that is not an
+     * array whose first four entries `[open, high, low, close]` are finite
+     * numbers) and guarantees ascending time order (a financial time series is
+     * expected sorted; out-of-order input is stably reordered by timestamp).
+     *
+     * The input array is never mutated. A single, suppressible warning is emitted
+     * per problem class (dropped points / reordering) so issues are visible
+     * without being fatal — malformed data degrades gracefully instead of
+     * throwing deep in an indicator or coordinate calculation.
+     *
+     * @param {import("../types.js").Series} data - Raw OHLC points.
+     * @returns {import("../types.js").Series} A cleaned, time-sorted series (a new
+     *   array; the happy path with valid, sorted input returns a shallow copy).
+     */
+    static normalizeOHLC(data: import("../types.js").Series): import("../types.js").Series;
+    /**
      * Coalesces rapid calls into at most one invocation per animation frame,
      * always using the most recent arguments. Useful for high-frequency events
      * (mousemove, scroll) where only the latest state matters.
