@@ -11,6 +11,14 @@ those are called out explicitly below.
 
 ### Added
 
+- **Large-dataset performance options pass through to the whole stock chart.**
+  `chart.dataReducer` (zoom-aware LTTB / OHLC downsampling) and
+  `chart.zoom.autoScaleYaxis` (rescale Y to the visible window) — both native
+  ApexCharts v5 options — now reach the main chart *and* the indicator panes,
+  so a multi-thousand-candle chart decimates consistently across panes and the
+  Y-axis tracks the zoomed range. See `examples/large-dataset.html` (4,000
+  candles → ~300 rendered per view). `autoScaleYaxis` defaults on; both are
+  overridable per chart.
 - **Indicator registry**: technical indicators are defined in a single
   `INDICATOR_REGISTRY` (overlay | oscillator | custom). Adding an indicator is
   one registry entry; the available-indicator config is derived from it.

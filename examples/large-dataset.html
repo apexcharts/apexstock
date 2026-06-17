@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Large Dataset (dataReducer + autoScaleYaxis)</title>
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      #chart-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+      }
+      p.note {
+        max-width: 1200px;
+        margin: 0 auto 16px;
+        color: #555;
+      }
+    </style>
+
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+
+  <body>
+    <p class="note">
+      4,000 daily candles. <code>chart.dataReducer</code> downsamples to
+      ~300 points per view (re-resolving as you zoom), and
+      <code>chart.zoom.autoScaleYaxis</code> rescales the y-axis to the visible
+      window. Both flow through to the oscillator pane too.
+    </p>
+    <div id="chart-container">
+      <div id="chart"></div>
+    </div>
+
+    <script>
+      // Deterministic OHLC generator (no Math.random → stable across runs).
+      function generateCandles(count) {
+        const data = [];
+        const base = new Date("2008-01-01").getTime();
+        const day = 86400000;
+        let last = 100;
+        for (let i = 0; i < count; i++) {
+          let noise = Math.sin(i * 12.9898) * 43758.5453;
+          noise = noise - Math.floor(noise); // [0,1)
+          const move = (noise - 0.5) * 4 + Math.sin(i / 60) * 2;
+          const open = last;
+          const close = Math.round((open + move) * 100) / 100;
+          const high =
+            Math.round((Math.max(open, close) + noise * 3) * 100) / 100;
+          const low =
+            Math.round((Math.min(open, close) - noise * 3) * 100) / 100;
+          data.push({
+            x: base + i * day,
+            y: [open, high, low, close],
+            v: Math.floor(noise * 1000000) + 100000,
+          });
+          last = close;
+        }
+        return data;
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const chartOptions = {
+          chart: {
+            height: 420,
+            // Opt into large-dataset performance. Both options are native
+            // ApexCharts (v5.15.0+) and flow through ApexStock to the main
+            // chart AND the indicator panes.
+            dataReducer: {
+              enabled: true,
+              targetPoints: 300,
+              threshold: 500,
+            },
+            zoom: {
+              autoScaleYaxis: true,
+            },
+          },
+          series: [{ data: generateCandles(4000) }],
+        };
+
+        const stockChart = new ApexStock(
+          document.querySelector("#chart"),
+          chartOptions
+        );
+        stockChart.render();
+        // Add a volume oscillator pane — it inherits the main chart's
+        // dataReducer + autoScaleYaxis, so the pane decimates too.
+        stockChart.updateIndicator("volumes");
+        window.stockChart = stockChart;
+      });
+    </script>
+  </body>
+</html>

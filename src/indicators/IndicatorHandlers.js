@@ -36,9 +36,18 @@ function buildCommonChartOptions(context) {
       zoom: {
         enabled: true,
         type: "x",
-        autoScaleYaxis: true,
+        // Inherit the main chart's setting so the whole stock chart rescales
+        // (or not) consistently; defaults on, matching the main chart.
+        autoScaleYaxis:
+          context.mainChartOptions.chart.zoom?.autoScaleYaxis ?? true,
         allowMouseWheelZoom: true,
       },
+      // Inherit the main chart's data reducer so a large-dataset stock chart
+      // decimates its oscillator panes consistently. Pane series are scalar
+      // line data (RSI/MACD/volume values), which LTTB downsamples correctly.
+      ...(context.mainChartOptions.chart.dataReducer
+        ? { dataReducer: context.mainChartOptions.chart.dataReducer }
+        : {}),
     },
     xaxis: {
       labels: { show: false },
