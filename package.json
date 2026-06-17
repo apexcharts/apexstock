@@ -35,7 +35,9 @@
     "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots"
   },
   "keywords": [
     "apexcharts",
@@ -52,6 +54,7 @@
     "@babel/core": "^7.23.2",
     "@babel/preset-env": "^7.23.2",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.58.2",
     "@rollup/plugin-babel": "^6.0.4",
     "@rollup/plugin-commonjs": "^25.0.4",
     "@rollup/plugin-node-resolve": "^15.2.1",

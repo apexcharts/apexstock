@@ -1,3 +1,8 @@
 node_modules/*
 plans
 coverage
+
+# Playwright per-run artifacts (the committed *-snapshots/*.png baselines stay)
+test-results/
+playwright-report/
+.playwright/
