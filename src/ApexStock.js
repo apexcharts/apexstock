@@ -19,6 +19,16 @@ import { LicenseManager, Watermark } from "apex-commons";
  */
 export default class ApexStock {
   /**
+   * Per-scope reference count for the shared `<style id="apexstock-css">` tag.
+   * Keyed by the node the style is looked up on (the host `Document` or an
+   * enclosing `ShadowRoot`) so the tag is injected once per scope and removed
+   * only when the last instance sharing it is destroyed — preventing the
+   * stylesheet from leaking into `<head>` across SPA navigation.
+   * @type {WeakMap<Document | ShadowRoot, number>}
+   */
+  static _styleRefs = new WeakMap();
+
+  /**
    * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
    * @param {import("./types.js").StockChartOptions} chartOptions - ApexCharts options whose `series[0].data` holds the OHLC points.
    */
@@ -424,27 +434,7 @@ export default class ApexStock {
    * @returns {void}
    */
   render() {
-    let rootNode = this.chartEl.getRootNode && this.chartEl.getRootNode();
-    let inShadowRoot = Utils.is("ShadowRoot", rootNode);
-    let doc = this.chartEl.ownerDocument;
-
-    let css = inShadowRoot
-      ? rootNode.getElementById("apexstock-css")
-      : doc.getElementById("apexstock-css");
-
-    if (!css) {
-      css = document.createElement("style");
-      css.id = "apexstock-css";
-      css.textContent = apexStockCSS;
-
-      if (inShadowRoot) {
-        // We are in Shadow DOM, add to shadow root
-        rootNode.prepend(css);
-      } else {
-        // Add to <head> of element's document
-        doc.head.appendChild(css);
-      }
-    }
+    this._injectStyles();
 
     // Apply theme to chart container and toolbars
     this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
@@ -473,6 +463,69 @@ export default class ApexStock {
     this.updateAllChartHeights();
 
     this.handleWatermark();
+  }
+
+  /**
+   * Inject the shared `<style id="apexstock-css">` into the chart's root — the
+   * host document's `<head>`, or the enclosing `ShadowRoot`. Deduped by id so
+   * it is added once per scope no matter how many charts mount, and reference-
+   * counted (see {@link ApexStock._styleRefs}) so {@link ApexStock#destroy} can
+   * remove it once the last chart in that scope is gone. Idempotent per
+   * instance.
+   * @returns {void}
+   */
+  _injectStyles() {
+    if (this._styleScope) return; // already counted for this instance
+
+    let rootNode = this.chartEl.getRootNode && this.chartEl.getRootNode();
+    let inShadowRoot = Utils.is("ShadowRoot", rootNode);
+    let doc = this.chartEl.ownerDocument;
+
+    // The node we both look the style up on and key the refcount by.
+    let scope = inShadowRoot ? rootNode : doc;
+
+    let css = scope.getElementById("apexstock-css");
+    if (!css) {
+      css = document.createElement("style");
+      css.id = "apexstock-css";
+      css.textContent = apexStockCSS;
+
+      if (inShadowRoot) {
+        // We are in Shadow DOM, add to shadow root
+        rootNode.prepend(css);
+      } else {
+        // Add to <head> of element's document
+        doc.head.appendChild(css);
+      }
+    }
+
+    ApexStock._styleRefs.set(scope, (ApexStock._styleRefs.get(scope) || 0) + 1);
+    this._styleScope = scope;
+  }
+
+  /**
+   * Release this instance's reference to the shared stylesheet and, when no
+   * instances remain in the same scope, remove the injected `<style>` so it
+   * does not linger in `<head>` after the chart is torn down (e.g. SPA
+   * navigation). Idempotent — safe to call more than once.
+   * @returns {void}
+   */
+  _removeStyles() {
+    let scope = this._styleScope;
+    if (!scope) return;
+    this._styleScope = null;
+
+    let count = (ApexStock._styleRefs.get(scope) || 1) - 1;
+    if (count > 0) {
+      ApexStock._styleRefs.set(scope, count);
+      return;
+    }
+
+    ApexStock._styleRefs.delete(scope);
+    let css = scope.getElementById && scope.getElementById("apexstock-css");
+    if (css && css.parentNode) {
+      css.parentNode.removeChild(css);
+    }
   }
 
   /**
@@ -666,6 +719,10 @@ export default class ApexStock {
     ) {
       this.oscillatorSettings.destroy();
     }
+
+    // Drop our reference to the shared stylesheet; removes it from <head>
+    // once the last instance in this scope is gone.
+    this._removeStyles();
   }
 
   randomId() {

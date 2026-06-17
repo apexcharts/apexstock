@@ -1,50 +1,50 @@
 /* ==============================
  * 1. Common & Variables
  * ============================== */
-:root {
+[class^="apexstock-"] {
   /* Light Theme Colors */
-  --light-bg: #ffffff;
-  --light-surface-2: #f8fafc;
-  --light-border: #e4e7ec;
-  --light-border-strong: #d0d5dd;
-  --light-hover: #f2f4f7;
-  --light-text: #1f2937;
-  --light-muted: #667085;
-  --light-selected: #eef4ff;
-  --light-divider: #e4e7ec;
-  --light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
+  --apexstock-light-bg: #ffffff;
+  --apexstock-light-surface-2: #f8fafc;
+  --apexstock-light-border: #e4e7ec;
+  --apexstock-light-border-strong: #d0d5dd;
+  --apexstock-light-hover: #f2f4f7;
+  --apexstock-light-text: #1f2937;
+  --apexstock-light-muted: #667085;
+  --apexstock-light-selected: #eef4ff;
+  --apexstock-light-divider: #e4e7ec;
+  --apexstock-light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
 
   /* Dark Theme Colors */
-  --dark-bg: #1e242b;
-  --dark-surface-2: #272e36;
-  --dark-bg-alpha: rgba(255, 255, 255, 0.04);
-  --dark-border: #3a434d;
-  --dark-border-strong: #4a545f;
-  --dark-hover: #2d353e;
-  --dark-text: #e6eaf0;
-  --dark-muted: #9aa4b2;
-  --dark-selected: #2b3a55;
-  --dark-divider: #3a434d;
-  --dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  --apexstock-dark-bg: #1e242b;
+  --apexstock-dark-surface-2: #272e36;
+  --apexstock-dark-bg-alpha: rgba(255, 255, 255, 0.04);
+  --apexstock-dark-border: #3a434d;
+  --apexstock-dark-border-strong: #4a545f;
+  --apexstock-dark-hover: #2d353e;
+  --apexstock-dark-text: #e6eaf0;
+  --apexstock-dark-muted: #9aa4b2;
+  --apexstock-dark-selected: #2b3a55;
+  --apexstock-dark-divider: #3a434d;
+  --apexstock-dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 
   /* Accent Colors */
-  --blue: #2563eb;
-  --blue-hover: #1d4ed8;
-  --accent-soft: rgba(37, 99, 235, 0.1);
-  --danger: #dc3545;
-  --danger-light: #f8d7da;
-  --success: #28a745;
+  --apexstock-blue: #2563eb;
+  --apexstock-blue-hover: #1d4ed8;
+  --apexstock-accent-soft: rgba(37, 99, 235, 0.1);
+  --apexstock-danger: #dc3545;
+  --apexstock-danger-light: #f8d7da;
+  --apexstock-success: #28a745;
 
   /* Common Sizing */
-  --button-size: 32px;
-  --border-radius-sm: 6px;
-  --border-radius-md: 8px;
-  --border-radius-lg: 10px;
-  --font-size-sm: 10px;
-  --gap-sm: 5px;
-  --gap-md: 8px;
-  --gap-lg: 10px;
-  --as-ease: 0.15s ease;
+  --apexstock-button-size: 32px;
+  --apexstock-border-radius-sm: 6px;
+  --apexstock-border-radius-md: 8px;
+  --apexstock-border-radius-lg: 10px;
+  --apexstock-font-size-sm: 10px;
+  --apexstock-gap-sm: 5px;
+  --apexstock-gap-md: 8px;
+  --apexstock-gap-lg: 10px;
+  --apexstock-as-ease: 0.15s ease;
 }
 
 [class^=apexstock-] * {
@@ -60,20 +60,20 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--gap-md);
+  gap: var(--apexstock-gap-md);
   padding: 8px 10px;
   width: 100%;
   position: relative;
   margin-bottom: 8px;
-  border-bottom: 1px solid var(--light-border);
+  border-bottom: 1px solid var(--apexstock-light-border);
   z-index: 1000;
-  color: var(--light-text);
+  color: var(--apexstock-light-text);
 }
 
 /* Consistent keyboard focus ring across all toolbar controls. */
 .apexstock-toolbar :focus-visible,
 .apexstock-zoom-controls :focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--apexstock-blue);
   outline-offset: 1px;
 }
 
@@ -81,7 +81,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--gap-md);
+  gap: var(--apexstock-gap-md);
 }
 
 .apexstock-toolbar-right {
@@ -96,36 +96,36 @@
   position: relative;
   display: inline-block;
   z-index: 100;
-  background: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
+  background: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
 }
 
 .apexstock-chart-type-trigger {
   background: transparent;
   border: none;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--apexstock-border-radius-md);
   cursor: pointer;
   padding: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--button-size);
-  width: var(--button-size);
-  color: var(--light-text);
-  transition: background-color var(--as-ease);
+  height: var(--apexstock-button-size);
+  width: var(--apexstock-button-size);
+  color: var(--apexstock-light-text);
+  transition: background-color var(--apexstock-as-ease);
 }
 
 .apexstock-chart-type-trigger:hover {
-  background-color: var(--light-hover);
+  background-color: var(--apexstock-light-hover);
 }
 
 .apexstock-chart-type-dropdown {
   position: absolute;
-  background-color: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--light-shadow);
+  background-color: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
+  box-shadow: var(--apexstock-light-shadow);
   z-index: 1000;
   width: 168px;
   left: 0;
@@ -138,12 +138,12 @@
 .apexstock-chart-type-option {
   display: flex;
   align-items: center;
-  gap: var(--gap-md);
+  gap: var(--apexstock-gap-md);
   padding: 8px 10px;
   cursor: pointer;
-  border-radius: var(--border-radius-sm);
-  color: var(--light-text);
-  transition: background-color var(--as-ease);
+  border-radius: var(--apexstock-border-radius-sm);
+  color: var(--apexstock-light-text);
+  transition: background-color var(--apexstock-as-ease);
 }
 
 .apexstock-chart-type-option .chart-icon {
@@ -160,12 +160,12 @@
 }
 
 .apexstock-chart-type-option:hover {
-  background-color: var(--light-hover);
+  background-color: var(--apexstock-light-hover);
 }
 
 .apexstock-chart-type-option.active {
-  background-color: var(--accent-soft);
-  color: var(--blue);
+  background-color: var(--apexstock-accent-soft);
+  color: var(--apexstock-blue);
   font-weight: 600;
 }
 
@@ -185,21 +185,21 @@
   align-items: center;
   width: 100%;
   padding: 0 30px 0 12px;
-  background: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
+  background: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  height: var(--button-size);
-  color: var(--light-text);
-  transition: border-color var(--as-ease), background-color var(--as-ease);
+  height: var(--apexstock-button-size);
+  color: var(--apexstock-light-text);
+  transition: border-color var(--apexstock-as-ease), background-color var(--apexstock-as-ease);
 }
 
 .apexstock-custom-select-trigger:hover {
-  background: var(--light-hover);
-  border-color: var(--light-border-strong);
+  background: var(--apexstock-light-hover);
+  border-color: var(--apexstock-light-border-strong);
 }
 
 .apexstock-custom-select-trigger:after {
@@ -209,10 +209,10 @@
   top: 50%;
   width: 8px;
   height: 8px;
-  border-right: 2px solid var(--light-muted);
-  border-bottom: 2px solid var(--light-muted);
+  border-right: 2px solid var(--apexstock-light-muted);
+  border-bottom: 2px solid var(--apexstock-light-muted);
   transform: translateY(-65%) rotate(45deg);
-  transition: transform var(--as-ease);
+  transition: transform var(--apexstock-as-ease);
 }
 
 .apexstock-custom-select-trigger[aria-expanded="true"]:after {
@@ -224,10 +224,10 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--light-shadow);
+  background: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
+  box-shadow: var(--apexstock-light-shadow);
   z-index: 999;
   max-height: 260px;
   overflow-y: auto;
@@ -239,18 +239,18 @@
   position: relative;
   padding: 8px 10px 8px 30px;
   cursor: pointer;
-  border-radius: var(--border-radius-sm);
-  color: var(--light-text);
-  transition: background-color var(--as-ease);
+  border-radius: var(--apexstock-border-radius-sm);
+  color: var(--apexstock-light-text);
+  transition: background-color var(--apexstock-as-ease);
 }
 
 .apexstock-custom-option:hover {
-  background: var(--light-hover);
+  background: var(--apexstock-light-hover);
 }
 
 .apexstock-custom-option.selected {
-  background: var(--accent-soft);
-  color: var(--blue);
+  background: var(--apexstock-accent-soft);
+  color: var(--apexstock-blue);
   font-weight: 500;
 }
 
@@ -261,8 +261,8 @@
   top: 50%;
   width: 5px;
   height: 9px;
-  border-right: 2px solid var(--blue);
-  border-bottom: 2px solid var(--blue);
+  border-right: 2px solid var(--apexstock-blue);
+  border-bottom: 2px solid var(--apexstock-blue);
   transform: translateY(-60%) rotate(45deg);
 }
 
@@ -276,48 +276,48 @@
   z-index: 11;
   padding-left: 10px;
   margin-left: 8px;
-  border-left: 1px solid var(--light-border);
+  border-left: 1px solid var(--apexstock-light-border);
 }
 
 .apexstock-drawing-tool {
-  width: var(--button-size);
-  height: var(--button-size);
+  width: var(--apexstock-button-size);
+  height: var(--apexstock-button-size);
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--apexstock-border-radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--light-text);
-  transition: background-color var(--as-ease), color var(--as-ease),
-    border-color var(--as-ease);
+  color: var(--apexstock-light-text);
+  transition: background-color var(--apexstock-as-ease), color var(--apexstock-as-ease),
+    border-color var(--apexstock-as-ease);
 }
 
 .apexstock-drawing-tool:hover {
-  background: var(--light-hover);
+  background: var(--apexstock-light-hover);
 }
 
 .apexstock-drawing-tool.active {
-  background: var(--accent-soft);
+  background: var(--apexstock-accent-soft);
   border-color: transparent;
-  color: var(--blue);
+  color: var(--apexstock-blue);
 }
 
 .apexstock-drawing-color-picker {
-  width: var(--button-size);
-  height: var(--button-size);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-sm);
+  width: var(--apexstock-button-size);
+  height: var(--apexstock-button-size);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-sm);
   padding: 2px;
   margin-right: 4px;
-  background: var(--light-bg);
+  background: var(--apexstock-light-bg);
   cursor: pointer;
-  transition: border-color var(--as-ease);
+  transition: border-color var(--apexstock-as-ease);
 }
 
 .apexstock-drawing-color-picker:hover {
-  border-color: var(--light-border-strong);
+  border-color: var(--apexstock-light-border-strong);
 }
 
 /* Native color input internals: round the swatch a touch. */
@@ -330,19 +330,19 @@
 }
 
 .apexstock-drawing-toolbar select {
-  height: var(--button-size);
+  height: var(--apexstock-button-size);
   padding: 0 8px;
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-sm);
-  background: var(--light-bg);
-  color: var(--light-text);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-sm);
+  background: var(--apexstock-light-bg);
+  color: var(--apexstock-light-text);
   font-size: 12px;
   cursor: pointer;
-  transition: border-color var(--as-ease);
+  transition: border-color var(--apexstock-as-ease);
 }
 
 .apexstock-drawing-toolbar select:hover {
-  border-color: var(--light-border-strong);
+  border-color: var(--apexstock-light-border-strong);
 }
 
 /* Drawing overlay wrapper should not block chart interactions */
@@ -371,23 +371,23 @@
 }
 
 .apexstock-export-btn {
-  background-color: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
+  background-color: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
   padding: 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color var(--as-ease), border-color var(--as-ease);
-  width: var(--button-size);
-  height: var(--button-size);
-  color: var(--light-text);
+  transition: background-color var(--apexstock-as-ease), border-color var(--apexstock-as-ease);
+  width: var(--apexstock-button-size);
+  height: var(--apexstock-button-size);
+  color: var(--apexstock-light-text);
 }
 
 .apexstock-export-btn:hover {
-  background-color: var(--light-hover);
-  border-color: var(--light-border-strong);
+  background-color: var(--apexstock-light-hover);
+  border-color: var(--apexstock-light-border-strong);
 }
 
 /* ==============================
@@ -397,7 +397,7 @@
   position: absolute;
   display: none;
   padding: 6px;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--apexstock-border-radius-md);
   font-size: 11px;
   pointer-events: none;
   z-index: 1000;
@@ -424,9 +424,9 @@
  * 9. Element Popup
  * ============================== */
 .apexstock-element-popup {
-  box-shadow: 0 2px 8px var(--light-shadow);
-  border-radius: var(--border-radius-lg);
-  background-color: var(--light-bg);
+  box-shadow: 0 2px 8px var(--apexstock-light-shadow);
+  border-radius: var(--apexstock-border-radius-lg);
+  background-color: var(--apexstock-light-bg);
   min-width: 220px;
   padding: 12px;
   position: absolute;
@@ -434,14 +434,14 @@
   /* Above tooltips */
   pointer-events: auto;
   display: none;
-  border: 1px solid var(--light-border);
+  border: 1px solid var(--apexstock-light-border);
 }
 
 .apexstock-style-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--gap-md);
-  margin-bottom: var(--gap-md);
+  gap: var(--apexstock-gap-md);
+  margin-bottom: var(--apexstock-gap-md);
   padding: 4px;
 }
 
@@ -453,7 +453,7 @@
 
 .apexstock-color-container label,
 .apexstock-opacity-container label {
-  font-size: var(--font-size-sm);
+  font-size: var(--apexstock-font-size-sm);
   margin-bottom: 2px;
   color: #666;
 }
@@ -463,7 +463,7 @@
   width: 24px;
   height: 24px;
   padding: 0;
-  border: 1px solid var(--light-border);
+  border: 1px solid var(--apexstock-light-border);
   border-radius: 2px;
   cursor: pointer;
   transition: transform 0.1s ease;
@@ -496,7 +496,7 @@
   width: 100%;
   height: 1px;
   margin: 4px 0;
-  background-color: var(--light-divider);
+  background-color: var(--apexstock-light-divider);
 }
 
 .apexstock-element-delete-btn {
@@ -508,15 +508,15 @@
   border: none;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--border-radius-sm);
-  color: var(--light-text);
+  border-radius: var(--apexstock-border-radius-sm);
+  color: var(--apexstock-light-text);
   transition: all 0.2s;
   margin-top: 4px;
 }
 
 .apexstock-element-delete-btn:hover {
-  background-color: var(--danger-light);
-  color: var(--danger);
+  background-color: var(--apexstock-danger-light);
+  color: var(--apexstock-danger);
 }
 
 /* ==============================
@@ -525,11 +525,11 @@
 .apexstock-text-toolbar {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-md);
-  background-color: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 2px 8px var(--light-shadow);
+  gap: var(--apexstock-gap-md);
+  background-color: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-lg);
+  box-shadow: 0 2px 8px var(--apexstock-light-shadow);
   padding: 12px;
   min-width: 300px;
   z-index: 1001;
@@ -553,24 +553,24 @@
   width: 28px;
   height: 28px;
   margin: 0 2px;
-  background: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
+  background: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .apexstock-text-toolbar button:hover {
-  background-color: var(--light-hover);
+  background-color: var(--apexstock-light-hover);
   border-color: #adb5bd;
 }
 
 .apexstock-text-toolbar select {
   height: 28px;
   margin: 0 2px;
-  background: var(--light-bg);
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-md);
+  background: var(--apexstock-light-bg);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
   cursor: pointer;
 }
 
@@ -609,9 +609,9 @@
   min-width: 100px;
   min-height: 14px;
   padding: 5px;
-  border: 1px solid var(--blue);
-  border-radius: var(--border-radius-sm);
-  box-shadow: 0 2px 5px var(--light-shadow);
+  border: 1px solid var(--apexstock-blue);
+  border-radius: var(--apexstock-border-radius-sm);
+  box-shadow: 0 2px 5px var(--apexstock-light-shadow);
   outline: none;
   position: absolute;
   z-index: 1000;
@@ -627,7 +627,7 @@
 }
 
 .apexstock-tooltip-annotation rect {
-  box-shadow: 0 2px 5px var(--light-shadow);
+  box-shadow: 0 2px 5px var(--apexstock-light-shadow);
 }
 
 /* Make sure tooltip content is visible */
@@ -644,86 +644,86 @@
  * 12. Dark Theme Overrides
  * ============================== */
 .apexstock-theme-dark .apexstock-toolbar {
-  color: var(--dark-text);
-  border-bottom-color: var(--dark-border);
+  color: var(--apexstock-dark-text);
+  border-bottom-color: var(--apexstock-dark-border);
 }
 
 /* Outlined surface controls (chart-type, export) */
 .apexstock-theme-dark .apexstock-chart-type-wrapper,
 .apexstock-theme-dark .apexstock-export-btn,
 .apexstock-theme-dark .apexstock-export-btn-container button {
-  background-color: var(--dark-bg);
-  border-color: var(--dark-border);
-  color: var(--dark-text);
+  background-color: var(--apexstock-dark-bg);
+  border-color: var(--apexstock-dark-border);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-trigger {
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-trigger:hover,
 .apexstock-theme-dark .apexstock-export-btn:hover {
-  background-color: var(--dark-hover);
-  border-color: var(--dark-border-strong);
+  background-color: var(--apexstock-dark-hover);
+  border-color: var(--apexstock-dark-border-strong);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-wrapper svg,
 .apexstock-theme-dark .apexstock-export-btn-container svg {
-  stroke: var(--dark-text);
+  stroke: var(--apexstock-dark-text);
 }
 
 /* Chart-type dropdown menu */
 .apexstock-theme-dark .apexstock-chart-type-dropdown {
-  background-color: var(--dark-bg);
-  border-color: var(--dark-border);
-  box-shadow: var(--dark-shadow);
+  background-color: var(--apexstock-dark-bg);
+  border-color: var(--apexstock-dark-border);
+  box-shadow: var(--apexstock-dark-shadow);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-option {
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-option:hover {
-  background-color: var(--dark-hover);
+  background-color: var(--apexstock-dark-hover);
 }
 
 .apexstock-theme-dark .apexstock-chart-type-option.active {
-  background-color: var(--accent-soft);
+  background-color: var(--apexstock-accent-soft);
   color: #7aa7ff;
 }
 
 /* Indicator dropdown */
 .apexstock-theme-dark .apexstock-custom-select-trigger {
-  background: var(--dark-bg);
-  border-color: var(--dark-border);
-  color: var(--dark-text);
+  background: var(--apexstock-dark-bg);
+  border-color: var(--apexstock-dark-border);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-custom-select-trigger:hover {
-  background: var(--dark-hover);
-  border-color: var(--dark-border-strong);
+  background: var(--apexstock-dark-hover);
+  border-color: var(--apexstock-dark-border-strong);
 }
 
 .apexstock-theme-dark .apexstock-custom-select-trigger:after {
-  border-color: var(--dark-muted);
+  border-color: var(--apexstock-dark-muted);
 }
 
 .apexstock-theme-dark .apexstock-custom-options {
-  background: var(--dark-bg);
-  border-color: var(--dark-border);
-  box-shadow: var(--dark-shadow);
+  background: var(--apexstock-dark-bg);
+  border-color: var(--apexstock-dark-border);
+  box-shadow: var(--apexstock-dark-shadow);
 }
 
 .apexstock-theme-dark .apexstock-custom-option {
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-custom-option:hover {
-  background: var(--dark-hover);
+  background: var(--apexstock-dark-hover);
 }
 
 .apexstock-theme-dark .apexstock-custom-option.selected {
-  background: var(--accent-soft);
+  background: var(--apexstock-accent-soft);
   color: #7aa7ff;
 }
 
@@ -734,28 +734,28 @@
 /* Form controls */
 .apexstock-theme-dark select,
 .apexstock-theme-dark input {
-  background-color: var(--dark-surface-2);
-  color: var(--dark-text);
-  border: 1px solid var(--dark-border);
-  border-radius: var(--border-radius-sm);
+  background-color: var(--apexstock-dark-surface-2);
+  color: var(--apexstock-dark-text);
+  border: 1px solid var(--apexstock-dark-border);
+  border-radius: var(--apexstock-border-radius-sm);
 }
 
 /* Drawing tools: transparent buttons, icons follow currentColor */
 .apexstock-theme-dark .apexstock-drawing-toolbar {
-  border-left-color: var(--dark-border);
+  border-left-color: var(--apexstock-dark-border);
 }
 
 .apexstock-theme-dark .apexstock-drawing-tool {
   background: transparent;
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-drawing-tool:hover {
-  background: var(--dark-hover);
+  background: var(--apexstock-dark-hover);
 }
 
 .apexstock-theme-dark .apexstock-drawing-tool.active {
-  background: var(--accent-soft);
+  background: var(--apexstock-accent-soft);
   color: #7aa7ff;
 }
 
@@ -767,7 +767,7 @@
 .apexstock-theme-dark .apexstock-xaxis-tooltip {
   background: rgba(0, 0, 0, .8);
   border: 1px solid rgba(0, 0, 0, .5);
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-tooltip-annotation:hover rect {
@@ -775,9 +775,9 @@
 }
 
 .apexstock-theme-dark .apexstock-element-popup {
-  background-color: var(--dark-bg);
-  border: 1px solid var(--dark-border);
-  color: var(--dark-text);
+  background-color: var(--apexstock-dark-bg);
+  border: 1px solid var(--apexstock-dark-border);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-color-container label,
@@ -787,28 +787,28 @@
 
 .apexstock-theme-dark .apexstock-stroke-color-picker,
 .apexstock-theme-dark .apexstock-fill-color-picker {
-  border-color: var(--dark-border);
+  border-color: var(--apexstock-dark-border);
 }
 
 .apexstock-theme-dark .apexstock-element-delete-btn {
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-element-delete-btn:hover {
   background-color: rgba(220, 53, 69, 0.2);
-  color: var(--danger-light);
+  color: var(--apexstock-danger-light);
 }
 
 .apexstock-theme-dark .apexstock-text-toolbar {
-  background-color: var(--dark-bg);
-  border-color: var(--dark-border);
+  background-color: var(--apexstock-dark-bg);
+  border-color: var(--apexstock-dark-border);
 }
 
 .apexstock-theme-dark .apexstock-text-toolbar button,
 .apexstock-theme-dark .apexstock-text-toolbar select {
-  background-color: var(--dark-border);
+  background-color: var(--apexstock-dark-border);
   border-color: #6c757d;
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-text-toolbar button:hover {
@@ -816,9 +816,9 @@
 }
 
 .apexstock-theme-dark .apexstock-text-editor {
-  background-color: var(--dark-bg);
-  border-color: var(--blue);
-  color: var(--dark-text);
+  background-color: var(--apexstock-dark-bg);
+  border-color: var(--apexstock-blue);
+  color: var(--apexstock-dark-text);
 }
 
 /* ==============================
@@ -834,9 +834,9 @@
   z-index: 10;
   padding: 3px;
   background-color: rgba(255, 255, 255, 0.8);
-  border: 1px solid var(--light-border);
+  border: 1px solid var(--apexstock-light-border);
   border-radius: 999px;
-  box-shadow: var(--light-shadow);
+  box-shadow: var(--apexstock-light-shadow);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -847,7 +847,7 @@
   height: 24px;
   border-radius: 999px;
   background-color: transparent;
-  color: var(--light-text);
+  color: var(--apexstock-light-text);
   font-size: 18px;
   line-height: 1;
   border: none;
@@ -855,27 +855,27 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color var(--as-ease);
+  transition: background-color var(--apexstock-as-ease);
 }
 
 .apexstock-zoom-in:hover,
 .apexstock-zoom-out:hover {
-  background-color: var(--light-hover);
+  background-color: var(--apexstock-light-hover);
 }
 
 .apexstock-theme-dark .apexstock-zoom-controls {
   background-color: rgba(30, 36, 43, 0.8);
-  border-color: var(--dark-border);
+  border-color: var(--apexstock-dark-border);
 }
 
 .apexstock-theme-dark .apexstock-zoom-in,
 .apexstock-theme-dark .apexstock-zoom-out {
-  color: var(--dark-text);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-theme-dark .apexstock-zoom-in:hover,
 .apexstock-theme-dark .apexstock-zoom-out:hover {
-  background-color: var(--dark-hover);
+  background-color: var(--apexstock-dark-hover);
 }
 
 /* ==============================
@@ -885,7 +885,7 @@
 /* Base settings control styles */
 .apexstock-settings-control {
   position: absolute;
-  border: 1px dashed var(--light-border);
+  border: 1px dashed var(--apexstock-light-border);
   padding: 10px;
   z-index: 900;
   min-width: 200px;
@@ -904,8 +904,8 @@
   font-weight: bold;
   margin-bottom: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--light-divider);
-  color: var(--light-text);
+  border-bottom: 1px solid var(--apexstock-light-divider);
+  color: var(--apexstock-light-text);
 }
 
 /* Control group and form elements */
@@ -919,10 +919,10 @@
 .apexstock-settings-control-group input[type="text"],
 .apexstock-settings-control-group select {
   padding: 4px 8px;
-  border: 1px solid var(--light-border);
-  border-radius: var(--border-radius-sm);
-  background: var(--light-bg);
-  color: var(--light-text);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-sm);
+  background: var(--apexstock-light-bg);
+  color: var(--apexstock-light-text);
   font-size: 11px;
   margin: 0 5px;
 }
@@ -939,7 +939,7 @@
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: var(--light-border);
+  background: var(--apexstock-light-border);
   border-radius: 2px;
   outline: none;
 }
@@ -951,7 +951,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--apexstock-blue);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -964,7 +964,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--apexstock-blue);
   cursor: pointer;
   border: none;
   transition: background 0.2s;
@@ -979,7 +979,7 @@
   min-width: 35px;
   text-align: right;
   font-weight: 500;
-  color: var(--blue);
+  color: var(--apexstock-blue);
 }
 
 /* Toggle switch styles */
@@ -1021,7 +1021,7 @@
 }
 
 .apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider {
-  background-color: var(--blue);
+  background-color: var(--apexstock-blue);
 }
 
 .apexstock-settings-toggle input:checked+.apexstock-settings-toggle-slider:before {
@@ -1032,12 +1032,12 @@
  * Dark Theme Support
  * ============================== */
 .apexstock-settings-control.apexstock-theme-dark {
-  border-color: var(--dark-border);
+  border-color: var(--apexstock-dark-border);
 }
 
 .apexstock-settings-control.apexstock-theme-dark .apexstock-settings-header {
-  color: var(--dark-text);
-  border-color: var(--dark-divider);
+  color: var(--apexstock-dark-text);
+  border-color: var(--apexstock-dark-divider);
 }
 
 .apexstock-settings-control.apexstock-theme-dark label {
@@ -1047,13 +1047,13 @@
 .apexstock-settings-control.apexstock-theme-dark input[type="number"],
 .apexstock-settings-control.apexstock-theme-dark input[type="text"],
 .apexstock-settings-control.apexstock-theme-dark select {
-  background: var(--dark-bg-alpha);
-  border-color: var(--dark-border);
-  color: var(--dark-text);
+  background: var(--apexstock-dark-bg-alpha);
+  border-color: var(--apexstock-dark-border);
+  color: var(--apexstock-dark-text);
 }
 
 .apexstock-settings-control.apexstock-theme-dark .apexstock-settings-range-container input[type="range"] {
-  background: var(--dark-border);
+  background: var(--apexstock-dark-border);
 }
 
 .apexstock-settings-control.apexstock-theme-dark .apexstock-settings-range-value {

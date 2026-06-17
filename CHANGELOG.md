@@ -106,6 +106,16 @@ those are called out explicitly below.
   `theme.mode` throw on the *main* chart. A `theme` key that is present but
   nullish is now stripped before reaching ApexCharts (a valid theme object is
   left intact), in both the constructor and `update()`.
+- **CSS variable leakage into the host page**: the injected stylesheet declared
+  ~27 generic, un-namespaced custom properties (`--font-size-sm`, `--blue`,
+  `--danger`, `--border-radius-*`, `--gap-*`, `--light-*`/`--dark-*`, …) on the
+  global `:root`. Because the `<style>` is appended after the host's sheets, it
+  won the cascade and clobbered any host design token of the same name (most
+  visibly `--font-size-sm: 10px`, shrinking host text). Every property is now
+  prefixed `--apexstock-*` and the block is scoped to `[class^="apexstock-"]`
+  instead of `:root`, so nothing touches the host document. The injected
+  `<style>` is also reference-counted and removed from `<head>` when the last
+  instance is destroyed, so it no longer lingers across SPA navigation.
 - Removed a redundant 1-second `setInterval` overlay-sync poll in `EventManager`
   (the `MutationObserver` and chart events already cover syncing) and disconnect
   the observer on `destroy()` to avoid a leak.
