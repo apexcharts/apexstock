@@ -21,6 +21,20 @@ export default class ApexStock {
      */
     static setLicense(key: string): void;
     /**
+     * Roll fine-grained OHLC candles up into a coarser time frame (e.g. 1m → 1h,
+     * 1h → 1d). Pure helper — pass the result to `new ApexStock(...)` or
+     * `update({ series })` to re-render at the chosen interval.
+     * @param {import("./types.js").Series} series - OHLC points to aggregate.
+     * @param {string} interval - one of {@link ApexStock.INTERVALS}.
+     * @returns {import("./types.js").Series} Aggregated candles (new array).
+     */
+    static aggregateOHLC(series: import("./types.js").Series, interval: string): import("./types.js").Series;
+    /**
+     * The time-frame intervals accepted by {@link ApexStock.aggregateOHLC}.
+     * @type {string[]}
+     */
+    static INTERVALS: string[];
+    /**
      * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
      * @param {import("./types.js").StockChartOptions} chartOptions - ApexCharts options whose `series[0].data` holds the OHLC points.
      */
