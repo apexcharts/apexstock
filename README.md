@@ -128,6 +128,11 @@ const chartOptions = {
 }
 ```
 
+To **restyle the toolbar/UI** (colors, accent, radii) beyond light/dark, override
+the `--apexstock-*` CSS custom properties — no stylesheet fork required. See
+[THEMING.md](THEMING.md) for the full token reference and override recipe, the
+copy-ready `apexstock/theme-template.css`, and `examples/theming.html`.
+
 ### Indicator Configuration
 
 You can configure indicators in two ways:

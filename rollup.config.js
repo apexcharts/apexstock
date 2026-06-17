@@ -141,6 +141,19 @@ export default {
             fs.mkdirSync("./dist", { recursive: true });
           }
           fs.writeFileSync(path.resolve("./dist/apexstock.css"), css);
+
+          // Copy the copy-ready theme override template for consumers.
+          const themeTemplate = fs.readFileSync(
+            path.resolve("./src/themes/apexstock-theme-template.css"),
+            "utf8"
+          );
+          if (!fs.existsSync("./dist/themes")) {
+            fs.mkdirSync("./dist/themes", { recursive: true });
+          }
+          fs.writeFileSync(
+            path.resolve("./dist/themes/apexstock-theme-template.css"),
+            themeTemplate
+          );
         } catch (error) {
           console.error("Error writing standalone CSS:", error);
         }

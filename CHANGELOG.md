@@ -11,6 +11,17 @@ those are called out explicitly below.
 
 ### Added
 
+- **Consumer theming API (no stylesheet fork).** The toolbar/UI chrome is fully
+  styled with `--apexstock-*` custom properties; you can now retheme any of it
+  by overriding those tokens instead of forking the CSS. New `THEMING.md`
+  documents all 36 tokens (light palette, dark palette, accent, sizing) and a
+  reliable override recipe (`.apexstock-theme-light [class^="apexstock-"] { … }`,
+  specificity `0,2,0`, so it wins regardless of stylesheet load order). A
+  copy-ready starting point ships as `apexstock/theme-template.css`
+  (`dist/themes/apexstock-theme-template.css`), and `examples/theming.html`
+  demonstrates a full custom palette with a light/dark toggle. Covered by an
+  e2e test asserting overridden tokens reach the rendered controls, plus a
+  visual baseline.
 - **End-to-end + visual-regression tests (Playwright).** A new `test/e2e` suite
   drives a deterministic fixture (animations disabled, fixed data) in a real
   browser: the toolbar renders all control groups, the candlestick bodies draw,

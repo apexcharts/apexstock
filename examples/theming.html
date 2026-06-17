@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Custom Theming (no fork)</title>
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #eef2f6;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .bar button {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        border-radius: 6px;
+        padding: 6px 14px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      #card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 16px;
+      }
+
+      /* ================================================================
+       * CUSTOM THEME — applied with ONLY the documented override recipe.
+       * No stylesheet fork: we re-declare --apexstock-* tokens scoped to
+       * `[class^="apexstock-"]` under the theme class (specificity 0,2,0),
+       * so they win over the library's own declarations. See THEMING.md.
+       * ================================================================ */
+      .apexstock-theme-light [class^="apexstock-"] {
+        --apexstock-light-bg: #fffdf7;
+        --apexstock-light-surface-2: #fef6e7;
+        --apexstock-light-border: #e7d9b8;
+        --apexstock-light-border-strong: #d9c188;
+        --apexstock-light-hover: #fbeecb;
+        --apexstock-light-text: #5a3e1b;
+        --apexstock-light-muted: #9a7b46;
+        --apexstock-light-selected: #fdecc8;
+      }
+      .apexstock-theme-light [class^="apexstock-"],
+      .apexstock-theme-dark [class^="apexstock-"] {
+        /* Shared amber accent + chunkier rounding for both modes. */
+        --apexstock-blue: #d98a09;
+        --apexstock-blue-hover: #b9740a;
+        --apexstock-accent-soft: rgba(217, 138, 9, 0.14);
+        --apexstock-border-radius-sm: 9px;
+        --apexstock-border-radius-md: 11px;
+        --apexstock-border-radius-lg: 14px;
+        --apexstock-button-size: 34px;
+      }
+      .apexstock-theme-dark [class^="apexstock-"] {
+        --apexstock-dark-bg: #1a1206;
+        --apexstock-dark-surface-2: #241a0b;
+        --apexstock-dark-border: #4a3a1c;
+        --apexstock-dark-border-strong: #6b5326;
+        --apexstock-dark-hover: #2c2110;
+        --apexstock-dark-text: #f3e6c8;
+        --apexstock-dark-muted: #c2a467;
+        --apexstock-dark-selected: #3a2c12;
+      }
+    </style>
+
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="bar">
+        <span style="color: #475569">Custom "amber" theme — no CSS fork.</span>
+        <button id="toggle">Toggle light / dark</button>
+      </div>
+      <div id="card"><div id="chart"></div></div>
+    </div>
+
+    <script>
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let last = 100;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin(i * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 4).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c] });
+          last = c;
+        }
+        return data;
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        let mode = "light";
+        const chart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 460, animations: { enabled: false } },
+          theme: { mode },
+          series: [{ name: "Price", data: generateData(120) }],
+        });
+        chart.render();
+        window.__chart = chart;
+
+        document.getElementById("toggle").addEventListener("click", () => {
+          mode = mode === "light" ? "dark" : "light";
+          document.getElementById("card").style.background =
+            mode === "dark" ? "#1a1206" : "#fff";
+          chart.update({ theme: { mode } });
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -80,6 +80,40 @@ test.describe("ApexStock toolbar + chart", () => {
   });
 });
 
+test.describe("ApexStock consumer theming", () => {
+  const THEMED = "/apexstock/test/e2e/fixtures/chart-themed.html";
+
+  test("custom --apexstock-* token overrides reach the rendered toolbar", async ({
+    page,
+  }) => {
+    await page.goto(THEMED);
+    await page.waitForFunction(() => window.__ready === true, null, {
+      timeout: 15000,
+    });
+
+    // The override recipe (no stylesheet fork) must win over the library's own
+    // token declarations: the chart-type wrapper reads --apexstock-light-bg.
+    const wrapper = page.locator(".apexstock-chart-type-wrapper");
+    await expect(wrapper).toBeVisible();
+    const bg = await wrapper.evaluate(
+      (el) => getComputedStyle(el).backgroundColor
+    );
+    // --apexstock-light-bg was overridden to #fffdf7 == rgb(255, 253, 247).
+    expect(bg).toBe("rgb(255, 253, 247)");
+
+    // The active drawing tool's text/icon color reads the accent token,
+    // overridden to amber rgb(217, 138, 9).
+    const active = page.locator('.apexstock-drawing-tool[data-tool="line"]');
+    await active.click();
+    await expect(active).toHaveClass(/active/);
+    // The color transitions (var(--apexstock-as-ease)) from text to accent;
+    // poll until it settles on the overridden amber.
+    await expect
+      .poll(() => active.evaluate((el) => getComputedStyle(el).color))
+      .toBe("rgb(217, 138, 9)");
+  });
+});
+
 test.describe("ApexStock visual regression", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 960, height: 600 });
@@ -95,6 +129,17 @@ test.describe("ApexStock visual regression", () => {
   test("chart matches the baseline", async ({ page }) => {
     await expect(page.locator("#chart-container")).toHaveScreenshot(
       "chart.png"
+    );
+  });
+
+  test("custom-themed toolbar matches the baseline", async ({ page }) => {
+    await page.goto("/apexstock/test/e2e/fixtures/chart-themed.html");
+    await page.waitForFunction(() => window.__ready === true, null, {
+      timeout: 15000,
+    });
+    await expect(page.locator("#chart .apexcharts-svg")).toBeVisible();
+    await expect(page.locator(".apexstock-toolbar")).toHaveScreenshot(
+      "toolbar-themed.png"
     );
   });
 });

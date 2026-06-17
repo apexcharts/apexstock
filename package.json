@@ -14,12 +14,14 @@
       "default": "./dist/apexstock.cjs"
     },
     "./apexstock.css": "./dist/apexstock.css",
+    "./theme-template.css": "./dist/themes/apexstock-theme-template.css",
     "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "THEMING.md"
   ],
   "dependencies": {
     "apex-commons": "^0.1.0"

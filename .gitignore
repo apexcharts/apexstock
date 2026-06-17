@@ -1,6 +1,7 @@
 node_modules/*
 plans
 coverage
+.DS_Store
 
 # Playwright per-run artifacts (the committed *-snapshots/*.png baselines stay)
 test-results/
