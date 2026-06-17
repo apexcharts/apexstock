@@ -257,6 +257,8 @@ export default class ApexStock {
       newChartOptions
     );
 
+    this.sanitizeTheme(this.mainChartOptions);
+
     this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
 
     this.oscillatorSettings = new OscillatorSettings(this);
@@ -271,6 +273,22 @@ export default class ApexStock {
    */
   static setLicense(key) {
     LicenseManager.setLicense(key);
+  }
+
+  /**
+   * Drop a present-but-nullish top-level `theme` before handing options to
+   * ApexCharts. ApexCharts v5 dereferences `config.theme.mode` unconditionally,
+   * and an explicit `theme: undefined` (e.g. `theme: someUnsetVar`) overwrites
+   * its default rather than being back-filled — so it would throw. Deleting the
+   * key lets ApexCharts apply its own default; a valid `theme` object is left
+   * untouched.
+   * @param {object} options - A chart-options object, mutated in place.
+   * @returns {void}
+   */
+  sanitizeTheme(options) {
+    if (options && "theme" in options && options.theme == null) {
+      delete options.theme;
+    }
   }
 
   handleWatermark() {
@@ -565,6 +583,7 @@ export default class ApexStock {
     }
 
     // Update the chart with new options
+    this.sanitizeTheme(updatedOptions);
     this.chart.updateOptions(updatedOptions, true, true, true);
 
     // Reinitialize xaxis range with new data

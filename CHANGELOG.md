@@ -42,6 +42,14 @@ those are called out explicitly below.
 
 ### Changed
 
+- **BREAKING: the `apexcharts` peer dependency is now `^5.15.0`** (was `^4.7.0`).
+  v5 carries the candlestick/large-dataset performance fixes and changed some
+  config handling (e.g. it no longer back-fills an explicit `theme: undefined`),
+  which is the version the library is now built and verified against. Note:
+  ApexStock relies on ApexCharts' annotations, toolbar, and zoom features, so
+  consumers must use the **full** `apexcharts` bundle (the default import) — a
+  v5 tree-shaken sub-entry would silently drop Fibonacci annotations and the
+  zoom controls.
 - **Licensing & watermark now come from the shared `apex-commons` package**
   instead of being duplicated in-tree. `ApexStock.setLicense()` delegates to
   `apex-commons`' `LicenseManager` (which adds domain-locking and a more robust
@@ -77,6 +85,19 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **Oscillator panes threw `theme.mode` errors under ApexCharts 5**: the pane
+  chart options passed a top-level `theme: mainChartOptions.theme`, which is
+  `undefined` (the main chart only sets `chart.theme`). An explicit
+  `theme: undefined` overwrites ApexCharts' default rather than being back-filled
+  like an absent key, so `cnf.theme.mode` threw in the core's `setupElements`
+  (surfaced against the v5 core; v4 tolerated it). Panes now pass a proper
+  `theme: { mode }` object.
+- **Main chart hardened against an explicit `theme: undefined`.** Because the
+  option merge propagates explicit-undefined values, a caller passing
+  `theme: undefined` (e.g. `theme: someUnsetVar`) would hit the same v5
+  `theme.mode` throw on the *main* chart. A `theme` key that is present but
+  nullish is now stripped before reaching ApexCharts (a valid theme object is
+  left intact), in both the constructor and `update()`.
 - Removed a redundant 1-second `setInterval` overlay-sync poll in `EventManager`
   (the `MutationObserver` and chart events already cover syncing) and disconnect
   the observer on `destroy()` to avoid a leak.

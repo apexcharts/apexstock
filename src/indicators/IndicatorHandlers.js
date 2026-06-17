@@ -39,9 +39,6 @@ function buildCommonChartOptions(context) {
         autoScaleYaxis: true,
         allowMouseWheelZoom: true,
       },
-      theme: {
-        mode: context.theme,
-      },
     },
     xaxis: {
       labels: { show: false },
@@ -56,7 +53,12 @@ function buildCommonChartOptions(context) {
       ...context.mainChartOptions.grid,
       borderColor: context.isDarkTheme ? "#404040" : "#e9ecef",
     },
-    theme: context.mainChartOptions.theme,
+    // Pass a proper theme object. `mainChartOptions.theme` is undefined (the
+    // main chart only sets `chart.theme`), and an explicit `theme: undefined`
+    // overwrites ApexCharts' default — making `cnf.theme.mode` throw in
+    // Core.setupElements (an *absent* key would be back-filled; an undefined
+    // one is not). `context.theme` is the theme-mode string ("light"/"dark").
+    theme: { mode: context.theme },
     tooltip: {
       x: { show: false },
       marker: { show: false },

@@ -68,6 +68,6 @@
     "vitest": "^4.1.8"
   },
   "peerDependencies": {
-    "apexcharts": "^4.7.0"
+    "apexcharts": "^5.15.0"
   }
 }

@@ -67,4 +67,27 @@ describe("ApexStock (smoke)", () => {
     const container = makeContainer();
     expect(() => new ApexStock(container, { chart: { height: 300 } })).toThrow();
   });
+
+  it("does not throw when constructed with an explicit `theme: undefined`", () => {
+    // ApexCharts v5 dereferences config.theme.mode unconditionally; an explicit
+    // undefined theme must be stripped so it falls back to the default.
+    const container = makeContainer();
+    const opts = makeOptions();
+    opts.theme = undefined;
+    expect(() => new ApexStock(container, opts)).not.toThrow();
+    // sanitizeTheme should have removed the nullish key from the merged options.
+    const inst = new ApexStock(makeContainer(), { ...makeOptions(), theme: null });
+    expect("theme" in inst.mainChartOptions).toBe(false);
+  });
+
+  it("sanitizeTheme drops a nullish theme but keeps a valid one", () => {
+    const inst = new ApexStock(makeContainer(), makeOptions());
+    const a = { theme: undefined };
+    inst.sanitizeTheme(a);
+    expect("theme" in a).toBe(false);
+
+    const b = { theme: { mode: "dark" } };
+    inst.sanitizeTheme(b);
+    expect(b.theme).toEqual({ mode: "dark" });
+  });
 });
