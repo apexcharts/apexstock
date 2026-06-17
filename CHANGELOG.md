@@ -11,6 +11,14 @@ those are called out explicitly below.
 
 ### Added
 
+- **SSR / import-time safety.** The library is now verified import-safe in a
+  Node/server environment — importing `apexstock` (and its transitive deps and
+  the CSS-injection shim) touches no `window`/`document` at module load, and the
+  pure `ApexStock.aggregateOHLC` / `ApexStock.INTERVALS` helpers run
+  server-side. Rendering still needs a DOM: constructing an `ApexStock` without
+  one now throws a clear, actionable error ("No DOM is available … create the
+  chart on the client") instead of a cryptic `document is not defined`. Covered
+  by a node-environment test suite (`test/ssr.test.js`).
 - **Time-frame aggregation**: `ApexStock.aggregateOHLC(series, interval)` rolls
   fine-grained candles up into a coarser time frame (`1m`,`5m`,`15m`,`30m`,`1h`,
   `2h`,`4h`,`12h`,`1d`,`1w`,`1M`) — open = first, high = max, low = min,
@@ -106,6 +114,14 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **`require("apexstock")` returned an empty object** in CommonJS/Node consumers
+  (the common SSR interop path). Because `package.json` is `"type": "module"`,
+  the `.js` UMD bundle the `require`/`default` export conditions pointed at was
+  parsed as ESM, so its `module.exports` branch never ran. The CommonJS bundle
+  is now emitted as `dist/apexstock.cjs` (and `main`/`require`/`default` point at
+  it), so `require("apexstock")` correctly yields the `ApexStock` class. The
+  former `dist/apexstock.umd.js` is gone; browser `<script>` users should keep
+  loading the IIFE `dist/apexstock.min.js`.
 - **Oscillator panes threw `theme.mode` errors under ApexCharts 5**: the pane
   chart options passed a top-level `theme: mainChartOptions.theme`, which is
   `undefined` (the main chart only sets `chart.theme`). An explicit

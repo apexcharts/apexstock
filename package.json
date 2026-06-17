@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "type": "module",
   "description": "An extension library for ApexCharts focusing on stock charts",
-  "main": "dist/apexstock.min.js",
+  "main": "dist/apexstock.cjs",
   "module": "dist/apexstock.esm.js",
   "types": "dist/types/ApexStock.d.ts",
   "exports": {
     ".": {
       "types": "./dist/types/ApexStock.d.ts",
       "import": "./dist/apexstock.esm.js",
-      "require": "./dist/apexstock.umd.js",
-      "default": "./dist/apexstock.umd.js"
+      "require": "./dist/apexstock.cjs",
+      "default": "./dist/apexstock.cjs"
     },
     "./apexstock.css": "./dist/apexstock.css",
     "./dist/*": "./dist/*",

@@ -17,7 +17,12 @@ export default {
       sourcemap: !production,
     },
     {
-      file: "dist/apexstock.umd.js",
+      // CommonJS / Node entry. The `.cjs` extension is required: package.json
+      // has `"type": "module"`, so a `.js` file here would be parsed as ESM and
+      // its UMD `module.exports` branch would never run — `require("apexstock")`
+      // would silently yield `{}`. `.cjs` forces CommonJS resolution while the
+      // UMD wrapper keeps it usable as an AMD module or a browser global too.
+      file: "dist/apexstock.cjs",
       format: "umd",
       name: "ApexStock",
       sourcemap: !production,

@@ -35,6 +35,15 @@ export default class ApexStock {
    */
   constructor(chartEl, chartOptions) {
     // --- Validate the public boundary with clear, actionable errors ---
+    // ApexStock is import-safe in Node/SSR (no DOM access happens at module
+    // load), but it cannot *render* without a DOM. If a consumer constructs an
+    // instance during server-side rendering, fail with a clear, actionable
+    // message instead of a cryptic `document is not defined` deep in the stack.
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      throw new Error(
+        "[ApexStock] No DOM is available (window/document are undefined). ApexStock renders to the DOM and cannot run during server-side rendering — create the chart on the client (e.g. inside a browser-only effect/lifecycle, or after a dynamic client-only import)."
+      );
+    }
     if (!chartEl || typeof chartEl.appendChild !== "function") {
       throw new Error(
         "[ApexStock] A valid container DOM element must be provided as the first argument."
