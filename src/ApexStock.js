@@ -132,7 +132,11 @@ export default class ApexStock {
 
     const stockChartOptions =
       (chartOptions.plotOptions && chartOptions.plotOptions.stockChart) || {};
-    this.series = chartOptions.series[0].data || [];
+    // Sanitize the incoming OHLC data once at the boundary so the chart,
+    // indicators, x-axis, and drawing-coordinate math all see clean, ordered
+    // points. Write it back so ApexCharts renders the same normalized series.
+    chartOptions.series[0].data = Utils.normalizeOHLC(chartOptions.series[0].data);
+    this.series = chartOptions.series[0].data;
 
     // Initialize xaxis range from the series data
     this.initializeXAxisRange();
@@ -619,6 +623,9 @@ export default class ApexStock {
       newOptions.series[0].data
     ) {
       seriesChanged = true;
+      // Normalize the replacement series too (same contract as the constructor)
+      // and write it back so the chart update receives the cleaned points.
+      newOptions.series[0].data = Utils.normalizeOHLC(newOptions.series[0].data);
       this.series = newOptions.series[0].data;
 
       // Update volumes data if available in the new series

@@ -90,4 +90,27 @@ describe("ApexStock (smoke)", () => {
     inst.sanitizeTheme(b);
     expect(b.theme).toEqual({ mode: "dark" });
   });
+
+  it("normalizes malformed/unsorted series at the constructor boundary", () => {
+    const container = makeContainer();
+    const opts = makeOptions();
+    // Inject a malformed point and put the data out of order.
+    opts.series[0].data = [
+      { x: 3000, y: [3, 4, 2, 3] },
+      { x: 1000, y: [1, 2, 0, 1] },
+      { x: 2000, y: [1, 2, 0] }, // malformed (short y) -> dropped
+      { x: 4000, y: [4, 5, 3, 4] },
+    ];
+    const inst = new ApexStock(container, opts);
+    // The malformed point is gone and the rest is ascending by x.
+    expect(inst.series.map((p) => p.x)).toEqual([1000, 3000, 4000]);
+    expect(inst.series.every((p) => p.y.length === 4)).toBe(true);
+  });
+
+  it("constructs without throwing on an empty series", () => {
+    const container = makeContainer();
+    const opts = makeOptions();
+    opts.series[0].data = [];
+    expect(() => new ApexStock(container, opts)).not.toThrow();
+  });
 });

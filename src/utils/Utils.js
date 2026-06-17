@@ -100,6 +100,71 @@ class Utils {
     return output;
   }
   /**
+   * Validate and normalize an OHLC series before it enters the chart pipeline.
+   * Drops malformed points (a nullish/unparseable `x`, or a `y` that is not an
+   * array whose first four entries `[open, high, low, close]` are finite
+   * numbers) and guarantees ascending time order (a financial time series is
+   * expected sorted; out-of-order input is stably reordered by timestamp).
+   *
+   * The input array is never mutated. A single, suppressible warning is emitted
+   * per problem class (dropped points / reordering) so issues are visible
+   * without being fatal — malformed data degrades gracefully instead of
+   * throwing deep in an indicator or coordinate calculation.
+   *
+   * @param {import("../types.js").Series} data - Raw OHLC points.
+   * @returns {import("../types.js").Series} A cleaned, time-sorted series (a new
+   *   array; the happy path with valid, sorted input returns a shallow copy).
+   */
+  static normalizeOHLC(data) {
+    if (!Array.isArray(data)) return [];
+
+    const toTs = (x) => (typeof x === "number" ? x : new Date(x).getTime());
+    const isFiniteNum = (n) => typeof n === "number" && Number.isFinite(n);
+
+    let dropped = 0;
+    const clean = [];
+    for (const p of data) {
+      const y = p && p.y;
+      const valid =
+        p &&
+        p.x != null &&
+        !Number.isNaN(toTs(p.x)) &&
+        Array.isArray(y) &&
+        y.length >= 4 &&
+        isFiniteNum(y[0]) &&
+        isFiniteNum(y[1]) &&
+        isFiniteNum(y[2]) &&
+        isFiniteNum(y[3]);
+      if (valid) {
+        clean.push(p);
+      } else {
+        dropped++;
+      }
+    }
+    if (dropped > 0) {
+      Utils.warn(
+        `Dropped ${dropped} malformed OHLC point(s): each needs a parseable \`x\` and a \`y\` whose first four entries [open, high, low, close] are finite numbers.`
+      );
+    }
+
+    let outOfOrder = false;
+    for (let i = 1; i < clean.length; i++) {
+      if (toTs(clean[i].x) < toTs(clean[i - 1].x)) {
+        outOfOrder = true;
+        break;
+      }
+    }
+    if (outOfOrder) {
+      clean.sort((a, b) => toTs(a.x) - toTs(b.x));
+      Utils.warn(
+        "OHLC series was not in ascending time order; reordered by timestamp."
+      );
+    }
+
+    return clean;
+  }
+
+  /**
    * Coalesces rapid calls into at most one invocation per animation frame,
    * always using the most recent arguments. Useful for high-frequency events
    * (mousemove, scroll) where only the latest state matters.

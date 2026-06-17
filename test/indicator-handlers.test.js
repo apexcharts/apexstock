@@ -213,9 +213,11 @@ describe("ApexStock.update — indicator restoration", () => {
     const newData = ohlcData(70);
     expect(() => inst.update({ series: [{ name: "Price", data: newData }] })).not.toThrow();
 
-    // The overlay is restored and the internal series is the new data.
+    // The overlay is restored and the internal series matches the new data.
+    // (update() normalizes incoming series, so this is a cleaned copy, not the
+    // same array reference — assert by value.)
     expect(inst.indicatorChartMap["moving average"]).toBe(true);
-    expect(inst.series).toBe(newData);
+    expect(inst.series).toEqual(newData);
     const series = inst.chart.updateSeries.mock.calls.at(-1)[0];
     expect(series.find((s) => s.name === "Moving Average")).toBeTruthy();
   });

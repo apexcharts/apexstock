@@ -219,6 +219,12 @@ class Indicators {
     const cached = Indicators._cacheGet(series, "ema:" + period);
     if (cached !== undefined) return cached;
     const ema = [];
+    // Not enough points to seed the EMA: return all-null (the warm-up
+    // convention) instead of reading past the end of the array and throwing.
+    if (!Array.isArray(series) || period < 1 || series.length < period) {
+      for (let i = 0; i < (series ? series.length : 0); i++) ema.push(null);
+      return Indicators._cacheSet(series, "ema:" + period, ema);
+    }
     const multiplier = 2 / (period + 1);
     let sum = 0;
     for (let i = 0; i < period; i++) {
@@ -247,6 +253,10 @@ class Indicators {
    * @returns {number[]} The six standard levels (0, .236, .382, .5, .618, 1).
    */
   static calculateFibonacciRetracements(series) {
+    // Empty input would make Math.max/min return ∓Infinity → NaN levels.
+    if (!Array.isArray(series) || series.length === 0) {
+      return [0, 0.236, 0.382, 0.5, 0.618, 1].map(() => 0);
+    }
     const highs = series.map((pt) => pt.y[1]);
     const lows = series.map((pt) => pt.y[2]);
     const maxHigh = Math.max(...highs);
@@ -302,7 +312,9 @@ class Indicators {
         const prevClose = series[i - 1].y[3];
         const currClose = series[i].y[3];
         const volume = series[i].v || 0;
-        const changePct = (currClose - prevClose) / prevClose;
+        // Guard a zero previous close (would yield Infinity/NaN).
+        const changePct =
+          prevClose === 0 ? 0 : (currClose - prevClose) / prevClose;
         prev = prev + changePct * volume;
         pvt.push({ x: series[i].x, y: Utils.truncateNumber(prev) });
       }
@@ -324,13 +336,13 @@ class Indicators {
         k.push({ x: series[i].x, y: null });
       } else {
         const periodSlice = series.slice(i - period + 1, i + 1);
-        const closes = periodSlice.map((pt) => pt.y[3]);
         const highs = periodSlice.map((pt) => pt.y[1]);
         const lows = periodSlice.map((pt) => pt.y[2]);
         const highestHigh = Math.max(...highs);
         const lowestLow = Math.min(...lows);
-        const value =
-          ((series[i].y[3] - lowestLow) / (highestHigh - lowestLow)) * 100;
+        const range = highestHigh - lowestLow;
+        // Flat window (high === low): %K is undefined; report 0 rather than NaN.
+        const value = range === 0 ? 0 : ((series[i].y[3] - lowestLow) / range) * 100;
         k.push({ x: series[i].x, y: Utils.truncateNumber(value) });
       }
     }

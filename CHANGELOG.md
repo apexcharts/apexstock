@@ -11,6 +11,19 @@ those are called out explicitly below.
 
 ### Added
 
+- **End-to-end + visual-regression tests (Playwright).** A new `test/e2e` suite
+  drives a deterministic fixture (animations disabled, fixed data) in a real
+  browser: the toolbar renders all control groups, the candlestick bodies draw,
+  the chart-type dropdown switches type, and a trendline can be drawn on the
+  overlay. Two committed visual baselines (toolbar + chart) guard against
+  styling/layout regressions, with a small per-pixel tolerance for cross-machine
+  font rendering. Run with `yarn test:e2e`; regenerate baselines intentionally
+  with `yarn test:e2e:update`. Baselines are generated on the maintainer's
+  machine — review diffs rather than blindly accepting churn.
+- **Expanded unit coverage for the DOM-heavy modules' logic**: the Heikin-Ashi
+  and Renko conversions (`ChartSwitch`) and the x-axis timestamp helper
+  (`XAxis`) now have focused tests, plus indicator edge-case and
+  `Utils.normalizeOHLC` suites.
 - **SSR / import-time safety.** The library is now verified import-safe in a
   Node/server environment — importing `apexstock` (and its transitive deps and
   the CSS-injection shim) touches no `window`/`document` at module load, and the
@@ -114,6 +127,23 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **Data edge-case hardening.** Malformed or out-of-order input no longer throws
+  or silently corrupts output:
+  - A new `Utils.normalizeOHLC()` runs at the data boundary (constructor and
+    `update()`): it drops malformed points (nullish/unparseable `x`, or a `y`
+    that isn't four finite `[open, high, low, close]` numbers) and stably
+    reorders out-of-sequence points by timestamp, emitting a single suppressible
+    warning per problem class. The whole pipeline — chart, indicators, x-axis,
+    drawing-coordinate math — now sees clean, ascending data. An empty series
+    renders an empty chart instead of misbehaving.
+  - `calculateEMA` no longer throws when `period > series.length` (and so
+    `calculateMACD`, which builds on it, no longer throws on short series) — it
+    returns the all-null warm-up array.
+  - `calculateFibonacciRetracements` returns zeroed levels for an empty series
+    instead of `NaN` (from `Math.max`/`min` of an empty array).
+  - `calculateStochastic` reports `0` instead of `NaN` on a perfectly flat
+    window, and `calculatePVT` guards a zero previous close instead of emitting
+    `Infinity`.
 - **`require("apexstock")` returned an empty object** in CommonJS/Node consumers
   (the common SSR interop path). Because `package.json` is `"type": "module"`,
   the `.js` UMD bundle the `require`/`default` export conditions pointed at was
