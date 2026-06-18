@@ -914,6 +914,23 @@
               },
             ],
           });
+
+          // Reset the visible window to the full new range. update() otherwise
+          // preserves the previous (index-based) zoom, which shows only a sliver
+          // when the point count changes a lot between intervals (e.g. switching
+          // from ~12 monthly candles back to ~179 daily ones). initialMinX/Max
+          // are the new data's full extent in the axis's own value space.
+          const g = this.stockChart.chart && this.stockChart.chart.w.globals;
+          if (
+            g &&
+            typeof g.initialMinX === "number" &&
+            typeof g.initialMaxX === "number"
+          ) {
+            this.stockChart.applyZoomToAllCharts({
+              minX: g.initialMinX,
+              maxX: g.initialMaxX,
+            });
+          }
         }
 
         toggleLoadingIndicator(isLoading) {
