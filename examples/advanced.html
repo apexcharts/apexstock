@@ -725,96 +725,21 @@
           return filteredData;
         }
 
-        // Aggregate daily data into weekly or monthly
+        // Aggregate daily data into weekly or monthly using the library's
+        // public API (ApexStock.aggregateOHLC) instead of re-implementing the
+        // open=first / high=max / low=min / close=last / volume=sum rollup here.
         aggregateDataForInterval(data, interval) {
-          const result = [];
-
-          if (interval === "1week") {
-            // Group by week and aggregate
-            let currentWeek = null;
-            let weekData = null;
-
-            for (const point of data) {
-              const date = new Date(point.x);
-              const weekStart = new Date(date);
-              weekStart.setDate(date.getDate() - date.getDay() + 1); // Monday of current week
-
-              if (!currentWeek || weekStart > currentWeek) {
-                // New week
-                if (weekData) {
-                  result.push(weekData);
-                }
-
-                currentWeek = weekStart;
-                weekData = {
-                  x: weekStart.toString(),
-                  y: [
-                    point.y[0], // Open of first day becomes open of week
-                    point.y[1], // High starts as first day's high
-                    point.y[2], // Low starts as first day's low
-                    point.y[3], // Close will be updated with last day's close
-                  ],
-                  v: point.v, // Volume will be accumulated
-                };
-              } else {
-                // Continue same week
-                weekData.y[1] = Math.max(weekData.y[1], point.y[1]); // Update high
-                weekData.y[2] = Math.min(weekData.y[2], point.y[2]); // Update low
-                weekData.y[3] = point.y[3]; // Update close
-                weekData.v += point.v; // Accumulate volume
-              }
-            }
-
-            // Add the last week
-            if (weekData) {
-              result.push(weekData);
-            }
-          } else if (interval === "1month") {
-            // Group by month and aggregate
-            let currentMonth = null;
-            let monthData = null;
-
-            for (const point of data) {
-              const date = new Date(point.x);
-              const monthStart = new Date(
-                date.getFullYear(),
-                date.getMonth(),
-                1
-              );
-
-              if (!currentMonth || monthStart > currentMonth) {
-                // New month
-                if (monthData) {
-                  result.push(monthData);
-                }
-
-                currentMonth = monthStart;
-                monthData = {
-                  x: monthStart.toString(),
-                  y: [
-                    point.y[0], // Open of first day becomes open of month
-                    point.y[1], // High starts as first day's high
-                    point.y[2], // Low starts as first day's low
-                    point.y[3], // Close will be updated with last day's close
-                  ],
-                  v: point.v, // Volume will be accumulated
-                };
-              } else {
-                // Continue same month
-                monthData.y[1] = Math.max(monthData.y[1], point.y[1]); // Update high
-                monthData.y[2] = Math.min(monthData.y[2], point.y[2]); // Update low
-                monthData.y[3] = point.y[3]; // Update close
-                monthData.v += point.v; // Accumulate volume
-              }
-            }
-
-            // Add the last month
-            if (monthData) {
-              result.push(monthData);
-            }
-          }
-
-          return result;
+          const intervalMap = { "1week": "1w", "1month": "1M" };
+          const aggregated = ApexStock.aggregateOHLC(
+            data,
+            intervalMap[interval] || "1d"
+          );
+          // The rest of this demo uses date-string x values, so map the
+          // library's numeric bucket-start timestamps back to that format.
+          return aggregated.map((point) => ({
+            ...point,
+            x: new Date(point.x).toString(),
+          }));
         }
 
         // Expand daily data into intraday data
