@@ -34,6 +34,19 @@ Using a framework? Thin, typed component wrappers live under
 - **Vue 3** — [`vue-apexstock`](packages/vue-apexstock) (`npm install vue-apexstock`)
 - **Angular** — [`ngx-apexstock`](packages/ngx-apexstock) (`npm install ngx-apexstock`)
 
+Each wrapper ships a runnable browser demo that drives the **real** core (not a
+mock) under its `demo/` folder; see the package README for how to run it.
+
+To work on the core and all wrappers together, run any task across every package
+in one go (core first, since the wrappers consume its built types):
+
+```bash
+npm run packages:install     # install deps in core + every wrapper
+npm run packages:build       # build core, then react/vue/ngx
+npm run packages:test        # run the test suite of each
+npm run packages:typecheck   # type-check each
+```
+
 ## Basic Usage
 
 ```javascript

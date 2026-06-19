@@ -39,7 +39,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:update": "playwright test --update-snapshots"
+    "test:e2e:update": "playwright test --update-snapshots",
+    "packages:install": "node scripts/run-all.mjs install",
+    "packages:build": "node scripts/run-all.mjs build",
+    "packages:typecheck": "node scripts/run-all.mjs typecheck",
+    "packages:test": "node scripts/run-all.mjs test"
   },
   "keywords": [
     "apexcharts",
