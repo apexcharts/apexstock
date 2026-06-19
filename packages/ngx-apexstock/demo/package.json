@@ -1,0 +1,29 @@
+{
+  "name": "ngx-apexstock-demo",
+  "private": true,
+  "type": "module",
+  "description": "Runnable browser demo: the real ngx-apexstock wrapper driving the real ApexStock core (no mocks).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@angular/common": "^18.2.13",
+    "@angular/core": "^18.2.13",
+    "@angular/platform-browser": "^18.2.13",
+    "apexcharts": "file:../../../../apexcharts-js",
+    "apexstock": "file:../../..",
+    "ngx-apexstock": "file:../dist",
+    "rxjs": "^7.8.1",
+    "zone.js": "~0.14.10"
+  },
+  "devDependencies": {
+    "@analogjs/vite-plugin-angular": "^1.22.0",
+    "@angular/build": "^18.2.13",
+    "@angular/compiler": "^18.2.13",
+    "@angular/compiler-cli": "^18.2.13",
+    "typescript": "~5.5.4",
+    "vite": "^6.0.0"
+  }
+}

@@ -76,6 +76,21 @@ export class ChartComponent {
   `updateIndicator`, `updateTheme`, export, …), or `null` before view init.
 - `getElement()` → the container `<div>`.
 
+## Live demo
+
+A runnable demo lives in [`demo/`](demo/): a small standalone Angular app
+(Vite + `@analogjs/vite-plugin-angular`) that consumes the built
+`ngx-apexstock` package and drives the real ApexStock core (the unit tests mock
+the core, this does not). Unlike the React/Vue demos it needs its own install,
+because Angular's partial-Ivy output must be compiled/linked by a real build:
+
+```bash
+npm run build                       # build the wrapper -> dist/ (consumed by the demo)
+(cd ../.. && npm run build)         # build the core -> dist/
+cd demo && npm install && npm run dev
+# http://localhost:5199/
+```
+
 ## SSR
 
 The component renders only a container `<div>` on the server; the chart is

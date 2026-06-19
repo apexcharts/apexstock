@@ -68,6 +68,25 @@ const addRSI = () => chart.value?.getInstance()?.updateIndicator("rsi");
   `updateIndicator`, `updateTheme`, export, …), or `null` before mount.
 - `getElement()` → the container `<div>`.
 
+## Live demo
+
+A no-build demo lives in [`demo/`](demo/): the real wrapper driving the real
+ApexStock core (the unit tests mock the core, this does not). It loads Vue from
+this package's `node_modules` (the ESM-browser build) and the core from the
+repo's `dist/`, so build both first and serve over a static server (no bundler
+needed):
+
+```bash
+npm install                  # in this package, for the Vue ESM build
+npm run build                # build the wrapper -> dist/
+(cd ../.. && npm run build)  # build the core -> dist/
+
+# Serve from the apexcharts working dir (parent of this repo) so the sibling
+# apexcharts-js checkout also resolves, then open the demo URL:
+cd ../../.. && python3 -m http.server 8080
+# http://localhost:8080/apexstock/packages/vue-apexstock/demo/
+```
+
 ## SSR
 
 The component renders only a container `<div>` on the server; the chart is
