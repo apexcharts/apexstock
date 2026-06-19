@@ -38,11 +38,26 @@ export interface ApexStockRef {
   getElement: () => HTMLDivElement | null;
 }
 
-function mergeOptions(
+/**
+ * ApexStock mutates the options it receives (sets `chart.id`, writes back the
+ * normalized `series`, strips a nullish `theme`). Hand it a mutable plain copy
+ * of the paths it touches (`chart` and each `series` entry) so the caller's
+ * own `options`/`series` props are left untouched, while other references (e.g.
+ * `chart.events` callbacks) are preserved. Large series `data` arrays are not
+ * cloned; the core only reassigns `series[i].data`, never mutates in place.
+ */
+function toPlainOptions(
   options: StockChartOptions,
   series?: StockChartOptions["series"]
 ): StockChartOptions {
-  return series ? { ...options, series } : options;
+  const src = options as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...src };
+  if (src.chart) out.chart = { ...(src.chart as object) };
+  const srcSeries = series ?? (src.series as StockChartOptions["series"]);
+  if (Array.isArray(srcSeries)) {
+    out.series = srcSeries.map((s) => ({ ...(s as object) }));
+  }
+  return out as StockChartOptions;
 }
 
 /**
@@ -75,7 +90,7 @@ const ApexStockComponent = forwardRef<ApexStockRef, ApexStockProps>(
 
       const instance = new ApexStock(
         elementRef.current,
-        mergeOptions(options, series)
+        toPlainOptions(options, series)
       );
       instance.render();
       instanceRef.current = instance;
@@ -95,7 +110,7 @@ const ApexStockComponent = forwardRef<ApexStockRef, ApexStockProps>(
         isInitialRender.current = false;
         return;
       }
-      instanceRef.current?.update(mergeOptions(options, series));
+      instanceRef.current?.update(toPlainOptions(options, series));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [options, series]);
 

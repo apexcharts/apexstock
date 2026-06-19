@@ -24,6 +24,15 @@ describe("react-apexstock <ApexStock>", () => {
     expect(instances[0].render).toHaveBeenCalledTimes(1);
   });
 
+  it("passes a mutation-safe plain copy, not the prop object", () => {
+    render(<ApexStock options={baseOptions} />);
+    const passed = instances[0].options as typeof baseOptions;
+    expect(passed).toEqual(baseOptions);
+    expect(passed).not.toBe(baseOptions);
+    expect(passed.chart).not.toBe(baseOptions.chart);
+    expect(passed.series).not.toBe(baseOptions.series);
+  });
+
   it("merges the `series` prop over options.series", () => {
     const series = [{ name: "Override", data: [{ x: 9, y: [9, 9, 9, 9] }] }];
     render(<ApexStock options={baseOptions} series={series} />);
