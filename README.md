@@ -31,7 +31,8 @@ Using a framework? Thin, typed component wrappers live under
 [`packages/`](packages/):
 
 - **React** — [`react-apexstock`](packages/react-apexstock) (`npm install react-apexstock`)
-- _Vue (`vue-apexstock`) and Angular (`ngx-apexstock`) — planned._
+- **Vue 3** — [`vue-apexstock`](packages/vue-apexstock) (`npm install vue-apexstock`)
+- _Angular (`ngx-apexstock`) — planned._
 
 ## Basic Usage
 

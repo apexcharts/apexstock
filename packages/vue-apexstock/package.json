@@ -1,0 +1,49 @@
+{
+  "name": "vue-apexstock",
+  "version": "0.1.0",
+  "description": "Vue 3 component wrapper for ApexStock (financial charting on top of ApexCharts)",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "apexstock",
+    "apexcharts",
+    "vue",
+    "vue3",
+    "stock-chart",
+    "candlestick",
+    "financial-charts"
+  ],
+  "license": "see LICENSE in LICENSE",
+  "peerDependencies": {
+    "apexstock": "^0.1.0",
+    "vue": "^3.3.0"
+  },
+  "devDependencies": {
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^25.0.1",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13"
+  }
+}
