@@ -25,6 +25,14 @@ npm install apexcharts
 npm install apexstock
 ```
 
+### Framework wrappers
+
+Using a framework? Thin, typed component wrappers live under
+[`packages/`](packages/):
+
+- **React** — [`react-apexstock`](packages/react-apexstock) (`npm install react-apexstock`)
+- _Vue (`vue-apexstock`) and Angular (`ngx-apexstock`) — planned._
+
 ## Basic Usage
 
 ```javascript

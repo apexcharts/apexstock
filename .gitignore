@@ -1,7 +1,11 @@
 node_modules/*
+**/node_modules/
 plans
 coverage
 .DS_Store
+
+# Workspace package build output (rebuilt via each package's build script)
+packages/*/dist/
 
 # Playwright per-run artifacts (the committed *-snapshots/*.png baselines stay)
 test-results/
