@@ -1,16 +1,29 @@
 name: Publish to npm
 
+# Publishes every package in this repo (the apexstock core and the three
+# framework wrappers) via OIDC Trusted Publisher with provenance. All packages
+# trust this single workflow file (publish.yml) on npm, so all publish jobs must
+# live here. Each job is gated on the head commit message:
+#
+#   release: X.Y.Z                    -> apexstock (core)
+#   release(react-apexstock): X.Y.Z   -> react-apexstock
+#   release(vue-apexstock): X.Y.Z     -> vue-apexstock
+#   release(ngx-apexstock): X.Y.Z     -> ngx-apexstock
+#
+# The core trigger requires "release: " literally, so a scoped "release(...)"
+# message never matches it (and vice-versa) — at most one job/leg publishes.
+
 on:
   push:
     branches:
       - main
 
-# OIDC: publish to npm via Trusted Publisher (no NPM_TOKEN secret needed).
 permissions:
   id-token: write
   contents: read
 
 jobs:
+  # ── Core: apexstock ─────────────────────────────────────────────────────────
   publish:
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +37,6 @@ jobs:
             VERSION=$(echo "$MSG" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[^ ]*' | head -1)
             echo "triggered=true" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
-            # Prerelease versions (e.g. 0.3.0-beta.1) publish under the "next" tag.
             if echo "$VERSION" | grep -qE '[-]'; then
               echo "tag=next" >> $GITHUB_OUTPUT
             else
@@ -69,3 +81,77 @@ jobs:
 
       - run: npm publish --provenance --tag ${{ steps.check.outputs.tag }}
         if: steps.check.outputs.triggered == 'true'
+
+  # ── Framework wrappers: react / vue / ngx ───────────────────────────────────
+  publish-wrappers:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: [react-apexstock, vue-apexstock, ngx-apexstock]
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.pkg }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check commit message for this package's release trigger
+        id: check
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          if echo "$MSG" | grep -qE "^release\(${{ matrix.pkg }}\): [0-9]+\.[0-9]+\.[0-9]+"; then
+            VERSION=$(echo "$MSG" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[^ ]*' | head -1)
+            echo "triggered=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            if echo "$VERSION" | grep -qE '[-]'; then
+              echo "tag=next" >> $GITHUB_OUTPUT
+            else
+              echo "tag=latest" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "triggered=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify package.json version matches commit message
+        if: steps.check.outputs.triggered == 'true'
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          MSG_VERSION="${{ steps.check.outputs.version }}"
+          if [ "$PKG_VERSION" != "$MSG_VERSION" ]; then
+            echo "❌ ${{ matrix.pkg }} package.json version ($PKG_VERSION) does not match commit message version ($MSG_VERSION)"
+            exit 1
+          fi
+          echo "✅ ${{ matrix.pkg }} version $PKG_VERSION confirmed"
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.triggered == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/${{ matrix.pkg }}/package-lock.json
+
+      # Trusted publishing needs a recent npm with OIDC support.
+      - run: npm install -g npm@latest
+        if: steps.check.outputs.triggered == 'true'
+
+      - run: npm ci
+        if: steps.check.outputs.triggered == 'true'
+
+      - run: npm test
+        if: steps.check.outputs.triggered == 'true'
+
+      # Resolves the core's `apexstock` types from the committed dist/types
+      # (../../dist/types), so the core does not need to be rebuilt here.
+      - run: npm run build
+        if: steps.check.outputs.triggered == 'true'
+
+      # ngx-apexstock publishes its built Angular Package Format output (dist/),
+      # not the source root; react/vue publish the root (dist via files[]).
+      - name: Publish
+        if: steps.check.outputs.triggered == 'true'
+        run: |
+          if [ "${{ matrix.pkg }}" = "ngx-apexstock" ]; then
+            npm publish dist --provenance --tag ${{ steps.check.outputs.tag }}
+          else
+            npm publish --provenance --tag ${{ steps.check.outputs.tag }}
+          fi
