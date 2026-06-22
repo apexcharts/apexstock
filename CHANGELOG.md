@@ -9,8 +9,17 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-22
+
 ### Added
 
+- **Framework wrappers (separate packages).** Thin, typed component wrappers
+  now live under `packages/`: `react-apexstock`, `vue-apexstock`, and
+  `ngx-apexstock`. Each wraps the imperative `ApexStock` class for its framework
+  (create on mount, forward prop/input changes to `update()`, tear down on
+  unmount), exposes the instance via a ref, ships its own types/README and a
+  runnable browser demo, and peer-depends on this core. They are versioned and
+  published independently of `apexstock`.
 - **Consumer theming API (no stylesheet fork).** The toolbar/UI chrome is fully
   styled with `--apexstock-*` custom properties; you can now retheme any of it
   by overriding those tokens instead of forking the CSS. New `THEMING.md`
