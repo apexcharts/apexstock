@@ -10,6 +10,10 @@ export default [
       "coverage/**",
       "examples/**",
       ".github/**",
+      // Framework wrappers are independent packages with their own toolchains
+      // (tsup / ng-packagr / vitest) and TypeScript sources; the root config
+      // lints the core only.
+      "packages/**",
     ],
   },
 
@@ -42,9 +46,9 @@ export default [
     },
   },
 
-  // Build / tooling configs run in Node.
+  // Build / tooling configs and repo scripts run in Node.
   {
-    files: ["**/*.config.js", "rollup.config.js"],
+    files: ["**/*.config.js", "rollup.config.js", "scripts/**/*.{js,mjs}"],
     languageOptions: {
       sourceType: "module",
       globals: { ...globals.node },
