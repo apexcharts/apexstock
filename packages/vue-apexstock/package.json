@@ -35,7 +35,7 @@
   ],
   "license": "see LICENSE in LICENSE",
   "peerDependencies": {
-    "apexstock": "^0.1.0",
+    "apexstock": "^0.2.0",
     "vue": "^3.3.0"
   },
   "devDependencies": {

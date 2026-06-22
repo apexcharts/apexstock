@@ -22,7 +22,7 @@
   "peerDependencies": {
     "@angular/common": ">=16.0.0",
     "@angular/core": ">=16.0.0",
-    "apexstock": "^0.1.0"
+    "apexstock": "^0.2.0"
   },
   "dependencies": {
     "tslib": "^2.6.0"

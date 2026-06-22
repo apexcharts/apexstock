@@ -34,7 +34,7 @@
   ],
   "license": "see LICENSE in LICENSE",
   "peerDependencies": {
-    "apexstock": "^0.1.0",
+    "apexstock": "^0.2.0",
     "react": ">=17",
     "react-dom": ">=17"
   },
