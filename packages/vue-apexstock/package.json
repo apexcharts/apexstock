@@ -34,6 +34,15 @@
     "financial-charts"
   ],
   "license": "see LICENSE in LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apexcharts/apexstock.git",
+    "directory": "packages/vue-apexstock"
+  },
+  "homepage": "https://github.com/apexcharts/apexstock/tree/main/packages/vue-apexstock#readme",
+  "bugs": {
+    "url": "https://github.com/apexcharts/apexstock/issues"
+  },
   "peerDependencies": {
     "apexstock": "^0.2.0",
     "vue": "^3.3.0"

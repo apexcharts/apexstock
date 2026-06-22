@@ -12,6 +12,15 @@
     "financial-charts"
   ],
   "license": "see LICENSE in LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apexcharts/apexstock.git",
+    "directory": "packages/ngx-apexstock"
+  },
+  "homepage": "https://github.com/apexcharts/apexstock/tree/main/packages/ngx-apexstock#readme",
+  "bugs": {
+    "url": "https://github.com/apexcharts/apexstock/issues"
+  },
   "scripts": {
     "build": "ng-packagr -p ng-package.json",
     "prepublishOnly": "ng-packagr -p ng-package.json",

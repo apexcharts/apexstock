@@ -33,6 +33,15 @@
     "financial-charts"
   ],
   "license": "see LICENSE in LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apexcharts/apexstock.git",
+    "directory": "packages/react-apexstock"
+  },
+  "homepage": "https://github.com/apexcharts/apexstock/tree/main/packages/react-apexstock#readme",
+  "bugs": {
+    "url": "https://github.com/apexcharts/apexstock/issues"
+  },
   "peerDependencies": {
     "apexstock": "^0.2.0",
     "react": ">=17",
