@@ -112,3 +112,56 @@ Tests use **Vitest** (jsdom for DOM-touching code). Patterns:
 > and interaction (overlay alignment, zoom/pan, drawing) are **not** covered by
 > automated tests — do a manual pass on `examples/basic.html` and
 > `examples/advanced.html` for visual/interaction changes.
+
+## Releasing
+
+Publishing is automated by [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
+A push to `main` whose **head commit message** matches a package's release
+trigger publishes that one package to npm via OIDC Trusted Publisher (no token)
+with provenance. The workflow verifies the message version matches the package's
+`package.json` version, runs the package's test + build, then publishes.
+
+| Package | Commit message trigger | Publishes |
+| --- | --- | --- |
+| `apexstock` (core) | `release: X.Y.Z` | repo root (yarn build, `dist/`) |
+| `react-apexstock` | `release(react-apexstock): X.Y.Z` | `packages/react-apexstock` root |
+| `vue-apexstock` | `release(vue-apexstock): X.Y.Z` | `packages/vue-apexstock` root |
+| `ngx-apexstock` | `release(ngx-apexstock): X.Y.Z` | `packages/ngx-apexstock/dist` (ng-packagr output) |
+
+The scoped `release(<pkg>):` form never matches the core's literal `release: `
+trigger, so exactly one package publishes per release commit. A version with a
+hyphen (e.g. `0.3.0-beta.1`) publishes under the `next` dist-tag; otherwise
+`latest`.
+
+### To cut a release
+
+1. Bump `version` in the package's `package.json` (and update `CHANGELOG.md`).
+2. Commit with the matching trigger message and push to `main`:
+
+   ```bash
+   # core
+   git commit -am "release: 0.3.0"
+   # a wrapper
+   git commit -am "release(react-apexstock): 0.2.0"
+   git push origin main
+   ```
+
+3. Watch the run: `gh run watch $(gh run list --workflow=publish.yml -L1 --json databaseId -q '.[0].databaseId')`.
+
+### Things that will bite you
+
+- **All publish jobs must live in `publish.yml`.** npm's Trusted Publisher is
+  configured per package to trust this exact workflow filename; a publish from
+  any other workflow file is rejected. Add new packages as jobs here, do not
+  split into separate workflow files.
+- **Provenance needs a public repo and a `repository.url`.** Each package's
+  `package.json` has `repository` (with the monorepo `directory`); ng-packagr
+  copies it into `ngx-apexstock`'s generated `dist/package.json`. Without it npm
+  rejects the publish (HTTP 422).
+- **`ngx-apexstock` publishes its built `dist/`,** not the source root (the root
+  has no `main`/`files`; ng-packagr writes the publishable manifest into `dist`).
+- **Core `dist/` is committed; wrapper `dist/` is gitignored** and rebuilt in CI.
+  Wrappers resolve the core's `apexstock` types from the committed
+  `dist/types/`, so the core does not need rebuilding to publish a wrapper.
+- The workflow runs on every push to `main` and no-ops when the message is not a
+  release trigger, so normal commits are safe.
