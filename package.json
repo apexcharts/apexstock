@@ -51,6 +51,14 @@
     "stock",
     "financial"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apexcharts/apexstock.git"
+  },
+  "homepage": "https://github.com/apexcharts/apexstock#readme",
+  "bugs": {
+    "url": "https://github.com/apexcharts/apexstock/issues"
+  },
   "browserslist": [
     "> 0.25%",
     "not dead"
