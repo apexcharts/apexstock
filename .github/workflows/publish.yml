@@ -31,8 +31,11 @@ jobs:
 
       - name: Check commit message for release trigger
         id: check
+        env:
+          # Passed via env (not inlined into the script) so a message containing
+          # backticks/parens/quotes can't break or inject into the shell.
+          MSG: ${{ github.event.head_commit.message }}
         run: |
-          MSG="${{ github.event.head_commit.message }}"
           if echo "$MSG" | grep -qE '^release: [0-9]+\.[0-9]+\.[0-9]+'; then
             VERSION=$(echo "$MSG" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[^ ]*' | head -1)
             echo "triggered=true" >> $GITHUB_OUTPUT
@@ -97,8 +100,11 @@ jobs:
 
       - name: Check commit message for this package's release trigger
         id: check
+        env:
+          # Passed via env (not inlined into the script) so a message containing
+          # backticks/parens/quotes can't break or inject into the shell.
+          MSG: ${{ github.event.head_commit.message }}
         run: |
-          MSG="${{ github.event.head_commit.message }}"
           if echo "$MSG" | grep -qE "^release\(${{ matrix.pkg }}\): [0-9]+\.[0-9]+\.[0-9]+"; then
             VERSION=$(echo "$MSG" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[^ ]*' | head -1)
             echo "triggered=true" >> $GITHUB_OUTPUT
