@@ -102,16 +102,22 @@ export default class XAxis {
     // First, remove all existing event listeners to avoid duplicates
     this.removeAllEventListeners();
 
-    // Re-add event listeners to main chart
-    const mainChartElement = document.getElementById(this.context.mainChartId);
-    if (mainChartElement) {
-      mainChartElement.addEventListener("mousemove", this.handleMouseMove);
-      mainChartElement.addEventListener("mousedown", this.handleMouseDown);
-      mainChartElement.addEventListener("mouseup", this.handleMouseUp);
-      mainChartElement.addEventListener("mouseleave", this.handleMouseLeave);
-    }
+    // Track every element we attach to, so teardown targets exactly those
+    // instead of scanning the whole document (see removeAllEventListeners).
+    this._listenerTargets = [];
+    const attach = (el) => {
+      el.addEventListener("mousemove", this.handleMouseMove);
+      el.addEventListener("mousedown", this.handleMouseDown);
+      el.addEventListener("mouseup", this.handleMouseUp);
+      el.addEventListener("mouseleave", this.handleMouseLeave);
+      this._listenerTargets.push(el);
+    };
 
-    // Add event listeners to all current indicator charts
+    // Main chart
+    const mainChartElement = document.getElementById(this.context.mainChartId);
+    if (mainChartElement) attach(mainChartElement);
+
+    // All current indicator charts
     if (
       this.context.indicatorChartMap &&
       Object.keys(this.context.indicatorChartMap).length
@@ -123,21 +129,7 @@ export default class XAxis {
           const indicatorElement = document.getElementById(
             `apexcharts${chart.opts.chart.id}`
           );
-          if (indicatorElement) {
-            indicatorElement.addEventListener(
-              "mousemove",
-              this.handleMouseMove
-            );
-            indicatorElement.addEventListener(
-              "mouseleave",
-              this.handleMouseLeave
-            );
-            indicatorElement.addEventListener(
-              "mousedown",
-              this.handleMouseDown
-            );
-            indicatorElement.addEventListener("mouseup", this.handleMouseUp);
-          }
+          if (indicatorElement) attach(indicatorElement);
         }
       });
     }
@@ -147,27 +139,19 @@ export default class XAxis {
    * Removes all event listeners from main chart and indicator charts
    */
   removeAllEventListeners() {
-    // Remove from main chart
-    const mainChartElement = document.getElementById(this.context.mainChartId);
-    if (mainChartElement) {
-      mainChartElement.removeEventListener("mousemove", this.handleMouseMove);
-      mainChartElement.removeEventListener("mouseleave", this.handleMouseLeave);
-      mainChartElement.removeEventListener("mousedown", this.handleMouseDown);
-      mainChartElement.removeEventListener("mouseup", this.handleMouseUp);
-    }
-
-    // Remove from all indicator charts
-    // Note: We need to check all chart elements in the DOM that might have our listeners
-    // since the indicatorChartMap might have changed
-    const chartElements = document.querySelectorAll('[id^="apexcharts"]');
-    chartElements.forEach((element) => {
-      if (element.id !== this.context.mainChartId) {
+    // Remove from exactly the elements we attached to (tracked in
+    // updateEventListeners), instead of a document-wide `querySelectorAll`
+    // scan on every indicator change. removeEventListener on a since-detached
+    // node is a harmless no-op, so this also covers removed indicator panes.
+    if (this._listenerTargets) {
+      this._listenerTargets.forEach((element) => {
         element.removeEventListener("mousemove", this.handleMouseMove);
         element.removeEventListener("mouseleave", this.handleMouseLeave);
         element.removeEventListener("mousedown", this.handleMouseDown);
         element.removeEventListener("mouseup", this.handleMouseUp);
-      }
-    });
+      });
+      this._listenerTargets = [];
+    }
   }
 
   /**
@@ -203,7 +187,7 @@ export default class XAxis {
     );
     if (!graphicalElement) return;
 
-    const graphicalRect = graphicalElement.getBoundingClientRect();
+    const graphicalRect = Utils.cachedRect(graphicalElement);
     const relativePercent =
       (e.clientX - graphicalRect.left) / graphicalRect.width;
 

@@ -554,7 +554,9 @@ export default class ElementInteractionManager {
 
     if (!targetElementId) return;
 
-    const rect = this.svgOverlay.getBoundingClientRect();
+    // The overlay is a stable container during a drag, so reuse its rect for
+    // 100ms to avoid a layout reflow on every move frame.
+    const rect = Utils.cachedRect(this.svgOverlay);
     const currentX = e.clientX - rect.left;
     const currentY = e.clientY - rect.top;
 

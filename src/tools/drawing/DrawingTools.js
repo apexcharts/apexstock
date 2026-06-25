@@ -340,8 +340,10 @@ export default class DrawingTools {
   drawMove(e) {
     if (!this.isDrawing || !this.currentElement) return;
 
-    // Get mouse position relative to overlay
-    const rect = this.overlayWrapper.getBoundingClientRect();
+    // Get mouse position relative to overlay. The overlay is a stable container
+    // (it doesn't move during a drag), so reuse its rect for 100ms to avoid a
+    // layout reflow on every drag frame.
+    const rect = Utils.cachedRect(this.overlayWrapper);
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 

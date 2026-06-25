@@ -97,3 +97,61 @@ describe("Utils.generateUniqueId", () => {
     expect(a).not.toBe(b);
   });
 });
+
+describe("Utils.cachedRect", () => {
+  afterEach(() => vi.useRealTimers());
+
+  // A fake element that hands back a fresh rect (with a call counter) each time
+  // getBoundingClientRect is actually invoked.
+  function fakeEl() {
+    let calls = 0;
+    return {
+      get calls() {
+        return calls;
+      },
+      getBoundingClientRect() {
+        calls += 1;
+        return { left: calls, top: 0, width: 10, height: 10 };
+      },
+    };
+  }
+
+  it("reuses the rect within the TTL, re-measures after it", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    const el = fakeEl();
+
+    const first = Utils.cachedRect(el);
+    expect(el.calls).toBe(1);
+
+    vi.setSystemTime(1050); // within 100ms
+    const second = Utils.cachedRect(el);
+    expect(el.calls).toBe(1); // served from cache
+    expect(second).toBe(first);
+
+    vi.setSystemTime(1200); // past 100ms
+    Utils.cachedRect(el);
+    expect(el.calls).toBe(2); // re-measured
+  });
+
+  it("caches per element identity", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(5000);
+    const a = fakeEl();
+    const b = fakeEl();
+    Utils.cachedRect(a);
+    Utils.cachedRect(b);
+    expect(a.calls).toBe(1);
+    expect(b.calls).toBe(1);
+  });
+
+  it("honors a custom ttl", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const el = fakeEl();
+    Utils.cachedRect(el, 10);
+    vi.setSystemTime(15);
+    Utils.cachedRect(el, 10);
+    expect(el.calls).toBe(2);
+  });
+});

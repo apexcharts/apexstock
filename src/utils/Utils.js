@@ -10,6 +10,13 @@ class Utils {
   static logPrefix = "[ApexStock]";
 
   /**
+   * Per-element bounding-rect cache backing {@link cachedRect}. A WeakMap so
+   * entries are released when their element is garbage-collected.
+   * @type {WeakMap<Element, {rect: DOMRect, time: number}>}
+   */
+  static _rectCache = new WeakMap();
+
+  /**
    * Logs an informational message (suppressed when `Utils.silent` is true).
    * @param {...*} args
    */
@@ -207,6 +214,25 @@ class Utils {
     };
 
     return throttled;
+  }
+
+  /**
+   * Returns an element's bounding rect, reused within `ttl` ms to avoid forcing
+   * a layout reflow on every call (e.g. once per mousemove during a drag). The
+   * cache is keyed on the element identity, so a fresh node (an ApexCharts
+   * re-render) misses automatically, and it self-corrects after the TTL on
+   * scroll / zoom / resize.
+   * @param {Element} el
+   * @param {number} [ttl=100]
+   * @returns {DOMRect}
+   */
+  static cachedRect(el, ttl = 100) {
+    const now = Date.now();
+    const hit = Utils._rectCache.get(el);
+    if (hit && now - hit.time < ttl) return hit.rect;
+    const rect = el.getBoundingClientRect();
+    Utils._rectCache.set(el, { rect, time: now });
+    return rect;
   }
 
   /**
