@@ -62,8 +62,9 @@
       <h1>Trading Overlays</h1>
       <p class="lead">
         Order lines, stop-loss, take-profit, and alerts as horizontal price
-        lines. They persist across zoom, theme, chart-type switch, and streaming
-        appends.
+        lines. Drag a line to reprice it, click the ✕ to remove it, and alerts
+        fire a callback when price crosses. They persist across zoom, theme,
+        chart-type switch, and streaming appends.
       </p>
 
       <div class="controls">
@@ -106,21 +107,29 @@
         const lastClose = () => chart.series[chart.series.length - 1].y[3];
         const near = (delta) => +(lastClose() + delta).toFixed(2);
 
+        // All lines here are draggable + closable; alerts log on cross.
+        const opts = { draggable: true, closable: true };
+
         // Seed a position: entry (buy), protective stop, and a target.
-        chart.addOrderLine({ price: near(-2), side: "buy", label: "Entry" });
-        chart.addStopLoss({ price: near(-8) });
-        chart.addTakeProfit({ price: near(8) });
+        chart.addOrderLine({ ...opts, price: near(-2), side: "buy", label: "Entry" });
+        chart.addStopLoss({ ...opts, price: near(-8) });
+        chart.addTakeProfit({ ...opts, price: near(8) });
 
         document.getElementById("add-buy").onclick = () =>
-          chart.addOrderLine({ price: near(-3 - Math.random() * 4), side: "buy" });
+          chart.addOrderLine({ ...opts, price: near(-3 - Math.random() * 4), side: "buy" });
         document.getElementById("add-sell").onclick = () =>
-          chart.addOrderLine({ price: near(3 + Math.random() * 4), side: "sell" });
+          chart.addOrderLine({ ...opts, price: near(3 + Math.random() * 4), side: "sell" });
         document.getElementById("add-sl").onclick = () =>
-          chart.addStopLoss({ price: near(-6 - Math.random() * 4) });
+          chart.addStopLoss({ ...opts, price: near(-6 - Math.random() * 4) });
         document.getElementById("add-tp").onclick = () =>
-          chart.addTakeProfit({ price: near(6 + Math.random() * 4) });
+          chart.addTakeProfit({ ...opts, price: near(6 + Math.random() * 4) });
         document.getElementById("add-alert").onclick = () =>
-          chart.addAlert({ price: near((Math.random() - 0.5) * 10) });
+          chart.addAlert({
+            ...opts,
+            price: near((Math.random() - 0.5) * 10),
+            onCross: (e) =>
+              console.log(`alert ${e.id} crossed ${e.direction} @ ${e.price}`),
+          });
         document.getElementById("clear").onclick = () => chart.clearPriceLines();
 
         let dark = false;

@@ -33,6 +33,10 @@ those are called out explicitly below.
   color, dash, width, and label position; colors default from a new themeable
   `colors.tradingOverlays` group. Lines persist across `update()`, theme change,
   chart-type switch, and streaming appends. See `examples/trading-overlays.html`.
+  Interactivity (opt-in per line): `draggable` enables drag-to-reprice (fires
+  `onMove({id, price})` on drop), `closable` adds a click-to-remove ✕ button
+  (fires `onRemove({id})`), and `onCross({id, type, price, direction, bar})`
+  fires when a newly-closed bar (from `appendData`) crosses the line.
 
 ## [0.2.0] - 2026-06-22
 

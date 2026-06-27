@@ -7,6 +7,7 @@
 // update / theme change / destroy).
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ApexStock from "../src/ApexStock.js";
+import TradingOverlayInteractions from "../src/overlays/TradingOverlayInteractions.js";
 
 function ohlcData(n = 60) {
   return Array.from({ length: n }, (_, i) => ({
@@ -283,5 +284,108 @@ describe("trading overlays — persistence + theming", () => {
     // render() reapplies, so the pre-render line is drawn.
     const ids = inst.chart.addYaxisAnnotation.mock.calls.map((c) => c[0].id);
     expect(ids).toContain("pre");
+  });
+});
+
+describe("trading overlays — interactivity", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("removeViaUI removes the line and fires onRemove (the close affordance)", () => {
+    const inst = makeInstance();
+    let removed = null;
+    const id = inst.addPriceLine({
+      price: 100,
+      closable: true,
+      onRemove: (e) => (removed = e),
+    });
+    // The annotation label is unchanged (the close button lives in the overlay).
+    expect(lastAnno(inst).label.text).toBe("100");
+
+    expect(inst.tradingOverlays.removeViaUI(id)).toBe(true);
+    expect(inst.getPriceLine(id)).toBe(null);
+    expect(inst.chart.removeAnnotation).toHaveBeenCalledWith(id);
+    expect(removed).toEqual({ id });
+
+    // Programmatic remove() does NOT fire onRemove.
+    let removed2 = null;
+    const id2 = inst.addPriceLine({
+      price: 50,
+      closable: true,
+      onRemove: (e) => (removed2 = e),
+    });
+    inst.removePriceLine(id2);
+    expect(removed2).toBe(null);
+  });
+
+  it("getPriceLine exposes draggable/closable flags", () => {
+    const inst = makeInstance();
+    const id = inst.addPriceLine({ price: 100, draggable: true, closable: true });
+    const p = inst.getPriceLine(id);
+    expect(p.draggable).toBe(true);
+    expect(p.closable).toBe(true);
+  });
+
+  it("onCross fires edge-triggered on a closing-bar crossing (direction up/down)", () => {
+    // Last close in ohlcData(5) is 11 + 4 = 15.
+    const inst = makeInstance(ohlcData(5));
+    const events = [];
+    inst.addAlert({ id: "a", price: 20, onCross: (e) => events.push(e) });
+    const close = (c) => ({ x: 0, y: [0, 0, 0, c] });
+
+    // 15 -> 25 crosses 20 upward.
+    inst.tradingOverlays.checkCrossings(null, close(25));
+    // 25 -> 30 stays above: no new event.
+    inst.tradingOverlays.checkCrossings(null, close(30));
+    // 30 -> 10 crosses 20 downward.
+    inst.tradingOverlays.checkCrossings(null, close(10));
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ id: "a", price: 20, direction: "up" });
+    expect(events[1]).toMatchObject({ id: "a", price: 20, direction: "down" });
+  });
+
+  it("onCross fires via appendData when a new bar crosses the line", () => {
+    const data = ohlcData(60); // last close 70
+    const inst = makeInstance(data);
+    let fired = null;
+    inst.addAlert({ id: "a", price: 75, onCross: (e) => (fired = e) });
+    inst.appendData({ x: data[59].x + 86400000, y: [70, 82, 69, 80], v: 1 });
+    expect(fired).toMatchObject({ id: "a", direction: "up" });
+  });
+
+  it("repriceLive moves the line + auto label without firing callbacks", () => {
+    const inst = makeInstance();
+    let moved = null;
+    let crossed = null;
+    const id = inst.addStopLoss({
+      price: 95,
+      onMove: (e) => (moved = e),
+      onCross: (e) => (crossed = e),
+    });
+    inst.tradingOverlays.repriceLive(id, 90);
+    expect(inst.getPriceLine(id).price).toBe(90);
+    expect(lastAnno(inst).y).toBe(90);
+    expect(lastAnno(inst).label.text).toContain("SL 90"); // auto label tracked
+    expect(moved).toBe(null);
+    expect(crossed).toBe(null);
+  });
+
+  it("drag math: yFromPrice / priceFromY are inverse over the plot bounds", () => {
+    const b = { min: 100, max: 200, top: 10, height: 400 };
+    expect(TradingOverlayInteractions.yFromPrice(200, b)).toBe(10); // top = max
+    expect(TradingOverlayInteractions.yFromPrice(100, b)).toBe(410); // bottom = min
+    expect(TradingOverlayInteractions.yFromPrice(150, b)).toBe(210); // midpoint
+    expect(TradingOverlayInteractions.priceFromY(210, b)).toBeCloseTo(150, 9);
+    // Round-trip an arbitrary price.
+    expect(
+      TradingOverlayInteractions.priceFromY(
+        TradingOverlayInteractions.yFromPrice(137.5, b),
+        b
+      )
+    ).toBeCloseTo(137.5, 9);
   });
 });

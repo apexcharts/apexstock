@@ -94,4 +94,46 @@ test.describe("trading overlays", () => {
     await page.waitForTimeout(120);
     expect(await annoLines(page)).toBe(0);
   });
+
+  test("a draggable line reprices on drag and fires onMove", async ({ page }) => {
+    await gotoFixture(page);
+    const before = await page.evaluate(() => window.__priceOf("buy"));
+
+    const strip = page.locator('.apexstock-trading-grab[data-line-id="buy"]');
+    await expect(strip).toBeVisible();
+    const box = await strip.boundingBox();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+
+    // Drag downward (y increases) -> lower price.
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx, cy + 60, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+
+    const after = await page.evaluate(() => window.__priceOf("buy"));
+    expect(after).toBeLessThan(before);
+
+    const moved = await page.evaluate(() => window.__events.move);
+    expect(moved).not.toBeNull();
+    expect(moved.id).toBe("buy");
+  });
+
+  test("clicking a closable line's label removes it and fires onRemove", async ({
+    page,
+  }) => {
+    await gotoFixture(page);
+    const before = await annoLines(page);
+
+    // The close affordance is a button in the interaction overlay.
+    await page.locator('.apexstock-trading-close[data-line-id="alert"]').click();
+    await page.waitForTimeout(150);
+
+    expect(await annoLines(page)).toBe(before - 1);
+    expect(await page.evaluate(() => window.__events.remove)).toEqual({
+      id: "alert",
+    });
+    expect(await page.evaluate(() => window.__priceOf("alert"))).toBeNull();
+  });
 });

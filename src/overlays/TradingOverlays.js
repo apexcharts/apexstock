@@ -11,6 +11,14 @@ import Utils from "../utils/Utils";
  * x-axis. Colors default from the theme's `colors.tradingOverlays` group and are
  * re-read on every re-apply, so a theme switch recolors them.
  *
+ * Interactivity (all opt-in per line):
+ * - `draggable: true` -> the line can be dragged vertically to reprice it (drawn
+ *   by {@link TradingOverlayInteractions}); `onMove({id, price})` fires on drop.
+ * - `closable: true` -> the label gets a "✕" affordance; clicking it removes the
+ *   line and fires `onRemove({id})`.
+ * - `onCross({id, type, price, direction, bar})` -> fired from appendData when a
+ *   newly-closed bar crosses the line (edge-triggered on close-to-close).
+ *
  * @typedef {Object} PriceLineConfig
  * @property {number} price - The y value the line sits at (required).
  * @property {string} [id] - Stable id; auto-generated ("tl-N") when omitted.
@@ -22,6 +30,11 @@ import Utils from "../utils/Utils";
  * @property {number} [strokeDashArray] - Dash length; default varies by type.
  * @property {number} [width=1] - Line width.
  * @property {"left"|"right"} [labelPosition="right"]
+ * @property {boolean} [draggable=false] - Allow drag-to-reprice.
+ * @property {boolean} [closable=false] - Show a click-to-remove affordance.
+ * @property {function} [onCross] - Fired when a closed bar crosses the line.
+ * @property {function} [onMove] - Fired after a drag completes.
+ * @property {function} [onRemove] - Fired when removed via the close affordance.
  * @property {*} [meta] - Arbitrary consumer payload, returned by get()/getAll().
  */
 
@@ -32,6 +45,9 @@ const TYPE_DEFAULTS = {
   "take-profit": { dash: 4, colorKey: "takeProfit" },
   alert: { dash: 6, colorKey: "alert" },
 };
+
+/** Sign of a number: 1 / -1 / 0. */
+const sign = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
 
 export default class TradingOverlays {
   /** @param {import("../ApexStock.js").default} ctx */
@@ -77,7 +93,6 @@ export default class TradingOverlays {
   /** Build the ApexCharts y-axis annotation for a stored line. */
   _toAnnotation(line) {
     const color = this._color(line);
-    const onClick = line._onClick;
     return {
       id: line.id,
       y: line.price,
@@ -89,7 +104,6 @@ export default class TradingOverlays {
         position: line.labelPosition,
         textAnchor: line.labelPosition === "left" ? "start" : "end",
         borderColor: color,
-        click: onClick,
         style: {
           background: color,
           color: line.textColor || this._palette().labelText || "#fff",
@@ -128,7 +142,13 @@ export default class TradingOverlays {
       width: config.width != null ? config.width : 1,
       labelPosition: config.labelPosition === "left" ? "left" : "right",
       meta: config.meta,
-      _onClick: typeof config.onClick === "function" ? config.onClick : undefined,
+      _draggable: !!config.draggable,
+      _closable: !!config.closable,
+      _onCross: typeof config.onCross === "function" ? config.onCross : undefined,
+      _onMove: typeof config.onMove === "function" ? config.onMove : undefined,
+      _onRemove:
+        typeof config.onRemove === "function" ? config.onRemove : undefined,
+      _lastSide: undefined,
     };
     if (config.label != null) {
       line.label = String(config.label);
@@ -140,24 +160,36 @@ export default class TradingOverlays {
     return line;
   }
 
+  /** The current close-vs-price side, for edge-triggered crossing detection. */
+  _seedSide(price) {
+    const s = this.ctx.series;
+    if (!s || !s.length) return undefined;
+    return sign(s[s.length - 1].y[3] - price);
+  }
+
   /** Public-facing copy of a line (drops private fields). */
   _public(line) {
     if (!line) return null;
-    const { id, type, price, side, color, textColor, strokeDashArray, width, labelPosition, label, meta } =
-      line;
     return {
-      id,
-      type,
-      price,
-      side,
-      color,
-      textColor,
-      strokeDashArray,
-      width,
-      labelPosition,
-      label,
-      meta,
+      id: line.id,
+      type: line.type,
+      price: line.price,
+      side: line.side,
+      color: line.color,
+      textColor: line.textColor,
+      strokeDashArray: line.strokeDashArray,
+      width: line.width,
+      labelPosition: line.labelPosition,
+      label: line.label,
+      draggable: line._draggable,
+      closable: line._closable,
+      meta: line.meta,
     };
+  }
+
+  /** Tell the interaction layer (if any) to reposition its drag handles. */
+  _syncInteractions() {
+    if (this.ctx.tradingInteractions) this.ctx.tradingInteractions.sync();
   }
 
   /**
@@ -171,6 +203,7 @@ export default class TradingOverlays {
     if (this.lines[line.id] && this.ctx.chart) {
       this.ctx.chart.removeAnnotation(line.id);
     }
+    line._lastSide = this._seedSide(line.price);
     this.lines[line.id] = line;
     if (
       this.ctx.chart &&
@@ -178,6 +211,7 @@ export default class TradingOverlays {
     ) {
       this.ctx.chart.addYaxisAnnotation(this._toAnnotation(line));
     }
+    this._syncInteractions();
     return line.id;
   }
 
@@ -201,14 +235,101 @@ export default class TradingOverlays {
     if ((patch == null || patch.label == null) && existing._autoLabel) {
       merged.label = undefined;
     }
-    // Carry the existing click handler unless the patch overrides it.
-    if (!patch || patch.onClick === undefined) merged.onClick = existing._onClick;
+    // Carry handlers/draggable/closable unless the patch overrides them.
+    if (!patch || patch.onCross === undefined) merged.onCross = existing._onCross;
+    if (!patch || patch.onMove === undefined) merged.onMove = existing._onMove;
+    if (!patch || patch.onRemove === undefined)
+      merged.onRemove = existing._onRemove;
+    if (!patch || patch.draggable === undefined)
+      merged.draggable = existing._draggable;
+    if (!patch || patch.closable === undefined)
+      merged.closable = existing._closable;
     const line = this._normalize(merged);
     if (!line) return false;
+    // Crossing state survives a reprice (re-seeded only when the price changes).
+    line._lastSide =
+      line.price === existing.price
+        ? existing._lastSide
+        : this._seedSide(line.price);
     this.lines[id] = line;
     if (this.ctx.chart) {
       this.ctx.chart.removeAnnotation(id);
       this.ctx.chart.addYaxisAnnotation(this._toAnnotation(line));
+    }
+    this._syncInteractions();
+    return true;
+  }
+
+  /**
+   * Live reprice during a drag: moves the line + its auto label and re-draws the
+   * annotation, WITHOUT firing callbacks or re-seeding crossing state.
+   * @param {string} id
+   * @param {number} price
+   */
+  repriceLive(id, price) {
+    const line = this.lines[String(id)];
+    if (!line || !Number.isFinite(price)) return;
+    line.price = price;
+    if (line._autoLabel) line.label = this._defaultLabel(line);
+    if (this.ctx.chart) {
+      this.ctx.chart.removeAnnotation(line.id);
+      this.ctx.chart.addYaxisAnnotation(this._toAnnotation(line));
+    }
+  }
+
+  /**
+   * Edge-triggered crossing check for a newly-closed bar: fires `onCross` for any
+   * line whose close-vs-price side flipped between the prior and the new bar.
+   * @param {object} _prevBar - unused (side is carried in line state)
+   * @param {object} newBar - the bar that just closed ({ y:[o,h,l,c] })
+   */
+  checkCrossings(_prevBar, newBar) {
+    if (!newBar || !newBar.y) return;
+    const close = newBar.y[3];
+    for (const id of Object.keys(this.lines)) {
+      const line = this.lines[id];
+      if (!line._onCross) continue;
+      const newSide = sign(close - line.price);
+      if (
+        line._lastSide !== undefined &&
+        newSide !== 0 &&
+        newSide !== line._lastSide
+      ) {
+        try {
+          line._onCross({
+            id: line.id,
+            type: line.type,
+            price: line.price,
+            direction: newSide > 0 ? "up" : "down",
+            bar: newBar,
+          });
+        } catch (e) {
+          Utils.warn("price line onCross threw:", e);
+        }
+      }
+      if (newSide !== 0) line._lastSide = newSide;
+    }
+  }
+
+  /**
+   * Remove a line in response to a UI affordance (the interaction layer's close
+   * button), firing the line's `onRemove` callback. Programmatic removal should
+   * use {@link remove}, which does not fire callbacks.
+   * @param {string} id
+   * @returns {boolean} false if no such line.
+   */
+  removeViaUI(id) {
+    id = String(id);
+    const line = this.lines[id];
+    if (!line) return false;
+    const cb = line._onRemove;
+    this.remove(id);
+    if (cb) {
+      try {
+        cb({ id });
+      } catch (e) {
+        Utils.warn("price line onRemove threw:", e);
+      }
     }
     return true;
   }
@@ -223,6 +344,7 @@ export default class TradingOverlays {
     if (!this.lines[id]) return false;
     delete this.lines[id];
     if (this.ctx.chart) this.ctx.chart.removeAnnotation(id);
+    this._syncInteractions();
     return true;
   }
 
@@ -232,6 +354,7 @@ export default class TradingOverlays {
       if (this.ctx.chart) this.ctx.chart.removeAnnotation(id);
     }
     this.lines = {};
+    this._syncInteractions();
   }
 
   /**
@@ -258,6 +381,7 @@ export default class TradingOverlays {
       this.ctx.chart.removeAnnotation(id);
       this.ctx.chart.addYaxisAnnotation(this._toAnnotation(this.lines[id]));
     }
+    this._syncInteractions();
   }
 
   /** Remove all annotations and drop state. */

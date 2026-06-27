@@ -58,11 +58,33 @@
         const lo = g.minY;
         const hi = g.maxY;
         const at = (f) => +(lo + (hi - lo) * f).toFixed(2);
-        chart.addOrderLine({ id: "buy", price: at(0.4), side: "buy", label: "Buy" });
+
+        // Record interactivity callbacks for the e2e to read.
+        window.__events = { move: null, remove: null, cross: null };
+
+        chart.addOrderLine({
+          id: "buy",
+          price: at(0.4),
+          side: "buy",
+          label: "Buy",
+          draggable: true,
+          onMove: (e) => (window.__events.move = e),
+        });
         chart.addOrderLine({ id: "sell", price: at(0.6), side: "sell", label: "Sell" });
         chart.addStopLoss({ id: "sl", price: at(0.35), label: "SL" });
         chart.addTakeProfit({ id: "tp", price: at(0.65), label: "TP" });
-        chart.addAlert({ id: "alert", price: at(0.5), label: "Alert" });
+        chart.addAlert({
+          id: "alert",
+          price: at(0.5),
+          label: "Alert",
+          closable: true,
+          onRemove: (e) => (window.__events.remove = e),
+        });
+
+        window.__priceOf = (id) => {
+          const l = chart.getPriceLine(id);
+          return l ? l.price : null;
+        };
 
         requestAnimationFrame(() =>
           requestAnimationFrame(() => (window.__ready = true))

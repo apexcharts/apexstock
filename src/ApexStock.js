@@ -7,6 +7,7 @@ import ChartSwitch from "./core/ChartSwitch";
 import IndicatorHandlers from "./indicators/IndicatorHandlers";
 import IndicatorStep from "./indicators/IndicatorStep";
 import TradingOverlays from "./overlays/TradingOverlays";
+import TradingOverlayInteractions from "./overlays/TradingOverlayInteractions";
 import XAxis from "./components/XAxis";
 import ThemeManager from "./core/ThemeManager";
 import LayoutManager from "./core/LayoutManager";
@@ -479,6 +480,9 @@ export default class ApexStock {
       ) {
         this.indicatorChartMap["fibonacci retracements"].update();
       }
+
+      // Reposition draggable price-line handles for the new visible range.
+      if (this.tradingInteractions) this.tradingInteractions.sync();
     }
   }
 
@@ -511,6 +515,9 @@ export default class ApexStock {
       ) {
         this.indicatorChartMap["fibonacci retracements"].update();
       }
+
+      // Reposition draggable price-line handles for the new visible range.
+      if (this.tradingInteractions) this.tradingInteractions.sync();
     }
   }
 
@@ -551,7 +558,10 @@ export default class ApexStock {
 
     this.handleWatermark();
 
-    // Draw any price lines added before render().
+    // Drag-to-reprice layer for draggable price lines (needs the rendered chart).
+    this.tradingInteractions = new TradingOverlayInteractions(this);
+
+    // Draw any price lines added before render() (and sync the drag handles).
     this.tradingOverlays.reapply();
   }
 
@@ -810,7 +820,8 @@ export default class ApexStock {
    * @returns {void}
    */
   destroy() {
-    // Clean up trading overlays (remove annotations, drop state).
+    // Clean up trading overlays (remove annotations, drop state) + drag layer.
+    if (this.tradingInteractions) this.tradingInteractions.destroy();
     if (this.tradingOverlays) this.tradingOverlays.destroy();
 
     // Clean up ChartSwitch
@@ -1423,6 +1434,9 @@ export default class ApexStock {
           }
         }
       }
+
+      // Fire price-line cross/alert callbacks for a newly-closed bar.
+      if (commit) this.tradingOverlays.checkCrossings(null, bar);
     }
 
     if (!applied) return this; // every incoming bar was rejected
@@ -1520,6 +1534,9 @@ export default class ApexStock {
       // preserve: keep the exact prior window even if the new bar is off-screen.
       this.applyZoomToAllCharts(zoomState);
     }
+
+    // The y-range may have shifted with the new bars; reposition drag handles.
+    if (this.tradingInteractions) this.tradingInteractions.sync();
 
     return this;
   }
