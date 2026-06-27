@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Real-time Streaming (appendData)</title>
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      #chart-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 8px;
+      }
+      p.lead {
+        text-align: center;
+        color: #666;
+        margin-top: 0;
+        margin-bottom: 20px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .controls button,
+      .controls label {
+        font-size: 14px;
+      }
+      .controls button {
+        padding: 8px 14px;
+        border: 1px solid #d0d0d0;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+      }
+      .controls button:hover {
+        background: #f0f0f0;
+      }
+      .controls .stat {
+        color: #444;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+
+  <body>
+    <div id="chart-container">
+      <h1>Real-time Streaming</h1>
+      <p class="lead">
+        Each tick calls <code>appendData()</code>, which updates the candles,
+        every indicator, and the panes incrementally (no full rebuild).
+      </p>
+
+      <div class="controls">
+        <button id="toggle">Start</button>
+        <button id="step">+1 bar</button>
+        <label>
+          <input type="checkbox" id="follow" checked /> Follow right edge
+        </label>
+        <label>
+          maxPoints
+          <input id="maxpoints" type="number" value="0" min="0" step="50"
+            style="width: 80px" />
+        </label>
+        <span class="stat" id="stat">bars: 0</span>
+      </div>
+
+      <div id="chart"></div>
+    </div>
+
+    <script>
+      const DAY = 86400000;
+      const BASE = Date.UTC(2024, 0, 1);
+
+      // Deterministic-ish walk; uses Math.random so each run differs slightly.
+      function makeBar(i, prevClose) {
+        const o = prevClose;
+        const c = +(o + (Math.random() - 0.5) * 4).toFixed(2);
+        const h = +(Math.max(o, c) + Math.random() * 2).toFixed(2);
+        const l = +(Math.min(o, c) - Math.random() * 2).toFixed(2);
+        return {
+          x: BASE + i * DAY,
+          y: [o, h, l, c],
+          v: Math.floor(Math.random() * 1_000_000) + 100_000,
+        };
+      }
+
+      function seedData(n) {
+        const data = [];
+        let price = 100;
+        for (let i = 0; i < n; i++) {
+          const bar = makeBar(i, price);
+          data.push(bar);
+          price = bar.y[3];
+        }
+        return data;
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const stockChart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 420, animations: { enabled: false } },
+          series: [{ name: "Price", data: seedData(150) }],
+        });
+        stockChart.render();
+
+        // Light up a line overlay, a rangeArea overlay, and an oscillator pane.
+        stockChart.updateIndicator("moving average");
+        stockChart.updateIndicator("bollinger bands");
+        stockChart.updateIndicator("rsi");
+
+        const stat = document.getElementById("stat");
+        const followBox = document.getElementById("follow");
+        const maxPointsInput = document.getElementById("maxpoints");
+        let timer = null;
+
+        function tick() {
+          const i = stockChart.series.length;
+          const prev = stockChart.series[stockChart.series.length - 1].y[3];
+          const maxPoints = Number(maxPointsInput.value) || undefined;
+          stockChart.appendData(makeBar(i, prev), {
+            view: followBox.checked ? "follow" : "preserve",
+            maxPoints,
+          });
+          stat.textContent = "bars: " + stockChart.series.length;
+        }
+
+        document.getElementById("step").addEventListener("click", tick);
+
+        const toggle = document.getElementById("toggle");
+        toggle.addEventListener("click", function () {
+          if (timer) {
+            clearInterval(timer);
+            timer = null;
+            toggle.textContent = "Start";
+          } else {
+            timer = setInterval(tick, 500);
+            toggle.textContent = "Stop";
+          }
+        });
+
+        stat.textContent = "bars: " + stockChart.series.length;
+      });
+    </script>
+  </body>
+</html>
