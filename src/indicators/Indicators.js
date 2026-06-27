@@ -44,6 +44,18 @@ class Indicators {
   }
 
   /**
+   * Drop every cached result for `series`. The memo is keyed on the series array
+   * identity, so when callers mutate that array in place (the appendData path
+   * pushes/replaces bars rather than swapping in a fresh array), the cache must
+   * be invalidated or a later full compute would return a stale, shorter result.
+   * @param {*} series
+   * @returns {void}
+   */
+  static invalidate(series) {
+    if (series && typeof series === "object") Indicators._cache.delete(series);
+  }
+
+  /**
    * Simple moving average of close prices.
    * @param {import("../types.js").Series} series
    * @param {number} period

@@ -5,6 +5,7 @@ import apexStockCSS from "ApexStock.css";
 import Export from "./tools/export/Export";
 import ChartSwitch from "./core/ChartSwitch";
 import IndicatorHandlers from "./indicators/IndicatorHandlers";
+import IndicatorStep from "./indicators/IndicatorStep";
 import XAxis from "./components/XAxis";
 import ThemeManager from "./core/ThemeManager";
 import LayoutManager from "./core/LayoutManager";
@@ -110,6 +111,13 @@ export default class ApexStock {
     this.primaryToolbar.appendChild(this.primaryToolbarRight);
 
     this.indicatorChartMap = {};
+    // Per-indicator running state for the incremental appendData() path, keyed by
+    // the (lowercased) registry indicator key. Seeded from the current series
+    // when an indicator is added, cleared when it is removed, and dropped wholesale
+    // when the series is fully replaced (update()). Bypasses the WeakMap memo on
+    // Indicators.* so a live append never forces an O(n) full recompute.
+    // Each entry: { key, params, state } (see IndicatorStep).
+    this._indicatorState = {};
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -670,6 +678,10 @@ export default class ApexStock {
       newOptions.series[0].data = Utils.normalizeOHLC(newOptions.series[0].data);
       this.series = newOptions.series[0].data;
 
+      // The series identity changed: drop all streaming state. refreshIndicators
+      // below re-seeds each active indicator from the new data.
+      this.resetIndicatorState();
+
       // Update volumes data if available in the new series
       this.volumesData = this.series
         .map((point) => (point.v ? { x: point.x, y: point.v } : null))
@@ -1197,6 +1209,307 @@ export default class ApexStock {
   }
 
   /**
+   * Seed (or re-seed) the incremental streaming state for one indicator from the
+   * current `this.series`, bypassing the memoized full-compute cache. No-op for
+   * indicators without a streaming twin (ichimoku, fibonacci, volumes), whose
+   * stale state (if any) is dropped.
+   * @param {string} indicatorKey - Registry indicator key (any casing).
+   * @returns {void}
+   */
+  seedIndicatorState(indicatorKey) {
+    const key = (indicatorKey || "").toLowerCase();
+    const params = this.oscillatorSettings
+      ? this.oscillatorSettings.getIndicatorParams(key)
+      : {};
+    const resolved = IndicatorStep.resolve(key, params);
+    if (!resolved) {
+      delete this._indicatorState[key];
+      return;
+    }
+    this._indicatorState[key] = {
+      key: resolved.key,
+      params: resolved.params,
+      kind: resolved.kind,
+      render: resolved.render,
+      // `state` is the committed running state covering this.series[0 .. len-1].
+      state: IndicatorStep.seed(resolved.key, this.series, resolved.params),
+      len: this.series.length,
+    };
+  }
+
+  /**
+   * Drop the streaming state for one indicator (on removal/toggle-off).
+   * @param {string} indicatorKey - Registry indicator key (any casing).
+   * @returns {void}
+   */
+  clearIndicatorState(indicatorKey) {
+    delete this._indicatorState[(indicatorKey || "").toLowerCase()];
+  }
+
+  /**
+   * Drop all streaming state. Used when the series is fully replaced so the next
+   * append re-seeds from the new data (the active indicators are re-added by
+   * {@link refreshIndicators}, which re-seeds each).
+   * @returns {void}
+   */
+  resetIndicatorState() {
+    this._indicatorState = {};
+  }
+
+  /**
+   * Step one indicator to the value at this.series' last bar, bypassing the
+   * memoized full compute. `entry.state` is the committed running state covering
+   * this.series[0 .. entry.len-1]; this advances it to cover the last bar when
+   * `commit` is true (a closed bar) and leaves it untouched for a forming bar so
+   * the next forming tick re-steps from the same base. The committed state lags
+   * by exactly one in the steady-state append path (no re-seed); a re-seed (the
+   * O(n) safety net) only happens when that invariant is broken, e.g. when a
+   * forming bar closes or after a maxPoints trim shifts indices.
+   * @param {{ key: string, params: any, state: any, len: number }} entry
+   * @param {boolean} commit
+   * @returns {*} the indicator value at the last bar.
+   */
+  _stepIndicatorEntry(entry, commit) {
+    const L = this.series.length;
+    if (entry.len !== L - 1) {
+      entry.state = IndicatorStep.seed(
+        entry.key,
+        this.series.slice(0, L - 1),
+        entry.params
+      );
+      entry.len = L - 1;
+    }
+    const { value, state } = IndicatorStep.step(
+      entry.key,
+      entry.state,
+      this.series,
+      entry.params
+    );
+    if (commit) {
+      entry.state = state;
+      entry.len = L;
+    }
+    return value;
+  }
+
+  /**
+   * Incrementally append one or more OHLC bars (or replace the forming last bar)
+   * without the full teardown/rebuild that {@link update} performs. Price candles,
+   * every streamable overlay and oscillator pane, the volume pane, the x-axis, and
+   * the view are updated in O(active indicators x small tail) instead of
+   * O(full history): no normalizeOHLC over all bars, no memoized full indicator
+   * recompute, and no pane destroy/recreate.
+   *
+   * @param {import("./types.js").OHLCPoint | import("./types.js").OHLCPoint[]} pointOrPoints
+   *   One bar, or a batch, in the canonical `{ x, y:[o,h,l,c], v? }` shape.
+   * @param {Object} [options]
+   * @param {"follow"|"preserve"} [options.view="follow"] `follow` rides the right
+   *   edge (shifts a zoomed window to include the new bar); `preserve` keeps the
+   *   current zoom window unchanged.
+   * @param {number} [options.maxPoints] Rolling-window cap: trims the oldest bars
+   *   from the front so the buffer stays fixed-width. Running indicators keep their
+   *   carried state (values reflect all history seen, not the trimmed window), so
+   *   they intentionally differ from a cold reload of the truncated buffer.
+   * @param {boolean} [options.updateLast=false] When the incoming `x` equals the
+   *   last bar's `x`, replace it (a forming candle receiving ticks) instead of
+   *   appending. With `updateLast`, a new-`x` bar is treated as still forming.
+   * @returns {this}
+   */
+  appendData(pointOrPoints, options = {}) {
+    if (!this.chart || !this.chart.w) {
+      Utils.warn("appendData: chart is not rendered; ignoring.");
+      return this;
+    }
+    const view = options.view === "preserve" ? "preserve" : "follow";
+    const updateLast = !!options.updateLast;
+    const maxPoints = options.maxPoints;
+
+    let incoming = Array.isArray(pointOrPoints)
+      ? pointOrPoints
+      : [pointOrPoints];
+    incoming = Utils.normalizeOHLC(incoming);
+    if (!incoming.length) {
+      Utils.warn("appendData: no valid points to append; ignoring.");
+      return this;
+    }
+
+    // Capture the pre-append view so the policy can decide whether to follow or
+    // preserve. "Zoomed" = the visible window sits inside the old data extent.
+    const oldFirstX = this.series.length ? this.series[0].x : null;
+    const oldLastX = this.series.length
+      ? this.series[this.series.length - 1].x
+      : null;
+    const zoomState = this.getCurrentZoomState();
+    const wasZoomed = !!(
+      zoomState &&
+      oldFirstX != null &&
+      (zoomState.minX > oldFirstX || zoomState.maxX < oldLastX)
+    );
+
+    // A volume pane only consumes per-bar volume; it is not derived.
+    const volumePane = this.indicatorChartMap["volumes"];
+    const hasVolumePane = volumePane && typeof volumePane !== "boolean";
+
+    // Per-series deltas to apply once at the end. `committed` (a closed bar) vs a
+    // forming bar is the same for every bar in one call (single updateLast flag).
+    const overlayDeltas = {}; // seriesName -> [{ op, point }]
+    const paneDeltas = {}; // registryKey -> { seriesName -> [{ op, point }] }
+    const volumeDeltas = []; // [{ op, point }]
+    const pushDelta = (bucket, name, op, point) => {
+      (bucket[name] = bucket[name] || []).push({ op, point });
+    };
+
+    const streamableKeys = Object.keys(this._indicatorState);
+    let applied = 0;
+
+    for (const bar of incoming) {
+      const last = this.series[this.series.length - 1];
+      const sameX = last && bar.x === last.x;
+      let op;
+      if (updateLast && sameX) {
+        this.series[this.series.length - 1] = bar;
+        op = "replace";
+      } else if (last && bar.x <= last.x) {
+        Utils.warn(
+          "appendData: ignoring out-of-order/duplicate x (" + bar.x + ")."
+        );
+        continue;
+      } else {
+        this.series.push(bar);
+        op = "append";
+      }
+      applied++;
+      const commit = op === "append" && !updateLast;
+
+      // Volume buffer + pane delta.
+      if (bar.v != null) {
+        const vPoint = { x: bar.x, y: bar.v };
+        if (op === "replace" && this.volumesData.length) {
+          this.volumesData[this.volumesData.length - 1] = vPoint;
+        } else {
+          this.volumesData.push(vPoint);
+        }
+        if (hasVolumePane) volumeDeltas.push({ op, point: vPoint });
+      }
+
+      // Indicators: step each streamable active indicator and record its points.
+      for (const regKey of streamableKeys) {
+        const entry = this._indicatorState[regKey];
+        const value = this._stepIndicatorEntry(entry, commit);
+        const rendered = entry.render(value, bar.x);
+        if (entry.kind === "overlay") {
+          for (const { name, point } of rendered) {
+            pushDelta(overlayDeltas, name, op, point);
+          }
+        } else {
+          paneDeltas[regKey] = paneDeltas[regKey] || {};
+          for (const { name, point } of rendered) {
+            pushDelta(paneDeltas[regKey], name, op, point);
+          }
+        }
+      }
+    }
+
+    if (!applied) return this; // every incoming bar was rejected
+
+    // this.series was mutated in place, so its identity-keyed memo is now stale.
+    // Drop it: the streaming steppers already bypass the memo, but any later full
+    // compute on this array (ichimoku below, or a theme-driven refresh) must not
+    // read a stale, shorter cached result.
+    Indicators.invalidate(this.series);
+
+    // Rolling-window trim: drop the oldest bars uniformly from every buffer and
+    // shift each indicator's committed length so its invariant still holds.
+    let drop = 0;
+    if (maxPoints && this.series.length > maxPoints) {
+      drop = this.series.length - maxPoints;
+      this.series.splice(0, drop);
+      const vDrop = Math.min(drop, this.volumesData.length);
+      if (vDrop) this.volumesData.splice(0, vDrop);
+      for (const regKey of streamableKeys) {
+        const e = this._indicatorState[regKey];
+        e.len = Math.max(0, e.len - drop);
+      }
+    }
+
+    // Helper: apply this call's deltas (then the front trim) to a data array.
+    const applyDeltas = (data, deltas) => {
+      for (const { op, point } of deltas) {
+        if (op === "replace" && data.length) data[data.length - 1] = point;
+        else data.push(point);
+      }
+      if (drop) data.splice(0, Math.min(drop, data.length));
+      return data;
+    };
+
+    // ── Main chart: price + overlays (streamable patched, ichimoku recomputed) ──
+    const ichimokuActive = !!this.indicatorChartMap["ichimoku cloud indicator"];
+    let ichimoku = null;
+    if (ichimokuActive) ichimoku = this.calculateIchimoku(this.series);
+    const newMainSeries = this.chart.w.config.series.map((s) => {
+      if (s.name === "Price") return { ...s, data: this.series };
+      if (overlayDeltas[s.name]) {
+        return { ...s, data: applyDeltas(s.data.slice(), overlayDeltas[s.name]) };
+      }
+      if (ichimoku && s.name === "Tenkan-sen") {
+        return {
+          ...s,
+          data: ichimoku.tenkan.map((v, i) => ({ x: this.series[i].x, y: v.y })),
+        };
+      }
+      if (ichimoku && s.name === "Kijun-sen") {
+        return {
+          ...s,
+          data: ichimoku.kijun.map((v, i) => ({ x: this.series[i].x, y: v.y })),
+        };
+      }
+      return s;
+    });
+    this.chart.updateSeries(newMainSeries);
+
+    // ── Oscillator panes (one updateSeries per active pane instance) ────────────
+    for (const regKey of Object.keys(paneDeltas)) {
+      const pane = this.indicatorChartMap[regKey];
+      if (!pane || typeof pane === "boolean") continue;
+      const newPaneSeries = pane.w.config.series.map((s) => {
+        const d = paneDeltas[regKey][s.name];
+        return d ? { ...s, data: applyDeltas(s.data.slice(), d) } : s;
+      });
+      pane.updateSeries(newPaneSeries);
+    }
+
+    // ── Volume pane ─────────────────────────────────────────────────────────────
+    if (hasVolumePane && (volumeDeltas.length || drop)) {
+      const newVolSeries = volumePane.w.config.series.map((s) =>
+        s.name === "Volumes"
+          ? { ...s, data: applyDeltas(s.data.slice(), volumeDeltas) }
+          : s
+      );
+      volumePane.updateSeries(newVolSeries);
+    }
+
+    // ── Fibonacci annotation: re-evaluate its levels against the new range ───────
+    const fib = this.indicatorChartMap["fibonacci retracements"];
+    if (fib && typeof fib.update === "function") fib.update();
+
+    // ── X-axis + view policy ────────────────────────────────────────────────────
+    this.initializeXAxisRange();
+    const lastX = this.series[this.series.length - 1].x;
+    if (view === "follow") {
+      if (wasZoomed) {
+        const width = zoomState.maxX - zoomState.minX;
+        this.applyZoomToAllCharts({ minX: lastX - width, maxX: lastX });
+      }
+      // Not zoomed: the full view already includes the new bar.
+    } else if (wasZoomed) {
+      // preserve: keep the exact prior window even if the new bar is off-screen.
+      this.applyZoomToAllCharts(zoomState);
+    }
+
+    return this;
+  }
+
+  /**
    * Add or refresh a technical indicator pane/overlay, preserving zoom state.
    * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
    * @returns {void}
@@ -1207,6 +1520,16 @@ export default class ApexStock {
 
     // Update the indicator
     IndicatorHandlers.updateIndicator(indicatorKey, this);
+
+    // Maintain the incremental streaming state for the append path. updateIndicator
+    // toggles, so seed when the indicator is now active and clear when it was
+    // toggled off.
+    const key = (indicatorKey || "").toLowerCase();
+    if (this.indicatorChartMap[key]) {
+      this.seedIndicatorState(key);
+    } else {
+      this.clearIndicatorState(key);
+    }
 
     // Apply zoom state to all charts if we have valid zoom information
     if (zoomState) {
@@ -1230,6 +1553,9 @@ export default class ApexStock {
 
     // Remove the indicator
     IndicatorHandlers.removeIndicator(indicatorKey, this);
+
+    // Drop any incremental streaming state for the removed indicator.
+    this.clearIndicatorState(indicatorKey);
 
     // Apply zoom state to remaining charts if we have valid zoom information
     if (zoomState) {
