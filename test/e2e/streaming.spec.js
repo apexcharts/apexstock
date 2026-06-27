@@ -74,7 +74,6 @@ test.describe("appendData live loop", () => {
     const appendMs = await page.evaluate((n) => window.__appendLoop(n), N);
     const updateMs = await page.evaluate((n) => window.__updateLoop(n), N);
 
-    // eslint-disable-next-line no-console
     console.log(
       `appendData ${N} bars: ${appendMs.toFixed(1)}ms ` +
         `(${(appendMs / N).toFixed(2)}ms/bar) vs ` +

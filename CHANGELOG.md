@@ -9,6 +9,31 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Added
+
+- **Real-time streaming via `appendData()`.** A new incremental path appends a
+  bar (or replaces a forming one) and updates the price candles, every active
+  overlay and oscillator pane, the volume pane, and the x-axis in
+  O(active indicators x small tail) instead of the full teardown/rebuild
+  `update()` performs (no `normalizeOHLC` over all history, no memoized full
+  indicator recompute, no pane destroy/recreate). API:
+  `appendData(point | point[], { view, maxPoints, updateLast })` where
+  `view: "follow" | "preserve"` rides the right edge or keeps the current zoom
+  window, `maxPoints` caps a rolling window (running indicators keep their carried
+  state, so values reflect all history seen, not the trimmed buffer), and
+  `updateLast` replaces the last bar for a forming candle. Backed by exact
+  streaming twins for all 17 indicators (`IndicatorStep`); ADX and TSI run as O(1)
+  running state. Measured ~12-14x faster than `update()`-per-tick in a browser.
+  See `examples/streaming.html`.
+- **Trading overlays (price lines).** Order lines, stop-loss, take-profit, and
+  alert lines as horizontal y-axis annotations on the main chart, via
+  `addPriceLine`, `addOrderLine`, `addStopLoss`, `addTakeProfit`, `addAlert`,
+  `updatePriceLine`, `removePriceLine`, `clearPriceLines`, `getPriceLine`, and
+  `getPriceLines`. Each line takes a price, optional label, side (buy/sell),
+  color, dash, width, and label position; colors default from a new themeable
+  `colors.tradingOverlays` group. Lines persist across `update()`, theme change,
+  chart-type switch, and streaming appends. See `examples/trading-overlays.html`.
+
 ## [0.2.0] - 2026-06-22
 
 ### Added

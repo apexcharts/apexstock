@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Trading Overlays (price lines)</title>
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      #chart-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 8px;
+      }
+      p.lead {
+        text-align: center;
+        color: #666;
+        margin-top: 0;
+        margin-bottom: 20px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .controls button {
+        padding: 8px 14px;
+        border: 1px solid #d0d0d0;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .controls button:hover {
+        background: #f0f0f0;
+      }
+    </style>
+
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+
+  <body>
+    <div id="chart-container">
+      <h1>Trading Overlays</h1>
+      <p class="lead">
+        Order lines, stop-loss, take-profit, and alerts as horizontal price
+        lines. They persist across zoom, theme, chart-type switch, and streaming
+        appends.
+      </p>
+
+      <div class="controls">
+        <button id="add-buy">Add Buy</button>
+        <button id="add-sell">Add Sell</button>
+        <button id="add-sl">Add Stop-Loss</button>
+        <button id="add-tp">Add Take-Profit</button>
+        <button id="add-alert">Add Alert</button>
+        <button id="clear">Clear all</button>
+        <button id="theme">Toggle theme</button>
+      </div>
+
+      <div id="chart"></div>
+    </div>
+
+    <script>
+      function generateData(n) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let price = 100;
+        for (let i = 0; i < n; i++) {
+          const o = price;
+          const c = +(o + (Math.random() - 0.5) * 4).toFixed(2);
+          const h = +(Math.max(o, c) + Math.random() * 2).toFixed(2);
+          const l = +(Math.min(o, c) - Math.random() * 2).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c], v: Math.floor(Math.random() * 1e6) });
+          price = c;
+        }
+        return data;
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const chart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 440, animations: { enabled: false } },
+          series: [{ name: "Price", data: generateData(120) }],
+        });
+        chart.render();
+
+        // A current price to anchor new lines near.
+        const lastClose = () => chart.series[chart.series.length - 1].y[3];
+        const near = (delta) => +(lastClose() + delta).toFixed(2);
+
+        // Seed a position: entry (buy), protective stop, and a target.
+        chart.addOrderLine({ price: near(-2), side: "buy", label: "Entry" });
+        chart.addStopLoss({ price: near(-8) });
+        chart.addTakeProfit({ price: near(8) });
+
+        document.getElementById("add-buy").onclick = () =>
+          chart.addOrderLine({ price: near(-3 - Math.random() * 4), side: "buy" });
+        document.getElementById("add-sell").onclick = () =>
+          chart.addOrderLine({ price: near(3 + Math.random() * 4), side: "sell" });
+        document.getElementById("add-sl").onclick = () =>
+          chart.addStopLoss({ price: near(-6 - Math.random() * 4) });
+        document.getElementById("add-tp").onclick = () =>
+          chart.addTakeProfit({ price: near(6 + Math.random() * 4) });
+        document.getElementById("add-alert").onclick = () =>
+          chart.addAlert({ price: near((Math.random() - 0.5) * 10) });
+        document.getElementById("clear").onclick = () => chart.clearPriceLines();
+
+        let dark = false;
+        document.getElementById("theme").onclick = () => {
+          dark = !dark;
+          chart.update({ theme: { mode: dark ? "dark" : "light" } });
+        };
+      });
+    </script>
+  </body>
+</html>

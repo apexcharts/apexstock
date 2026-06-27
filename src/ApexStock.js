@@ -6,6 +6,7 @@ import Export from "./tools/export/Export";
 import ChartSwitch from "./core/ChartSwitch";
 import IndicatorHandlers from "./indicators/IndicatorHandlers";
 import IndicatorStep from "./indicators/IndicatorStep";
+import TradingOverlays from "./overlays/TradingOverlays";
 import XAxis from "./components/XAxis";
 import ThemeManager from "./core/ThemeManager";
 import LayoutManager from "./core/LayoutManager";
@@ -118,6 +119,10 @@ export default class ApexStock {
     // Indicators.* so a live append never forces an O(n) full recompute.
     // Each entry: { key, params, state } (see IndicatorStep).
     this._indicatorState = {};
+    // Trading overlays (price lines: order / stop-loss / take-profit / alert).
+    // Manages its own annotation lifecycle; re-applied on re-render so the lines
+    // persist across update(), theme change, and chart-type switch.
+    this.tradingOverlays = new TradingOverlays(this);
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -545,6 +550,9 @@ export default class ApexStock {
     this.updateAllChartHeights();
 
     this.handleWatermark();
+
+    // Draw any price lines added before render().
+    this.tradingOverlays.reapply();
   }
 
   /**
@@ -738,6 +746,10 @@ export default class ApexStock {
       this.refreshIndicators(activeIndicators);
     }
 
+    // Re-apply trading price lines: updateOptions can drop or stale dynamically
+    // added annotations, and a theme change must recolor them.
+    this.tradingOverlays.reapply();
+
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
 
@@ -798,6 +810,9 @@ export default class ApexStock {
    * @returns {void}
    */
   destroy() {
+    // Clean up trading overlays (remove annotations, drop state).
+    if (this.tradingOverlays) this.tradingOverlays.destroy();
+
     // Clean up ChartSwitch
     if (this.chartSwitch && typeof this.chartSwitch.destroy === "function") {
       this.chartSwitch.destroy();
@@ -1510,6 +1525,88 @@ export default class ApexStock {
   }
 
   /**
+   * Add a trading price line (a horizontal y-axis annotation on the main chart).
+   * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} config
+   * @returns {string|null} the line id, or null on invalid input.
+   */
+  addPriceLine(config) {
+    return this.tradingOverlays.add(config);
+  }
+
+  /**
+   * Add an order line. Pass `side: "buy" | "sell"` to color it accordingly.
+   * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+   * @returns {string|null}
+   */
+  addOrderLine(config = {}) {
+    return this.tradingOverlays.add({ ...config, type: "order" });
+  }
+
+  /**
+   * Add a stop-loss line.
+   * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+   * @returns {string|null}
+   */
+  addStopLoss(config = {}) {
+    return this.tradingOverlays.add({ ...config, type: "stop-loss" });
+  }
+
+  /**
+   * Add a take-profit line.
+   * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+   * @returns {string|null}
+   */
+  addTakeProfit(config = {}) {
+    return this.tradingOverlays.add({ ...config, type: "take-profit" });
+  }
+
+  /**
+   * Add a price alert line.
+   * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+   * @returns {string|null}
+   */
+  addAlert(config = {}) {
+    return this.tradingOverlays.add({ ...config, type: "alert" });
+  }
+
+  /**
+   * Patch an existing price line (e.g. reprice or relabel).
+   * @param {string} id
+   * @param {Partial<import("./overlays/TradingOverlays.js").PriceLineConfig>} patch
+   * @returns {boolean} false if no such line.
+   */
+  updatePriceLine(id, patch) {
+    return this.tradingOverlays.update(id, patch);
+  }
+
+  /**
+   * Remove a price line by id.
+   * @param {string} id
+   * @returns {boolean} false if no such line.
+   */
+  removePriceLine(id) {
+    return this.tradingOverlays.remove(id);
+  }
+
+  /** Remove every trading price line. @returns {void} */
+  clearPriceLines() {
+    this.tradingOverlays.clear();
+  }
+
+  /**
+   * @param {string} id
+   * @returns {object|null} a copy of the line's config, or null.
+   */
+  getPriceLine(id) {
+    return this.tradingOverlays.get(id);
+  }
+
+  /** @returns {object[]} copies of all price-line configs. */
+  getPriceLines() {
+    return this.tradingOverlays.getAll();
+  }
+
+  /**
    * Add or refresh a technical indicator pane/overlay, preserving zoom state.
    * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
    * @returns {void}
@@ -1625,6 +1722,9 @@ export default class ApexStock {
 
     // Rebuild active indicators so they pick up the new theme colors.
     this.refreshIndicators(activeIndicators);
+
+    // Recolor trading price lines for the new theme.
+    this.tradingOverlays.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;

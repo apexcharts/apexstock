@@ -806,6 +806,8 @@ export default class ChartSwitch {
     // Update the chart with new series type
     this.chart.updateOptions(chartOptions, true, false, false).then(() => {
       this.ctx.applyZoomToAllCharts(zoomState);
+      // Re-apply trading price lines so they survive the chart-type switch.
+      if (this.ctx.tradingOverlays) this.ctx.tradingOverlays.reapply();
     });
   }
 

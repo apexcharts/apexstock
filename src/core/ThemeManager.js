@@ -91,6 +91,17 @@ export default class ThemeManager {
           bPercent: "#6600CC",
           bWidth: "#CC0066",
         },
+        // Default colors for trading overlays (price lines). Keyed by the
+        // semantic role so consumers can re-theme buy/sell/SL/TP/alert lines.
+        tradingOverlays: {
+          buy: "#00B746",
+          sell: "#EF403C",
+          stopLoss: "#EF403C",
+          takeProfit: "#00B746",
+          alert: "#FF9900",
+          order: "#0099FF",
+          labelText: "#ffffff",
+        },
       },
       dark: {
         toolbar: {
@@ -138,6 +149,15 @@ export default class ThemeManager {
           ac: "#66bb6a",
           bPercent: "#9575cd",
           bWidth: "#ec407a",
+        },
+        tradingOverlays: {
+          buy: "#26A69A",
+          sell: "#EF5350",
+          stopLoss: "#EF5350",
+          takeProfit: "#26A69A",
+          alert: "#ffb74d",
+          order: "#64b5f6",
+          labelText: "#ffffff",
         },
       },
     };
