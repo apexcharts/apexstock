@@ -752,7 +752,12 @@ export default class ApexStock {
     // Rebuild active indicators only when their inputs (series data or theme
     // colors) changed. Option-only updates leave them untouched, since the
     // updateOptions call above does not replace the chart series.
-    if (seriesChanged || themeChanged) {
+    //   - series-only change -> update indicator DATA in place (no pane teardown),
+    //   - theme change (with or without series) -> full rebuild so the pane chrome
+    //     (stroke/grid/colors) is restyled too.
+    if (seriesChanged && !themeChanged) {
+      this.refreshIndicatorsInPlace(activeIndicators);
+    } else if (seriesChanged || themeChanged) {
       this.refreshIndicators(activeIndicators);
     }
 
@@ -1232,6 +1237,40 @@ export default class ApexStock {
     indicatorKeys.forEach((indicator) => {
       this.updateIndicator(indicator);
     });
+  }
+
+  /**
+   * Refresh the given indicators' DATA over the current series without tearing
+   * anything down: overlays are rebuilt onto the main chart, oscillator panes are
+   * updated in place (no destroy/recreate/render), and fibonacci re-evaluates.
+   * This is the fast path for {@link update} on a series-only change; it preserves
+   * zoom and re-seeds the streaming state from the new data. Any indicator that
+   * cannot be updated in place (e.g. a builder that opted out) falls back to a
+   * full {@link updateIndicator} rebuild.
+   * @param {string[]} indicatorKeys - Keys of currently active indicators.
+   * @returns {void}
+   */
+  refreshIndicatorsInPlace(indicatorKeys) {
+    const zoomState = this.getCurrentZoomState();
+    indicatorKeys.forEach((indicator) => {
+      const ok = IndicatorHandlers.updateIndicatorDataInPlace(indicator, this);
+      if (!ok) {
+        // Could not update in place: rebuild this one the heavy way.
+        this.removeIndicator(indicator);
+        this.updateIndicator(indicator);
+      }
+      // Re-seed the incremental streaming state from the new series.
+      this.seedIndicatorState(indicator);
+    });
+    if (this.xaxis && typeof this.xaxis.ensureXAxisIsLast === "function") {
+      this.xaxis.ensureXAxisIsLast();
+    }
+    if (zoomState) {
+      this.applyZoomToAllCharts(zoomState);
+    }
+    if (this.xaxis && typeof this.xaxis.updateEventListeners === "function") {
+      this.xaxis.updateEventListeners();
+    }
   }
 
   /**

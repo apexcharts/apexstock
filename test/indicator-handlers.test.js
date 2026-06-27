@@ -247,6 +247,72 @@ describe("ApexStock.update — indicator restoration", () => {
   });
 });
 
+describe("ApexStock.update — in-place indicator refresh (series-only)", () => {
+  let instances;
+  beforeEach(() => {
+    instances = installApexChartsMock();
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("updates an oscillator pane in place on a series change (no recreate)", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("rsi");
+    const pane = inst.indicatorChartMap["rsi"];
+    const before = instances.length; // main + rsi pane
+    pane.updateSeries.mockClear();
+
+    inst.update({ series: [{ name: "Price", data: ohlcData(80) }] });
+
+    // Same pane instance, not torn down, no new ApexCharts created.
+    expect(inst.indicatorChartMap["rsi"]).toBe(pane);
+    expect(pane.destroy).not.toHaveBeenCalled();
+    expect(instances.length).toBe(before);
+    // Its data was refreshed in place to the new length.
+    expect(pane.updateSeries).toHaveBeenCalled();
+    const data = pane.updateSeries.mock.calls.at(-1)[0][0].data;
+    expect(data).toHaveLength(80);
+  });
+
+  it("updates an overlay in place on a series change (no new chart)", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("moving average");
+    const before = instances.length; // overlay adds no pane -> just the main chart
+
+    inst.update({ series: [{ name: "Price", data: ohlcData(75) }] });
+
+    expect(instances.length).toBe(before);
+    const series = inst.chart.updateSeries.mock.calls.at(-1)[0];
+    const ma = series.find((s) => s.name === "Moving Average");
+    expect(ma).toBeTruthy();
+    expect(ma.data).toHaveLength(75);
+  });
+
+  it("a theme change still rebuilds the oscillator pane (full path)", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("rsi");
+    const pane = inst.indicatorChartMap["rsi"];
+
+    inst.update({ theme: { mode: "dark" } });
+
+    // The theme path tears the pane down and recreates it.
+    expect(pane.destroy).toHaveBeenCalled();
+    expect(inst.indicatorChartMap["rsi"]).not.toBe(pane);
+  });
+
+  it("re-seeds streaming state after an in-place series refresh", () => {
+    const inst = makeInstance();
+    inst.updateIndicator("moving average");
+    inst.update({ series: [{ name: "Price", data: ohlcData(90) }] });
+    // The streaming state for the active indicator tracks the new series length.
+    const entry = inst._indicatorState["moving average"];
+    expect(entry).toBeTruthy();
+    expect(entry.len).toBe(90);
+  });
+});
+
 describe("IndicatorHandlers — fibonacci (annotations)", () => {
   beforeEach(() => installApexChartsMock());
   afterEach(() => {

@@ -869,6 +869,59 @@ export default class IndicatorHandlers {
   }
 
   /**
+   * Recompute an already-active indicator's data over the current series and push
+   * it into the EXISTING overlay series / oscillator pane / annotation, WITHOUT
+   * tearing anything down. This is the data-only fast path for {@link
+   * ../ApexStock.js#update} on a series change (theme changes still go through the
+   * full {@link updateIndicator} rebuild, since they also restyle the pane chrome).
+   *
+   * - Overlay: rebuild its series and push via the main chart's `updateSeries`
+   *   (the overlay was dropped when `update()` replaced the price series, so this
+   *   re-adds it with fresh data in a single call rather than remove-then-add).
+   * - Oscillator: the pane is a separate, still-alive ApexCharts instance, so
+   *   `updateSeries` refreshes its data in place (no destroy/recreate/render).
+   * - Custom (fibonacci): re-evaluate its annotation levels via the stored handle.
+   *
+   * @param {string} indicatorKey
+   * @param {import("../ApexStock.js").default} context
+   * @returns {boolean} true if updated in place; false if it must fall back to a
+   *   full rebuild (unknown key, missing pane, or a builder that opted out).
+   */
+  static updateIndicatorDataInPlace(indicatorKey, context) {
+    const key = indicatorKey.toLowerCase();
+    const def = INDICATOR_REGISTRY[key];
+    if (!def) return false;
+
+    const params = context.oscillatorSettings
+      ? context.oscillatorSettings.getIndicatorParams(key)
+      : {};
+
+    if (def.kind === "custom") {
+      const handle = context.indicatorChartMap[key];
+      if (handle && typeof handle.update === "function") handle.update();
+      return true;
+    }
+
+    if (def.kind === "overlay") {
+      const { series, replaceNames } = def.build(context, params);
+      const retained = context.chart.w.config.series.filter(
+        (s) => !replaceNames.includes(s.name)
+      );
+      context.chart.updateSeries([...retained, ...series]);
+      return true;
+    }
+
+    // Oscillator (including volumes): refresh the live pane's data in place.
+    const pane = context.indicatorChartMap[key];
+    if (!pane || typeof pane === "boolean") return false;
+    const common = buildCommonChartOptions(context);
+    const opts = def.build(context, params, common);
+    if (!opts || !opts.series) return false; // builder opted out -> full rebuild
+    pane.updateSeries(opts.series);
+    return true;
+  }
+
+  /**
    * Removes an indicator from the chart.
    * @param {string} indicatorKey - The key/name of the indicator to remove.
    * @param {import("../ApexStock.js").default} context - The ApexStock instance.

@@ -9,6 +9,17 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Changed
+
+- **`update()` refreshes indicators in place on a series-only change.** Previously
+  every data `update()` tore down and recreated each active indicator, destroying
+  and recreating oscillator panes (a fresh ApexCharts instance + render per pane).
+  Now a series-only update recomputes indicator data and pushes it into the
+  existing overlays and oscillator panes in place (no teardown), preserving zoom
+  and re-seeding streaming state. Theme changes still do a full rebuild (they also
+  restyle pane chrome). Measured in a browser, `update()`-per-tick with an active
+  oscillator dropped from ~590ms/bar to ~190ms/bar.
+
 ### Added
 
 - **Real-time streaming via `appendData()`.** A new incremental path appends a
