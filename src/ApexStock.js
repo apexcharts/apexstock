@@ -157,39 +157,15 @@ export default class ApexStock {
 
     this.SettingsControl = SettingsControl;
 
-    // Overlays and oscillators are derived from the indicator registry, so the
-    // set of supported indicators is defined in exactly one place.
-    const defaultIndicatorConfig = IndicatorHandlers.getDefaultConfig();
-    this.overlays = defaultIndicatorConfig.overlays;
-    this.oscillators = defaultIndicatorConfig.oscillators;
-
-    // Merge both for backward compatibility
-    this.indicators = { ...this.overlays, ...this.oscillators };
-
-    if (
-      typeof stockChartOptions.indicators === "object" &&
-      !Array.isArray(stockChartOptions.indicators)
-    ) {
-      this.indicators = stockChartOptions.indicators;
-      // Update overlays and oscillators based on provided indicators
-      Object.keys(this.indicators).forEach((key) => {
-        if (this.overlays[key]) {
-          this.overlays[key] = this.indicators[key];
-        } else if (this.oscillators[key]) {
-          this.oscillators[key] = this.indicators[key];
-        }
-      });
-    } else if (Array.isArray(stockChartOptions.indicators)) {
-      this.indicators = {};
-      stockChartOptions.indicators.forEach((ind) => {
-        this.indicators[ind.toLowerCase()] = { enabled: true };
-        if (this.overlays[ind.toLowerCase()]) {
-          this.overlays[ind.toLowerCase()] = { enabled: true };
-        } else if (this.oscillators[ind.toLowerCase()]) {
-          this.oscillators[ind.toLowerCase()] = { enabled: true };
-        }
-      });
-    }
+    // Indicator availability config (overlays / oscillators / merged indicators),
+    // derived from the registry defaults plus the consumer's `indicators` option.
+    // The resolution logic lives in IndicatorHandlers so it stays pure + testable.
+    const indicatorConfig = IndicatorHandlers.resolveIndicatorConfig(
+      stockChartOptions.indicators
+    );
+    this.overlays = indicatorConfig.overlays;
+    this.oscillators = indicatorConfig.oscillators;
+    this.indicators = indicatorConfig.indicators;
 
     this.volumesData = this.series
       .map((point) => (point.v ? { x: point.x, y: point.v } : null))

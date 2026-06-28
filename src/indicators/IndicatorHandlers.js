@@ -780,6 +780,54 @@ export default class IndicatorHandlers {
   }
 
   /**
+   * Resolve the per-instance indicator config from the registry defaults plus the
+   * consumer's `indicators` option, producing the `{ overlays, oscillators,
+   * indicators }` maps the chart keeps. Pure (no DOM / chart), so it is unit
+   * testable in isolation; this is the logic lifted out of the constructor.
+   *
+   * `indicators` accepts three shapes:
+   * - `undefined` -> every registry indicator available, defaulted to enabled.
+   * - an object (`{ "rsi": { enabled, chartOptions? }, ... }`) -> becomes the
+   *   `indicators` map verbatim, and any key that matches a known overlay/
+   *   oscillator copies that config into the matching map.
+   * - an array of names (`["rsi", "moving average"]`) -> each becomes
+   *   `{ enabled: true }` in `indicators` and (if known) its overlay/oscillator map.
+   *
+   * Registry-kind "custom" (fibonacci) is grouped with the overlays (per
+   * {@link getDefaultConfig}); the indicator dropdown relies on this to classify
+   * it as a non-oscillator.
+   *
+   * @param {Object|Array<string>|undefined} userIndicators - `stockChartOptions.indicators`.
+   * @returns {{ overlays: Object, oscillators: Object, indicators: Object }}
+   */
+  static resolveIndicatorConfig(userIndicators) {
+    const { overlays, oscillators } = IndicatorHandlers.getDefaultConfig();
+    let indicators = { ...overlays, ...oscillators };
+
+    if (
+      userIndicators &&
+      typeof userIndicators === "object" &&
+      !Array.isArray(userIndicators)
+    ) {
+      indicators = userIndicators;
+      Object.keys(indicators).forEach((key) => {
+        if (overlays[key]) overlays[key] = indicators[key];
+        else if (oscillators[key]) oscillators[key] = indicators[key];
+      });
+    } else if (Array.isArray(userIndicators)) {
+      indicators = {};
+      userIndicators.forEach((ind) => {
+        const key = String(ind).toLowerCase();
+        indicators[key] = { enabled: true };
+        if (overlays[key]) overlays[key] = { enabled: true };
+        else if (oscillators[key]) oscillators[key] = { enabled: true };
+      });
+    }
+
+    return { overlays, oscillators, indicators };
+  }
+
+  /**
    * Updates or adds an indicator to the chart. If the indicator is already
    * active, this toggles it off (removes it).
    * @param {string} indicatorKey - The key/name of the indicator to update.

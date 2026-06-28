@@ -7,6 +7,7 @@
 // numeric correctness (that lives in indicators.test.js).
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ApexStock from "../src/ApexStock.js";
+import IndicatorHandlers from "../src/indicators/IndicatorHandlers.js";
 
 function ohlcData(n = 60, withVolume = true) {
   return Array.from({ length: n }, (_, i) => ({
@@ -244,6 +245,66 @@ describe("ApexStock.update — indicator restoration", () => {
     // refreshIndicators ran (remove + re-add => at least one more updateSeries).
     expect(inst.chart.updateSeries.mock.calls.length).toBeGreaterThan(before);
     expect(inst.indicatorChartMap["moving average"]).toBe(true);
+  });
+});
+
+describe("IndicatorHandlers.resolveIndicatorConfig (pure, lifted from ctor)", () => {
+  it("defaults to every registry indicator when no `indicators` option is given", () => {
+    const { overlays, oscillators, indicators } =
+      IndicatorHandlers.resolveIndicatorConfig(undefined);
+    // Fibonacci (registry kind "custom") groups with overlays, not oscillators.
+    expect(overlays["fibonacci retracements"]).toEqual({ enabled: true });
+    expect(overlays["moving average"]).toEqual({ enabled: true });
+    expect(oscillators["rsi"]).toEqual({ enabled: true });
+    expect(oscillators["fibonacci retracements"]).toBeUndefined();
+    // The merged map is the union of both.
+    expect(indicators["rsi"]).toEqual({ enabled: true });
+    expect(indicators["fibonacci retracements"]).toEqual({ enabled: true });
+  });
+
+  it("object input becomes the indicators map and copies config into the matching map", () => {
+    const userCfg = {
+      rsi: { enabled: true, chartOptions: { stroke: { width: 3 } } },
+      "moving average": { enabled: false },
+      "made up indicator": { enabled: true },
+    };
+    const { overlays, oscillators, indicators } =
+      IndicatorHandlers.resolveIndicatorConfig(userCfg);
+
+    // The indicators map is the user's object verbatim (chartOptions preserved,
+    // so the oscillator builders can read context.indicators.rsi.chartOptions).
+    expect(indicators).toBe(userCfg);
+    expect(oscillators["rsi"].chartOptions).toEqual({ stroke: { width: 3 } });
+    expect(overlays["moving average"]).toEqual({ enabled: false });
+    // Unknown keys live only in the merged map, not in overlays/oscillators.
+    expect(overlays["made up indicator"]).toBeUndefined();
+    expect(oscillators["made up indicator"]).toBeUndefined();
+  });
+
+  it("array input enables each named indicator (case-insensitive)", () => {
+    const { overlays, oscillators, indicators } =
+      IndicatorHandlers.resolveIndicatorConfig(["RSI", "Moving Average"]);
+    expect(indicators).toEqual({
+      rsi: { enabled: true },
+      "moving average": { enabled: true },
+    });
+    expect(oscillators["rsi"]).toEqual({ enabled: true });
+    expect(overlays["moving average"]).toEqual({ enabled: true });
+  });
+
+  it("the constructor produces the same maps as the resolver", () => {
+    installApexChartsMock();
+    const inst = makeInstance();
+    const resolved = IndicatorHandlers.resolveIndicatorConfig(undefined);
+    expect(new Set(Object.keys(inst.overlays))).toEqual(
+      new Set(Object.keys(resolved.overlays))
+    );
+    expect(new Set(Object.keys(inst.oscillators))).toEqual(
+      new Set(Object.keys(resolved.oscillators))
+    );
+    expect(inst.isOverlay("fibonacci retracements")).toBe(true);
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
   });
 });
 
