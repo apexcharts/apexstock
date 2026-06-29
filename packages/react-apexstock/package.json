@@ -1,6 +1,6 @@
 {
   "name": "react-apexstock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "React component wrapper for ApexStock (financial charting on top of ApexCharts)",
   "type": "module",
   "main": "dist/index.cjs",
@@ -43,7 +43,7 @@
     "url": "https://github.com/apexcharts/apexstock/issues"
   },
   "peerDependencies": {
-    "apexstock": "^0.2.0",
+    "apexstock": "^0.3.0",
     "react": ">=17",
     "react-dom": ">=17"
   },
