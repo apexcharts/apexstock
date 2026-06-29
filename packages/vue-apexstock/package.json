@@ -1,6 +1,6 @@
 {
   "name": "vue-apexstock",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Vue 3 component wrapper for ApexStock (financial charting on top of ApexCharts)",
   "type": "module",
   "main": "dist/index.cjs",
@@ -44,7 +44,7 @@
     "url": "https://github.com/apexcharts/apexstock/issues"
   },
   "peerDependencies": {
-    "apexstock": "^0.3.0",
+    "apexstock": ">=0.3.0 <1",
     "vue": "^3.3.0"
   },
   "devDependencies": {
