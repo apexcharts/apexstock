@@ -157,7 +157,10 @@ jobs:
         if: steps.check.outputs.triggered == 'true'
         run: |
           if [ "${{ matrix.pkg }}" = "ngx-apexstock" ]; then
-            npm publish dist --provenance --tag ${{ steps.check.outputs.tag }}
+            # Publish from inside the built package dir: npm's OIDC trusted
+            # publishing does not engage for `npm publish <dir>` (-> ENEEDAUTH),
+            # so run `npm publish` with the dist folder as the cwd.
+            cd dist && npm publish --provenance --tag ${{ steps.check.outputs.tag }}
           else
             npm publish --provenance --tag ${{ steps.check.outputs.tag }}
           fi
