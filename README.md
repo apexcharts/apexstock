@@ -51,47 +51,67 @@ npm run packages:typecheck   # type-check each
 
 ## Basic Usage
 
+> **ApexCharts must be available as a global.** ApexStock calls
+> `new ApexCharts(...)` internally and does **not** import it, so ApexCharts has
+> to be loaded first (as `window.ApexCharts`).
+>
+> **Data shape (important):** each candle is `{ x, y: [open, high, low, close], v? }`.
+> The four prices live in a single `y` array, **not** as separate `o`/`h`/`l`/`c`
+> keys. Points missing a valid `x` or a 4-number `y` are dropped.
+
+### Via script tags (UMD)
+
+```html
+<div id="chart-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexstock"></script>
+<script>
+  const apexStock = new ApexStock(
+    document.getElementById("chart-container"),
+    {
+      chart: { height: 600 },
+      series: [
+        {
+          name: "Stock Price",
+          data: [
+            // { x, y: [open, high, low, close], v: volume (optional) }
+            { x: "2024-01-01", y: [100, 110, 95, 105], v: 1000000 },
+            { x: "2024-01-02", y: [105, 115, 100, 112], v: 1200000 },
+            // ...more bars (ascending by x)
+          ],
+        },
+      ],
+      theme: { mode: "light" }, // or "dark"
+    }
+  );
+  apexStock.render();
+</script>
+```
+
+### With a bundler (ESM)
+
 ```javascript
-// Basic HTML structure
-<div id="chart-container"></div>;
+import ApexCharts from "apexcharts";
+import ApexStock from "apexstock";
+// import "apexstock/apexstock.css"; // optional: the CSS is auto-injected on import
 
-// JavaScript
-const chartEl = document.getElementById("chart-container");
+// ApexStock expects ApexCharts on the global scope.
+window.ApexCharts = ApexCharts;
 
-const chartOptions = {
-  chart: {
-    height: 600,
-  },
+const apexStock = new ApexStock(document.getElementById("chart-container"), {
+  chart: { height: 600 },
   series: [
     {
       name: "Stock Price",
       data: [
-        {
-          x: new Date("2024-01-01"),
-          o: 100,
-          h: 110,
-          l: 95,
-          c: 105,
-          v: 1000000,
-        },
-        {
-          x: new Date("2024-01-02"),
-          o: 105,
-          h: 115,
-          l: 100,
-          c: 112,
-          v: 1200000,
-        },
-        // ... more OHLCV data
+        { x: "2024-01-01", y: [100, 110, 95, 105], v: 1000000 },
+        { x: "2024-01-02", y: [105, 115, 100, 112], v: 1200000 },
       ],
     },
   ],
-  theme: {
-    mode: "light", // or 'dark'
-  },
-};
-
-const apexStock = new ApexStock(chartEl, chartOptions);
+  theme: { mode: "light" },
+});
 apexStock.render();
 ```
 
@@ -110,14 +130,16 @@ const chartOptions = {
     {
       name: "Stock Price",
       data: [
-        // OHLCV data format
+        // OHLCV data format: prices in a single `y` array.
         {
-          x: timestamp, // Date/timestamp
-          o: openPrice, // Open price
-          h: highPrice, // High price
-          l: lowPrice, // Low price
-          c: closePrice, // Close price
-          v: volume, // Volume (optional)
+          x: timestamp, // number (epoch ms) | ISO date string | Date
+          y: [
+            openPrice, // y[0] open
+            highPrice, // y[1] high
+            lowPrice, // y[2] low
+            closePrice, // y[3] close
+          ],
+          v: volume, // optional volume
         },
       ],
     },

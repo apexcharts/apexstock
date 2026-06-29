@@ -1799,8 +1799,12 @@ export default class ApexStock {
       this.applyZoomToAllCharts(zoomState);
     }
 
-    // Update zoom controls theme
-    if (this.zoomControls) {
+    // Update zoom controls theme (guarded: the control restyles via CSS theme
+    // classes and may not expose updateTheme).
+    if (
+      this.zoomControls &&
+      typeof this.zoomControls.updateTheme === "function"
+    ) {
       this.zoomControls.updateTheme(newTheme);
     }
 

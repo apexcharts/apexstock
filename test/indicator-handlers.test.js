@@ -237,6 +237,14 @@ describe("ApexStock.update — indicator restoration", () => {
     expect(inst.indicatorChartMap["moving average"]).toBe(true);
   });
 
+  it("updateTheme(newTheme) does not throw after render (zoom-control guard)", () => {
+    const inst = makeInstance();
+    inst.render();
+    inst.updateIndicator("moving average");
+    expect(() => inst.updateTheme("dark")).not.toThrow();
+    expect(inst.theme).toBe("dark");
+  });
+
   it("rebuilds indicators on a theme-only update", () => {
     const inst = makeInstance();
     inst.updateIndicator("moving average");
