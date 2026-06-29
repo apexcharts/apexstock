@@ -52,6 +52,8 @@ export default class ApexStock {
     primaryToolbarLeft: HTMLDivElement;
     primaryToolbarRight: HTMLDivElement;
     indicatorChartMap: {};
+    _indicatorState: {};
+    tradingOverlays: TradingOverlays;
     FIBLEVELS: number[];
     activeOscillator: any;
     themeManager: ThemeManager;
@@ -60,25 +62,9 @@ export default class ApexStock {
     colors: any;
     series: import("./types.js").Series;
     SettingsControl: typeof SettingsControl;
-    overlays: {
-        [x: string]: {
-            enabled: boolean;
-        };
-    };
-    oscillators: {
-        [x: string]: {
-            enabled: boolean;
-        };
-    };
-    indicators: {
-        [x: string]: import("./types.js").IndicatorConfig;
-    } | {
-        [x: string]: {
-            enabled: boolean;
-        } | {
-            enabled: boolean;
-        };
-    };
+    overlays: any;
+    oscillators: any;
+    indicators: any;
     volumesData: {
         x: string | number | Date;
         y: number;
@@ -155,6 +141,7 @@ export default class ApexStock {
     chartSwitch: ChartSwitch;
     xaxis: XAxis;
     zoomControls: ZoomControls;
+    tradingInteractions: TradingOverlayInteractions;
     /**
      * Inject the shared `<style id="apexstock-css">` into the chart's root — the
      * host document's `<head>`, or the enclosing `ShadowRoot`. Deduped by id so
@@ -209,6 +196,144 @@ export default class ApexStock {
      * @returns {void}
      */
     refreshIndicators(indicatorKeys: string[]): void;
+    /**
+     * Refresh the given indicators' DATA over the current series without tearing
+     * anything down: overlays are rebuilt onto the main chart, oscillator panes are
+     * updated in place (no destroy/recreate/render), and fibonacci re-evaluates.
+     * This is the fast path for {@link update} on a series-only change; it preserves
+     * zoom and re-seeds the streaming state from the new data. Any indicator that
+     * cannot be updated in place (e.g. a builder that opted out) falls back to a
+     * full {@link updateIndicator} rebuild.
+     * @param {string[]} indicatorKeys - Keys of currently active indicators.
+     * @returns {void}
+     */
+    refreshIndicatorsInPlace(indicatorKeys: string[]): void;
+    /**
+     * Seed (or re-seed) the incremental streaming state for one indicator from the
+     * current `this.series`, bypassing the memoized full-compute cache. No-op for
+     * indicators without a streaming twin (ichimoku, fibonacci, volumes), whose
+     * stale state (if any) is dropped.
+     * @param {string} indicatorKey - Registry indicator key (any casing).
+     * @returns {void}
+     */
+    seedIndicatorState(indicatorKey: string): void;
+    /**
+     * Drop the streaming state for one indicator (on removal/toggle-off).
+     * @param {string} indicatorKey - Registry indicator key (any casing).
+     * @returns {void}
+     */
+    clearIndicatorState(indicatorKey: string): void;
+    /**
+     * Drop all streaming state. Used when the series is fully replaced so the next
+     * append re-seeds from the new data (the active indicators are re-added by
+     * {@link refreshIndicators}, which re-seeds each).
+     * @returns {void}
+     */
+    resetIndicatorState(): void;
+    /**
+     * Step one indicator to the value at this.series' last bar, bypassing the
+     * memoized full compute. `entry.state` is the committed running state covering
+     * this.series[0 .. entry.len-1]; this advances it to cover the last bar when
+     * `commit` is true (a closed bar) and leaves it untouched for a forming bar so
+     * the next forming tick re-steps from the same base.
+     *
+     * To keep a forming-bar *close* O(1): when we step a forming bar we stash the
+     * state that WOULD commit it (`entry.formingState`, covering one more bar). When
+     * that bar later closes (a new bar arrives so `entry.len` lags by exactly one),
+     * we promote the stash instead of re-seeding. The O(n) re-seed is now only a
+     * safety net for a genuinely broken invariant (e.g. after a maxPoints trim).
+     * @param {{ key: string, params: any, state: any, len: number, formingState: any, formingLen: number }} entry
+     * @param {boolean} commit
+     * @returns {*} the indicator value at the last bar.
+     */
+    _stepIndicatorEntry(entry: {
+        key: string;
+        params: any;
+        state: any;
+        len: number;
+        formingState: any;
+        formingLen: number;
+    }, commit: boolean): any;
+    /**
+     * Incrementally append one or more OHLC bars (or replace the forming last bar)
+     * without the full teardown/rebuild that {@link update} performs. Price candles,
+     * every streamable overlay and oscillator pane, the volume pane, the x-axis, and
+     * the view are updated in O(active indicators x small tail) instead of
+     * O(full history): no normalizeOHLC over all bars, no memoized full indicator
+     * recompute, and no pane destroy/recreate.
+     *
+     * @param {import("./types.js").OHLCPoint | import("./types.js").OHLCPoint[]} pointOrPoints
+     *   One bar, or a batch, in the canonical `{ x, y:[o,h,l,c], v? }` shape.
+     * @param {Object} [options]
+     * @param {"follow"|"preserve"} [options.view="follow"] `follow` rides the right
+     *   edge (shifts a zoomed window to include the new bar); `preserve` keeps the
+     *   current zoom window unchanged.
+     * @param {number} [options.maxPoints] Rolling-window cap: trims the oldest bars
+     *   from the front so the buffer stays fixed-width. Running indicators keep their
+     *   carried state (values reflect all history seen, not the trimmed window), so
+     *   they intentionally differ from a cold reload of the truncated buffer.
+     * @param {boolean} [options.updateLast=false] When the incoming `x` equals the
+     *   last bar's `x`, replace it (a forming candle receiving ticks) instead of
+     *   appending. With `updateLast`, a new-`x` bar is treated as still forming.
+     * @returns {this}
+     */
+    appendData(pointOrPoints: import("./types.js").OHLCPoint | import("./types.js").OHLCPoint[], options?: {
+        view?: "follow" | "preserve";
+        maxPoints?: number;
+        updateLast?: boolean;
+    }): this;
+    /**
+     * Add a trading price line (a horizontal y-axis annotation on the main chart).
+     * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} config
+     * @returns {string|null} the line id, or null on invalid input.
+     */
+    addPriceLine(config: import("./overlays/TradingOverlays.js").PriceLineConfig): string | null;
+    /**
+     * Add an order line. Pass `side: "buy" | "sell"` to color it accordingly.
+     * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+     * @returns {string|null}
+     */
+    addOrderLine(config?: import("./overlays/TradingOverlays.js").PriceLineConfig): string | null;
+    /**
+     * Add a stop-loss line.
+     * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+     * @returns {string|null}
+     */
+    addStopLoss(config?: import("./overlays/TradingOverlays.js").PriceLineConfig): string | null;
+    /**
+     * Add a take-profit line.
+     * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+     * @returns {string|null}
+     */
+    addTakeProfit(config?: import("./overlays/TradingOverlays.js").PriceLineConfig): string | null;
+    /**
+     * Add a price alert line.
+     * @param {import("./overlays/TradingOverlays.js").PriceLineConfig} [config]
+     * @returns {string|null}
+     */
+    addAlert(config?: import("./overlays/TradingOverlays.js").PriceLineConfig): string | null;
+    /**
+     * Patch an existing price line (e.g. reprice or relabel).
+     * @param {string} id
+     * @param {Partial<import("./overlays/TradingOverlays.js").PriceLineConfig>} patch
+     * @returns {boolean} false if no such line.
+     */
+    updatePriceLine(id: string, patch: Partial<import("./overlays/TradingOverlays.js").PriceLineConfig>): boolean;
+    /**
+     * Remove a price line by id.
+     * @param {string} id
+     * @returns {boolean} false if no such line.
+     */
+    removePriceLine(id: string): boolean;
+    /** Remove every trading price line. @returns {void} */
+    clearPriceLines(): void;
+    /**
+     * @param {string} id
+     * @returns {object|null} a copy of the line's config, or null.
+     */
+    getPriceLine(id: string): object | null;
+    /** @returns {object[]} copies of all price-line configs. */
+    getPriceLines(): object[];
     /**
      * Add or refresh a technical indicator pane/overlay, preserving zoom state.
      * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
@@ -290,9 +415,11 @@ export default class ApexStock {
     };
 }
 import Utils from "./utils/Utils";
+import TradingOverlays from "./overlays/TradingOverlays";
 import ThemeManager from "./core/ThemeManager";
 import SettingsControl from "./components/SettingsControl";
 import OscillatorSettings from "./components/OscillatorSettings";
 import ChartSwitch from "./core/ChartSwitch";
 import XAxis from "./components/XAxis";
 import ZoomControls from "./components/ZoomControls";
+import TradingOverlayInteractions from "./overlays/TradingOverlayInteractions";

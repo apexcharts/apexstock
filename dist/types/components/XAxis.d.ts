@@ -36,6 +36,7 @@ export default class XAxis {
      * This method should be called whenever indicators are added or removed
      */
     updateEventListeners(): void;
+    _listenerTargets: any[];
     /**
      * Removes all event listeners from main chart and indicator charts
      */

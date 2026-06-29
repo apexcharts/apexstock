@@ -9,6 +9,8 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-29
+
 ### Changed
 
 - **`update()` refreshes indicators in place on a series-only change.** Previously
@@ -50,6 +52,17 @@ those are called out explicitly below.
   `onMove({id, price})` on drop), `closable` adds a click-to-remove ✕ button
   (fires `onRemove({id})`), and `onCross({id, type, price, direction, bar})`
   fires when a newly-closed bar (from `appendData`) crosses the line.
+
+### Fixed
+
+- `updateTheme()` no longer throws: it called `this.zoomControls.updateTheme`
+  without checking the method exists (the zoom control restyles via CSS theme
+  classes and exposes no such method). Guarded like the sibling calls.
+- README: corrected the OHLC candle shape in the examples to
+  `{ x, y: [open, high, low, close], v? }` (a single `y` array, not flat
+  `o`/`h`/`l`/`c` keys — the latter were silently dropped by `normalizeOHLC`),
+  and documented the ApexCharts-as-global requirement. Following the old example
+  produced an empty chart.
 
 ## [0.2.0] - 2026-06-22
 

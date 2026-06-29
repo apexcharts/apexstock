@@ -9,6 +9,15 @@ declare class Utils {
     /** @type {string} Prefix prepended to all library log output. */
     static logPrefix: string;
     /**
+     * Per-element bounding-rect cache backing {@link cachedRect}. A WeakMap so
+     * entries are released when their element is garbage-collected.
+     * @type {WeakMap<Element, {rect: DOMRect, time: number}>}
+     */
+    static _rectCache: WeakMap<Element, {
+        rect: DOMRect;
+        time: number;
+    }>;
+    /**
      * Logs an informational message (suppressed when `Utils.silent` is true).
      * @param {...*} args
      */
@@ -60,6 +69,17 @@ declare class Utils {
     static rafThrottle(fn: Function): Function & {
         cancel: () => void;
     };
+    /**
+     * Returns an element's bounding rect, reused within `ttl` ms to avoid forcing
+     * a layout reflow on every call (e.g. once per mousemove during a drag). The
+     * cache is keyed on the element identity, so a fresh node (an ApexCharts
+     * re-render) misses automatically, and it self-corrects after the TTL on
+     * scroll / zoom / resize.
+     * @param {Element} el
+     * @param {number} [ttl=100]
+     * @returns {DOMRect}
+     */
+    static cachedRect(el: Element, ttl?: number): DOMRect;
     /**
      * Generates a unique ID for an element
      * @param {string} type - Element type

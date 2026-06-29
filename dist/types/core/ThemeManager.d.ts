@@ -61,6 +61,15 @@ export default class ThemeManager {
                 bPercent: string;
                 bWidth: string;
             };
+            tradingOverlays: {
+                buy: string;
+                sell: string;
+                stopLoss: string;
+                takeProfit: string;
+                alert: string;
+                order: string;
+                labelText: string;
+            };
         };
         dark: {
             toolbar: {
@@ -100,6 +109,15 @@ export default class ThemeManager {
                 ac: string;
                 bPercent: string;
                 bWidth: string;
+            };
+            tradingOverlays: {
+                buy: string;
+                sell: string;
+                stopLoss: string;
+                takeProfit: string;
+                alert: string;
+                order: string;
+                labelText: string;
             };
         };
     };
