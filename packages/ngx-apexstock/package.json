@@ -1,6 +1,6 @@
 {
   "name": "ngx-apexstock",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Angular component wrapper for ApexStock (financial charting on top of ApexCharts)",
   "keywords": [
     "apexstock",
@@ -31,7 +31,7 @@
   "peerDependencies": {
     "@angular/common": ">=16.0.0",
     "@angular/core": ">=16.0.0",
-    "apexstock": "^0.3.0"
+    "apexstock": ">=0.3.0 <1"
   },
   "dependencies": {
     "tslib": "^2.6.0"
