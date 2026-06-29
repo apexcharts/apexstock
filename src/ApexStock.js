@@ -1275,6 +1275,9 @@ export default class ApexStock {
       // `state` is the committed running state covering this.series[0 .. len-1].
       state: IndicatorStep.seed(resolved.key, this.series, resolved.params),
       len: this.series.length,
+      // Stashed commit state for an in-progress forming bar (O(1) close).
+      formingState: null,
+      formingLen: -1,
     };
   }
 
@@ -1302,16 +1305,33 @@ export default class ApexStock {
    * memoized full compute. `entry.state` is the committed running state covering
    * this.series[0 .. entry.len-1]; this advances it to cover the last bar when
    * `commit` is true (a closed bar) and leaves it untouched for a forming bar so
-   * the next forming tick re-steps from the same base. The committed state lags
-   * by exactly one in the steady-state append path (no re-seed); a re-seed (the
-   * O(n) safety net) only happens when that invariant is broken, e.g. when a
-   * forming bar closes or after a maxPoints trim shifts indices.
-   * @param {{ key: string, params: any, state: any, len: number }} entry
+   * the next forming tick re-steps from the same base.
+   *
+   * To keep a forming-bar *close* O(1): when we step a forming bar we stash the
+   * state that WOULD commit it (`entry.formingState`, covering one more bar). When
+   * that bar later closes (a new bar arrives so `entry.len` lags by exactly one),
+   * we promote the stash instead of re-seeding. The O(n) re-seed is now only a
+   * safety net for a genuinely broken invariant (e.g. after a maxPoints trim).
+   * @param {{ key: string, params: any, state: any, len: number, formingState: any, formingLen: number }} entry
    * @param {boolean} commit
    * @returns {*} the indicator value at the last bar.
    */
   _stepIndicatorEntry(entry, commit) {
     const L = this.series.length;
+    // A forming bar just closed (state lags by one): promote its stashed commit
+    // state in O(1) rather than recomputing the whole prefix.
+    if (
+      entry.len === L - 2 &&
+      entry.formingState !== null &&
+      entry.formingState !== undefined &&
+      entry.formingLen === L - 1
+    ) {
+      entry.state = entry.formingState;
+      entry.len = L - 1;
+      entry.formingState = null;
+      entry.formingLen = -1;
+    }
+    // Safety net: state does not cover [0 .. L-2] -> full re-seed.
     if (entry.len !== L - 1) {
       entry.state = IndicatorStep.seed(
         entry.key,
@@ -1319,6 +1339,8 @@ export default class ApexStock {
         entry.params
       );
       entry.len = L - 1;
+      entry.formingState = null;
+      entry.formingLen = -1;
     }
     const { value, state } = IndicatorStep.step(
       entry.key,
@@ -1329,6 +1351,12 @@ export default class ApexStock {
     if (commit) {
       entry.state = state;
       entry.len = L;
+      entry.formingState = null;
+      entry.formingLen = -1;
+    } else {
+      // Forming bar: remember the state that would commit it for an O(1) close.
+      entry.formingState = state;
+      entry.formingLen = L;
     }
     return value;
   }
@@ -1473,6 +1501,10 @@ export default class ApexStock {
       for (const regKey of streamableKeys) {
         const e = this._indicatorState[regKey];
         e.len = Math.max(0, e.len - drop);
+        // Front-trim shifts indices; drop the forming stash (it falls back to a
+        // one-time re-seed if a forming bar closes right after a trim).
+        e.formingState = null;
+        e.formingLen = -1;
       }
     }
 

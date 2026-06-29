@@ -35,7 +35,9 @@ those are called out explicitly below.
   `updateLast` replaces the last bar for a forming candle. Backed by exact
   streaming twins for all 17 indicators (`IndicatorStep`); ADX and TSI run as O(1)
   running state. Measured ~12-14x faster than `update()`-per-tick in a browser.
-  See `examples/streaming.html`.
+  A forming candle's close commits in O(1) (no full re-seed). The README
+  documents the options and tick-aggregation recipes (append completed bars, or
+  keep a forming candle live via `updateLast`). See `examples/streaming.html`.
 - **Trading overlays (price lines).** Order lines, stop-loss, take-profit, and
   alert lines as horizontal y-axis annotations on the main chart, via
   `addPriceLine`, `addOrderLine`, `addStopLoss`, `addTakeProfit`, `addAlert`,

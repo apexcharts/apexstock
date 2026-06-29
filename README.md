@@ -6,6 +6,8 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 
 - **Multiple Chart Types**: Candlestick, line, area, heikinashi, ohlc, etc
 - **Technical Indicators**: 20+ built-in indicators including RSI, MACD, Bollinger Bands, and more
+- **Real-time Streaming**: Incremental `appendData()` updates price, indicators, and panes without a full rebuild
+- **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
 - **Drawing Tools**: Interactive drawing capabilities for technical analysis
 - **Theme Support**: Light and dark theme modes with seamless switching
 - **Zoom Controls**: Interactive zoom and pan functionality
@@ -391,6 +393,114 @@ const tsi = apexStock.calculateTSI(series, longPeriod, shortPeriod);
 const ichimoku = apexStock.calculateIchimoku(series);
 const fibonacci = apexStock.calculateFibonacciRetracements(series);
 const linearReg = apexStock.calculateLinearRegression(series, period);
+```
+
+## Real-time Streaming (`appendData`)
+
+For live data, `appendData` adds a bar (or updates the forming one) and refreshes
+the price candles, every active overlay and oscillator pane, the volume pane, and
+the x-axis incrementally, in `O(active indicators x small tail)` instead of the
+full teardown/rebuild `update()` performs.
+
+```javascript
+apexStock.appendData(point | point[], options);
+```
+
+- **`point`** — an OHLC bar `{ x, y: [o, h, l, c], v? }` (or an array for a batch).
+  Malformed points are dropped, like the constructor.
+- **`options.view`** — `"follow"` (default) keeps the latest bars in view (shifts a
+  zoomed window to the right edge); `"preserve"` keeps the current zoom window.
+- **`options.maxPoints`** — rolling-window cap: trims the oldest bars from the
+  front so the buffer stays fixed-width. Running indicators keep their carried
+  state, so their values reflect all history seen (no jump when old bars age out).
+- **`options.updateLast`** — when the incoming `x` equals the last bar's `x`,
+  replace that (forming) bar instead of appending.
+
+```javascript
+// A completed bar arrived -> append it, ride the right edge.
+apexStock.appendData({ x: t, y: [o, h, l, c], v }, { view: "follow" });
+
+// Live ticker with a fixed 500-bar window.
+apexStock.appendData(bar, { maxPoints: 500 });
+```
+
+### Tick-aggregation recipes
+
+Consumers feed bars; ApexStock renders them. Two patterns cover building bars from
+a raw tick/trade feed:
+
+**1. Append completed bars.** Roll trades into bars yourself (or with the built-in
+`ApexStock.aggregateOHLC`), then append each finished bar:
+
+```javascript
+// Roll a 1-minute series up to 5-minute bars, then stream the closed ones.
+const fiveMin = ApexStock.aggregateOHLC(oneMinSeries, "5m");
+apexStock.appendData(fiveMin[fiveMin.length - 1]);
+// Accepted intervals: ApexStock.INTERVALS (e.g. "1m","5m","15m","1h","4h","1d","1w","1M").
+```
+
+**2. Forming candle (`updateLast`).** Keep the in-progress bar live as ticks
+arrive, then start a new bar when the period rolls over:
+
+```javascript
+let bar = null; // the bar currently forming
+
+function onTrade({ time, price, size }) {
+  const bucket = Math.floor(time / 60000) * 60000; // 1-minute buckets
+  if (!bar || bar.x !== bucket) {
+    // New period: the previous bar has closed; start a fresh forming bar.
+    bar = { x: bucket, y: [price, price, price, price], v: size };
+  } else {
+    // Same period: fold the trade into the forming bar.
+    bar.y[1] = Math.max(bar.y[1], price); // high
+    bar.y[2] = Math.min(bar.y[2], price); // low
+    bar.y[3] = price; // close
+    bar.v += size;
+  }
+  apexStock.appendData(bar, { updateLast: true });
+}
+```
+
+Both keep indicators exact: a forming bar's indicator values recompute from the
+last committed state each tick, and the bar's close commits in O(1).
+
+## Trading Overlays (price lines)
+
+Horizontal price lines for order/stop-loss/take-profit/alert levels. They persist
+across zoom, theme change, chart-type switch, and streaming appends.
+
+```javascript
+const id = apexStock.addOrderLine({ price: 98.5, side: "buy", label: "Entry" });
+apexStock.addStopLoss({ price: 95 });
+apexStock.addTakeProfit({ price: 104 });
+apexStock.addAlert({ price: 100, onCross: (e) => notify(e.direction) });
+
+apexStock.updatePriceLine(id, { price: 97 }); // reprice
+apexStock.removePriceLine(id);
+apexStock.clearPriceLines();
+apexStock.getPriceLines(); // -> array of line configs
+```
+
+`addPriceLine(config)` is the generic form; `addOrderLine` / `addStopLoss` /
+`addTakeProfit` / `addAlert` are typed shortcuts. Config fields:
+
+| Field | Description |
+| --- | --- |
+| `price` | Required. The y level for the line. |
+| `id` | Stable id; auto-generated when omitted. |
+| `side` | `"buy"` / `"sell"` for order lines (drives the default color). |
+| `label`, `color`, `textColor`, `strokeDashArray`, `width`, `labelPosition` | Appearance. Colors default from the themeable `colors.tradingOverlays` group. |
+| `draggable` | Drag the line vertically to reprice it; fires `onMove({id, price})` on drop. |
+| `closable` | Shows a ✕ button; clicking it removes the line and fires `onRemove({id})`. |
+| `onCross` | Fired as `{id, type, price, direction, bar}` when a closed bar (from `appendData`) crosses the line. |
+| `meta` | Arbitrary payload returned by `getPriceLine`/`getPriceLines`. |
+
+## Time-frame Aggregation
+
+```javascript
+// Roll an OHLC series up to a larger interval.
+const hourly = ApexStock.aggregateOHLC(oneMinuteSeries, "1h");
+const intervals = ApexStock.INTERVALS; // supported interval strings
 ```
 
 ## Advanced Usage

@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ApexStock from "../src/ApexStock.js";
 import Indicators from "../src/indicators/Indicators.js";
+import IndicatorStep from "../src/indicators/IndicatorStep.js";
 
 function ohlcData(n = 60, withVolume = true) {
   const out = [];
@@ -331,6 +332,70 @@ describe("appendData — view policy", () => {
     const [minX, maxX] = inst.chart.zoomX.mock.calls.at(-1);
     expect(minX).toBe(data[50].x);
     expect(maxX).toBe(data[59].x);
+  });
+});
+
+describe("appendData — forming candle (updateLast) + O(1) close", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("forming replaces track the recompute, and the close is O(1) (no re-seed)", () => {
+    const base = ohlcData(60);
+    const inst = makeInstance(base);
+    // EMA is a running-state stepper, so its full re-seed is O(n) — the case the
+    // O(1) forming-close promotion is meant to avoid.
+    inst.updateIndicator("exponential moving average");
+
+    const x1 = base[59].x + 86400000;
+    const emaLast = () => {
+      const ema = seriesData(inst.chart, "EMA");
+      return ema[ema.length - 1].y;
+    };
+    const fullEmaLast = () => {
+      const f = Indicators.calculateEMA(inst.series.slice(), 10);
+      return f[f.length - 1];
+    };
+
+    // Open a forming bar, then replace it twice (same x).
+    inst.appendData({ x: x1, y: [70, 75, 69, 74], v: 1 }, { updateLast: true });
+    inst.appendData({ x: x1, y: [70, 80, 69, 78], v: 1 }, { updateLast: true });
+    inst.appendData({ x: x1, y: [70, 82, 68, 80], v: 1 }, { updateLast: true });
+    expect(inst.series).toHaveLength(61); // forming bar replaced in place
+    expect(emaLast()).toBeCloseTo(fullEmaLast(), 8);
+
+    // Close it by appending a NEW bar. The forming bar's stashed state is
+    // promoted in O(1) — IndicatorStep.seed must NOT be called.
+    const seedSpy = vi.spyOn(IndicatorStep, "seed");
+    inst.appendData({ x: x1 + 86400000, y: [80, 85, 79, 83], v: 1 });
+    expect(seedSpy).not.toHaveBeenCalled();
+    seedSpy.mockRestore();
+
+    expect(inst.series).toHaveLength(62);
+    expect(emaLast()).toBeCloseTo(fullEmaLast(), 8); // still exact after close
+  });
+
+  it("a steady stream of closed appends never re-seeds (stays O(1))", () => {
+    const base = ohlcData(60);
+    const inst = makeInstance(base);
+    inst.updateIndicator("exponential moving average");
+
+    const seedSpy = vi.spyOn(IndicatorStep, "seed");
+    let prev = base[59].y[3];
+    for (let i = 0; i < 20; i++) {
+      const x = base[59].x + (i + 1) * 86400000;
+      const c = prev + 1;
+      inst.appendData({ x, y: [prev, c + 1, prev - 1, c], v: 1 });
+      prev = c;
+    }
+    expect(seedSpy).not.toHaveBeenCalled();
+    seedSpy.mockRestore();
+
+    const ema = seriesData(inst.chart, "EMA");
+    const full = Indicators.calculateEMA(inst.series.slice(), 10);
+    expect(ema[ema.length - 1].y).toBeCloseTo(full[full.length - 1], 8);
   });
 });
 
