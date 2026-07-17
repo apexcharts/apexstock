@@ -9,7 +9,27 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-06-29
+## [0.3.1] - 2026-07-17
+
+### Fixed
+
+- **Chart-type switch duplicated the candles when the price series was not named
+  `"Price"`.** `ChartSwitch` identified the price series by a hard-coded name
+  (`"Price"` / `"Heikin-Ashi"` / `"Renko"`) when deciding which existing series
+  were indicators to carry across a switch. A series with any other name (e.g. a
+  ticker like `"AAPL"`) was mistaken for an indicator and kept, so switching to
+  Heikin-Ashi (or any other type) added a second candlestick series alongside
+  the original: every candle rendered duplicated side by side, and the duplicate
+  persisted (and compounded) on subsequent switches. The price series is now
+  identified by position (index 0, with overlays appended after it), and its
+  user-supplied name is preserved across switches.
+- **`appendData()` did not stream into a price series that was not named
+  `"Price"`.** The streaming path matched the price series by the same
+  hard-coded `"Price"` name, so a renamed series (e.g. a ticker) silently
+  stopped receiving new candles on `appendData()`. It is now matched by position
+  (index 0), consistent with the chart-type-switch fix above. Streaming while a
+  non-candlestick transform (Heikin-Ashi, Renko, line, ...) is displayed remains
+  unsupported (unchanged behavior); switch back to candlestick/OHLC to stream.
 
 ### Changed
 

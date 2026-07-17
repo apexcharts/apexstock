@@ -100,6 +100,13 @@ export default class ChartSwitch {
     this.currentType = "candlestick";
     this.originalSeries = [...this.series];
 
+    // The price series can carry any user-supplied name (e.g. a ticker symbol).
+    // Capture it so switching chart type preserves it, and so the price series
+    // is identified by POSITION (index 0) rather than a hard-coded "Price"
+    // name below. Matching by name treated any other name as an indicator to
+    // keep, leaving the original candles on the chart alongside the new series.
+    this.priceSeriesName = this.chart?.w?.config?.series?.[0]?.name ?? "Price";
+
     // Default Renko brick size (in percentage)
     this.renkoBrickSize = 0.3;
     this.renkoSettingsControl = null;
@@ -471,10 +478,12 @@ export default class ChartSwitch {
     // Select a chart type (shared by mouse click and keyboard).
     const selectType = (option) => {
       this.changeChartType(option.dataset.type);
-      dropdown.querySelectorAll(".apexstock-chart-type-option").forEach((el) => {
-        el.classList.remove("active");
-        el.setAttribute("aria-selected", "false");
-      });
+      dropdown
+        .querySelectorAll(".apexstock-chart-type-option")
+        .forEach((el) => {
+          el.classList.remove("active");
+          el.setAttribute("aria-selected", "false");
+        });
       option.classList.add("active");
       option.setAttribute("aria-selected", "true");
     };
@@ -631,7 +640,7 @@ export default class ChartSwitch {
       // Use the original candlestick data
       newSeries = [
         {
-          name: "Price",
+          name: this.priceSeriesName,
           type: "candlestick",
           data: this.originalSeries,
         },
@@ -663,7 +672,7 @@ export default class ChartSwitch {
       // Use close prices for line chart
       newSeries = [
         {
-          name: "Price",
+          name: this.priceSeriesName,
           type: "line",
           data: this.originalSeries.map((point) => ({
             x: point.x,
@@ -675,7 +684,7 @@ export default class ChartSwitch {
       // Use close prices for area chart
       newSeries = [
         {
-          name: "Price",
+          name: this.priceSeriesName,
           type: "area",
           data: this.originalSeries.map((point) => ({
             x: point.x,
@@ -687,7 +696,7 @@ export default class ChartSwitch {
       // Use close prices for column chart
       newSeries = [
         {
-          name: "Price",
+          name: this.priceSeriesName,
           type: "bar",
           data: this.originalSeries.map((point) => ({
             x: point.x,
@@ -697,14 +706,13 @@ export default class ChartSwitch {
       ];
     }
 
-    // Filter out any indicators that might be in the series
-    const indicators = this.chart.w.config.series.filter(
-      (s) =>
-        s.name !== "Price" &&
-        s.name !== "Heikin-Ashi" &&
-        s.name !== "Renko" &&
-        s.name !== undefined
-    );
+    // Keep any overlay indicators (SMA, EMA, Bollinger, ...) that share the
+    // main pane. The price series is always at index 0 and overlays are
+    // appended after it (see IndicatorHandlers), so everything from index 1 on
+    // is an indicator to carry over. Identifying the price series by position
+    // rather than by name is what prevents a user-named series (e.g. a ticker)
+    // from being mistaken for an indicator and duplicated on every switch.
+    const indicators = this.chart.w.config.series.slice(1);
 
     // Custom tooltip labels for different chart types
     let tooltipLabels;

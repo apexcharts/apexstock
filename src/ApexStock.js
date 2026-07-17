@@ -149,7 +149,9 @@ export default class ApexStock {
     // Sanitize the incoming OHLC data once at the boundary so the chart,
     // indicators, x-axis, and drawing-coordinate math all see clean, ordered
     // points. Write it back so ApexCharts renders the same normalized series.
-    chartOptions.series[0].data = Utils.normalizeOHLC(chartOptions.series[0].data);
+    chartOptions.series[0].data = Utils.normalizeOHLC(
+      chartOptions.series[0].data
+    );
     this.series = chartOptions.series[0].data;
 
     // Initialize xaxis range from the series data
@@ -669,7 +671,9 @@ export default class ApexStock {
       seriesChanged = true;
       // Normalize the replacement series too (same contract as the constructor)
       // and write it back so the chart update receives the cleaned points.
-      newOptions.series[0].data = Utils.normalizeOHLC(newOptions.series[0].data);
+      newOptions.series[0].data = Utils.normalizeOHLC(
+        newOptions.series[0].data
+      );
       this.series = newOptions.series[0].data;
 
       // The series identity changed: drop all streaming state. refreshIndicators
@@ -1522,15 +1526,34 @@ export default class ApexStock {
     const ichimokuActive = !!this.indicatorChartMap["ichimoku cloud indicator"];
     let ichimoku = null;
     if (ichimokuActive) ichimoku = this.calculateIchimoku(this.series);
-    const newMainSeries = this.chart.w.config.series.map((s) => {
-      if (s.name === "Price") return { ...s, data: this.series };
+    // The price series is always at index 0 (overlays are appended after it),
+    // so identify it by POSITION, not by the name "Price" — a user-named series
+    // (e.g. a ticker) must still stream. Only the raw candlestick/OHLC views map
+    // 1:1 onto this.series; when a transform is displayed (Heikin-Ashi, Renko,
+    // line, ...) index 0 holds derived data that appendData does not recompute,
+    // so those views are left unchanged (same as before this fix).
+    const displayType = this.chartSwitch
+      ? this.chartSwitch.currentType
+      : "candlestick";
+    const priceIsRawCandles =
+      displayType === "candlestick" || displayType === "ohlc";
+    const newMainSeries = this.chart.w.config.series.map((s, idx) => {
+      if (idx === 0) {
+        return priceIsRawCandles ? { ...s, data: this.series } : s;
+      }
       if (overlayDeltas[s.name]) {
-        return { ...s, data: applyDeltas(s.data.slice(), overlayDeltas[s.name]) };
+        return {
+          ...s,
+          data: applyDeltas(s.data.slice(), overlayDeltas[s.name]),
+        };
       }
       if (ichimoku && s.name === "Tenkan-sen") {
         return {
           ...s,
-          data: ichimoku.tenkan.map((v, i) => ({ x: this.series[i].x, y: v.y })),
+          data: ichimoku.tenkan.map((v, i) => ({
+            x: this.series[i].x,
+            y: v.y,
+          })),
         };
       }
       if (ichimoku && s.name === "Kijun-sen") {

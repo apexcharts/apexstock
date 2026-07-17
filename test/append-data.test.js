@@ -16,7 +16,10 @@ function ohlcData(n = 60, withVolume = true) {
   const out = [];
   let price = 100;
   let seed = 7;
-  const rand = () => ((seed = (seed * 16807) % 2147483647), (seed - 1) / 2147483646);
+  const rand = () => (
+    (seed = (seed * 16807) % 2147483647),
+    (seed - 1) / 2147483646
+  );
   for (let i = 0; i < n; i++) {
     const open = price;
     const cl = price + (rand() - 0.5) * 4;
@@ -40,7 +43,8 @@ function bar(x, base = 120, v = 9999) {
 function installApexChartsMock() {
   const instances = [];
   global.ApexCharts = vi.fn(function (el, opts) {
-    const priceLike = (opts && opts.series && opts.series[0] && opts.series[0].data) || [];
+    const priceLike =
+      (opts && opts.series && opts.series[0] && opts.series[0].data) || [];
     const inst = {
       el,
       options: opts,
@@ -119,6 +123,31 @@ describe("appendData — price candles", () => {
     expect(refreshSpy).not.toHaveBeenCalled();
     // No new chart instances created (only the main chart exists).
     expect(instances).toHaveLength(1);
+  });
+
+  it("streams into a price series not named 'Price' (identified by position)", () => {
+    // A user names their OHLC series after the ticker. appendData must still
+    // update the price candles at index 0 — it previously matched only the
+    // hard-coded name "Price", so a renamed series silently stopped streaming.
+    const parent = document.createElement("div");
+    const container = document.createElement("div");
+    parent.appendChild(container);
+    document.body.appendChild(parent);
+    const inst = new ApexStock(container, {
+      chart: { height: 500 },
+      theme: { mode: "light" },
+      series: [{ name: "AAPL", data: ohlcData(60) }],
+    });
+
+    // The user-supplied name flows through to the rendered config.
+    expect(inst.chart.w.config.series[0].name).toBe("AAPL");
+
+    inst.appendData(bar(new Date(2020, 0, 61).getTime()));
+
+    expect(inst.series).toHaveLength(61);
+    // Index 0 (the price series, whatever its name) received the new candles.
+    expect(inst.chart.w.config.series[0].data).toBe(inst.series);
+    expect(seriesData(inst.chart, "AAPL")).toBe(inst.series);
   });
 
   it("appends a batch (array) in order", () => {
@@ -201,7 +230,11 @@ describe("appendData — overlays (main chart)", () => {
 
     const bb = seriesData(inst.chart, "Bollinger Bands");
     expect(bb).toHaveLength(61);
-    const { upper, lower } = Indicators.calculateBollingerBands(inst.series, 20, 2);
+    const { upper, lower } = Indicators.calculateBollingerBands(
+      inst.series,
+      20,
+      2
+    );
     expect(bb[60].y[0]).toBeCloseTo(lower[60], 8);
     expect(bb[60].y[1]).toBeCloseTo(upper[60], 8);
   });

@@ -20,6 +20,7 @@ export default class ChartSwitch {
     }[];
     currentType: string;
     originalSeries: any[];
+    priceSeriesName: any;
     renkoBrickSize: number;
     renkoSettingsControl: SettingsControl;
     initializeRenkoSettings(): void;

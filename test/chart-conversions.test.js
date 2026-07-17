@@ -74,10 +74,94 @@ describe("ChartSwitch._convertToRenko", () => {
   it("forms no extra bricks when moves stay under the brick size", () => {
     // Tiny moves vs a 50%-of-price brick size -> only the seed brick; the
     // second slot keeps its timestamp but has no price action (y: null).
-    const series = [candle(1, 100, 100, 100, 100), candle(2, 100, 100, 100, 100.1)];
+    const series = [
+      candle(1, 100, 100, 100, 100),
+      candle(2, 100, 100, 100, 100.1),
+    ];
     const out = renko(series, 50);
     expect(out[0].y).not.toBeNull();
     expect(out[1].y).toBeNull();
+  });
+});
+
+describe("ChartSwitch.changeChartType series identity", () => {
+  // Build a ChartSwitch-shaped object without constructing the DOM-heavy class,
+  // so the real conversion + series-rebuild logic runs. `updateOptions` is
+  // stubbed to capture the series array the switch hands to ApexCharts.
+  const makeSwitch = (
+    configSeries,
+    priceSeriesName,
+    currentType = "candlestick"
+  ) => {
+    let captured = null;
+    const self = Object.assign(Object.create(ChartSwitch.prototype), {
+      currentType,
+      priceSeriesName,
+      renkoSettingsControl: null,
+      renkoBrickSize: 0.3,
+      originalSeries: [],
+      chart: {
+        w: { config: { series: configSeries } },
+        updateOptions: (opts) => {
+          captured = opts.series;
+          return { then: (cb) => cb() };
+        },
+      },
+      ctx: {
+        series: [candle(1, 10, 20, 5, 15), candle(2, 15, 25, 12, 22)],
+        getCurrentZoomState: () => null,
+        applyZoomToAllCharts: () => {},
+        tradingOverlays: null,
+      },
+    });
+    return { self, captured: () => captured };
+  };
+
+  it("does not duplicate a non-'Price' named series on switch (the reported bug)", () => {
+    // User's OHLC series carries a ticker name; the chart is currently
+    // candlestick with that single series.
+    const { self, captured } = makeSwitch(
+      [{ name: "AAPL", type: "candlestick", data: [] }],
+      "AAPL"
+    );
+    self.changeChartType("heikinashi");
+
+    const series = captured();
+    const candlesticks = series.filter((s) => s.type === "candlestick");
+    // Exactly ONE candlestick series (the Heikin-Ashi conversion) — the old
+    // "AAPL" series must NOT be retained alongside it.
+    expect(candlesticks).toHaveLength(1);
+    expect(series.some((s) => s.name === "AAPL")).toBe(false);
+  });
+
+  it("retains overlay indicators (index >= 1) across a switch", () => {
+    const { self, captured } = makeSwitch(
+      [
+        { name: "AAPL", type: "candlestick", data: [] },
+        { name: "Moving Average", type: "line", data: [{ x: 1, y: 3 }] },
+      ],
+      "AAPL"
+    );
+    self.changeChartType("heikinashi");
+
+    const series = captured();
+    expect(series.filter((s) => s.type === "candlestick")).toHaveLength(1);
+    // The overlay survives the switch.
+    expect(series.some((s) => s.name === "Moving Average")).toBe(true);
+    expect(series).toHaveLength(2);
+  });
+
+  it("preserves the user's price-series name when returning to candlestick", () => {
+    const { self, captured } = makeSwitch(
+      [{ name: "Heikin-Ashi", type: "candlestick", data: [] }],
+      "AAPL",
+      "heikinashi"
+    );
+    self.changeChartType("candlestick");
+
+    const series = captured();
+    expect(series.filter((s) => s.type === "candlestick")).toHaveLength(1);
+    expect(series[0].name).toBe("AAPL");
   });
 });
 
