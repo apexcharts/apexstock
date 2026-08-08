@@ -49,7 +49,7 @@ Events:
 - `on(name, handler)` / `off(name, handler)` / `once(name, handler)` / `emit(name, payload)`. `on` returns an unsubscribe function. Event names below.
 
 State (serialization / layout persistence):
-- `getState()`: returns a versioned plain-JSON snapshot (theme, chart type, indicators+params, zoom). `setState(state)`: restore it. `ApexStock.STATE_VERSION`, `ApexStock.migrateState(old)` (static).
+- `getState()`: returns a versioned plain-JSON snapshot (theme, chart type, indicators+params, zoom, drawings). `setState(state)`: restore it. `ApexStock.STATE_VERSION`, `ApexStock.migrateState(old)` (static).
 
 Visible range:
 - `getVisibleRange()` -> `{ min, max } | null`. `setVisibleRange(min, max)`: zoom/pan to a window (fires `rangeChange`).
@@ -59,6 +59,10 @@ Trading price lines (draggable/closable overlays):
 
 Annotations (data-space marks, distinct from freehand drawings):
 - `addAnnotation(config)` where `type` is `"yLine" | "yBand" | "xLine" | "xBand" | "point" | "text"`. `updateAnnotation(id, patch)`, `removeAnnotation(id)`, `clearAnnotations()`, `getAnnotation(id)`, `getAnnotations()`.
+
+Drawings (programmatic, price/time-anchored shapes that reproject through zoom/pan):
+- `addDrawing(config)` where `type` is `"trendline" | "ray" | "horizontalLine" | "verticalLine" | "rectangle" | "fibRetracement" | "fibExtension" | "measure"` (aliases: `line`, `hline`, `vline`, `zone`) and `points` is an array of `{x, y}` in data space (trendline/ray/rectangle/fib/measure need two points; horizontalLine uses the first point's `y`; verticalLine uses its `x`). Optional `color`, `width`, `fill`, `fillOpacity`, `dashArray`, `locked`, `visible`, `meta`; `snap` (`true` or `"open"|"high"|"low"|"close"`) snaps points to bar OHLC values; `levels`/`showLabels` tune the fib types; `upColor`/`downColor`/`showLabel` tune measure (which labels the price change, percent change, and bar count). Returns the drawing id.
+- `updateDrawing(id, patch)`, `removeDrawing(id)`, `clearDrawings()`, `getDrawing(id)`, `getDrawings()`. `getDrawings()` also reports shapes drawn with the mouse toolbar (brush/highlighter/circle/ellipse/text). Drawings are captured by `getState()` and restored by `setState()`.
 
 Comparison mode (multi-symbol on a secondary y-axis):
 - `addComparison({ name, data, color? })` (data is `[{x,y}]` closes or full OHLC), `removeComparison(name)`, `clearComparisons()`, `getComparisons()`. `setComparisonMode("percent" | "absolute")` / `getComparisonMode()`. `"percent"` (default) indexes each series to its first point.
@@ -75,6 +79,7 @@ Theme:
 - `ApexStock.setLicense(key)`: register the commercial license.
 - `ApexStock.setApexCharts(ctor)`: register the ApexCharts constructor app-wide (bundler-friendly).
 - `ApexStock.registerIndicator(name, def)`: register a custom indicator.
+- `ApexStock.registerDrawingTool(name, def)`: register a custom data-space drawing type (`def.render(data, helpers) -> SVGElement`, optional `defaults`). Afterwards `addDrawing({ type: name, points, ... })` creates it; it reprojects, drags, and serializes like a built-in. Register again after reload for serialized custom drawings to re-render.
 - `ApexStock.aggregateOHLC(series, interval)` and `ApexStock.INTERVALS`: roll fine candles up to a coarser time frame.
 - Data adapters (produce the `{ x, y:[o,h,l,c], v? }` shape):
   - `ApexStock.normalize(rows, mapping?)`: array of objects or `[x,o,h,l,c,v]` tuples.
@@ -91,6 +96,7 @@ Subscribe with `chart.on(name, handler)`:
 - `click`: click on the price chart (same payload shape as `crosshairMove`).
 - `rangeChange`: visible x-range changed. Payload `{ min, max, source }` where `source` is `"zoom" | "pan" | "reset"`.
 - `indicatorToggle`: an indicator was added or removed. Payload `{ key, active }`.
+- `drawingAdded` / `drawingUpdated`: a drawing was added or patched. Payload `{ id, drawing }`. `drawingRemoved`: payload `{ id }`. `drawingsCleared`: payload `{}`.
 
 ## Indicators (keys, case-insensitive)
 
@@ -115,5 +121,5 @@ React (`react-apexstock`), Vue 3 (`vue-apexstock`), Angular (`ngx-apexstock`). E
 ## Notes
 
 - Comparison mode uses a secondary y-axis; ApexStock rebuilds the multi-axis binding safely around any series mutation.
-- `getState()`/`setState()` currently persist theme, chart type, indicators+params, and zoom (drawings and annotations persistence is planned).
+- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, and drawings (schema v2). Annotation and trading-price-line persistence is planned.
 - Percent comparison and indexed baselines use each series' first data point as the baseline.

@@ -25,6 +25,34 @@ those are called out explicitly below.
 
 ### Added
 
+- **Programmatic drawing API (data-space, price/time-anchored).** New instance
+  methods `addDrawing(config)`, `updateDrawing(id, patch)`, `removeDrawing(id)`,
+  `clearDrawings()`, `getDrawing(id)`, and `getDrawings()`. Drawings are anchored
+  in data coordinates (price/time) and re-project through zoom/pan/resize like a
+  mouse-drawn shape. Supported types: `trendline` (alias `line`), `ray`,
+  `horizontalLine` (alias `hline`), `verticalLine` (alias `vline`), and
+  `rectangle` (alias `zone`), `fibRetracement` / `fibExtension` (Fibonacci
+  level lines between two anchor prices, with configurable `levels` and
+  `showLabels`), and `measure` (a box labeled with the price change, percent
+  change, and bar count, tinted by direction). Each takes `points: [{x, y}]`
+  plus optional `color`, `width`, `fill`, `fillOpacity`, `dashArray`, `locked`,
+  and `visible`. A `snap` option (`true` or `"open"` / `"high"` / `"low"` /
+  `"close"`) snaps points to the nearest bar's OHLC values. The line-family
+  drawings (trend/ray/level/time/fib/measure) are also draggable in the UI.
+  `getDrawings()` also reports shapes made with the mouse toolbar. Adding,
+  patching, removing, and clearing drawings emit `drawingAdded` / `drawingUpdated`
+  / `drawingRemoved` / `drawingsCleared` events.
+- **Custom drawing tools via `ApexStock.registerDrawingTool(name, def)`.** Register
+  a new data-space drawing type globally (the drawing-layer analogue of
+  `registerIndicator`); `def.render(data, helpers)` returns an SVG element from
+  the drawing's data-space record, with `helpers` exposing the data<->screen
+  projection. Afterwards `addDrawing({ type: name, points, ...customFields })`
+  creates it, and it reprojects, drags, and serializes like a built-in. Custom
+  types may not shadow built-ins; pass `overwrite: true` to replace one.
+- **State serialization now persists drawings (schema v2).** `getState()`
+  captures the full data-space drawing set and `setState()` restores it
+  losslessly; `ApexStock.STATE_VERSION` is now `2`. Older v1 states migrate
+  forward automatically (drawings default to empty).
 - **Three new studies: ATR, Donchian Channels, Keltner Channels.**
   - **ATR (`"atr"`)** - Average True Range volatility as an oscillator pane
     (Wilder-smoothed true range, `period` default 14).

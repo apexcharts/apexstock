@@ -7,11 +7,11 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Multiple Chart Types**: Candlestick, line, area, heikinashi, ohlc, etc
 - **Technical Indicators**: 20+ built-in indicators including RSI, MACD, Bollinger Bands, and more
 - **Real-time Streaming**: Incremental `appendData()` updates price, indicators, and panes without a full rebuild
-- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, and `indicatorToggle` via `on()` / `off()` / `once()`
-- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, and zoom to portable JSON
+- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, `indicatorToggle`, and drawing lifecycle events via `on()` / `off()` / `once()`
+- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, zoom, and drawings to portable JSON
 - **Custom Indicators**: Register your own indicators (overlay or oscillator, with optional live streaming) via `ApexStock.registerIndicator()`
 - **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
-- **Drawing Tools**: Interactive drawing capabilities for technical analysis
+- **Drawing Tools**: Interactive mouse toolbar plus a programmatic, price/time-anchored `addDrawing()` API (trend lines, rays, levels, zones)
 - **Theme Support**: Light and dark theme modes with seamless switching
 - **Zoom Controls**: Interactive zoom and pan functionality
 - **Export Capabilities**: Export charts as images
@@ -809,6 +809,112 @@ apexStock.clearAnnotations(); // removes only annotations added this way
 Common fields: `label`/`text`, `color`, `fillColor`, `opacity`, `textColor`,
 `strokeDashArray`, `width`, `labelPosition`, `marker`, `meta`, and a stable
 `id` (auto-generated when omitted).
+
+## Drawings (programmatic, price/time-anchored)
+
+Create trend lines, rays, price levels, time markers, and zones **from code**,
+anchored to data coordinates so they re-project through zoom, pan, and resize
+exactly like a shape drawn with the mouse toolbar. Points are `{x, y}` in data
+space (`x` is a timestamp/date/category, `y` is a price).
+
+```javascript
+// Trend line between two points
+const id = apexStock.addDrawing({
+  type: "trendline",
+  points: [{ x: "2024-02-01", y: 118 }, { x: "2024-04-15", y: 134 }],
+  color: "#00b746",
+  width: 2,
+});
+
+// A horizontal support level and a vertical event marker
+apexStock.addDrawing({ type: "horizontalLine", points: [{ y: 128.5 }], dashArray: 4 });
+apexStock.addDrawing({ type: "verticalLine", points: [{ x: "2024-03-20" }] });
+
+// A supply/demand zone (filled rectangle between two corners)
+apexStock.addDrawing({
+  type: "rectangle",
+  points: [{ x: "2024-03-01", y: 120 }, { x: "2024-03-20", y: 126 }],
+  fill: "#008FFB",
+  fillOpacity: 0.15,
+});
+
+// Fibonacci retracement between a swing low and high (labeled level lines)
+apexStock.addDrawing({
+  type: "fibRetracement",
+  points: [{ x: "2024-02-01", y: 112 }, { x: "2024-04-15", y: 138 }],
+});
+
+// A measurement box (price change, % change, and bars spanned)
+apexStock.addDrawing({
+  type: "measure",
+  points: [{ x: "2024-03-01", y: 118 }, { x: "2024-03-20", y: 129 }],
+});
+
+// Snap a trend line's endpoints to the nearest bar closes
+apexStock.addDrawing({
+  type: "trendline",
+  points: [{ x: "2024-02-01", y: 0 }, { x: "2024-04-15", y: 0 }],
+  snap: "close",
+});
+
+apexStock.updateDrawing(id, { color: "#e91e63", visible: false }); // patch geometry/style
+apexStock.getDrawing(id);   // -> a single drawing config
+apexStock.getDrawings();    // -> all drawings (mouse-drawn shapes included)
+apexStock.removeDrawing(id);
+apexStock.clearDrawings();  // removes every drawing
+```
+
+| Type (aliases) | Points | Notes |
+| --- | --- | --- |
+| `trendline` (`line`) | 2 | A segment between two points. |
+| `ray` | 2 | Half-line from point 0 through point 1, extended to the edge. |
+| `horizontalLine` (`hline`) | 1 | Price level spanning the full width (uses `y`). |
+| `verticalLine` (`vline`) | 1 | Time marker spanning the full height (uses `x`). |
+| `rectangle` (`zone`) | 2 | Filled box between two corner points. |
+| `fibRetracement` | 2 | Fibonacci level lines between two anchor prices (labeled). |
+| `fibExtension` | 2 | Fibonacci extension levels (ratios beyond 1). |
+| `measure` | 2 | A box labeled with the price change, % change, and bar count. |
+
+The fib types accept `levels` (a custom ratio array) and `showLabels` (default
+true); `measure` accepts `upColor` / `downColor` / `showLabel`. Pass `snap: true`
+(or `"open"` / `"high"` / `"low"` / `"close"`) to snap each point to the nearest
+bar's OHLC values. Common fields: `color`, `width`, `fill`, `fillOpacity`, `dashArray`, `locked`
+(not selectable/draggable when true), `visible` (rendered when true, still
+serialized when false), `meta`, and a stable `id` (auto-generated when omitted).
+Adding, patching, removing, and clearing drawings emit `drawingAdded` /
+`drawingUpdated` / `drawingRemoved` / `drawingsCleared` events, and the whole
+drawing set is captured by `getState()` and restored by `setState()`.
+
+### Custom drawing tools (`registerDrawingTool`)
+
+Register your own data-space drawing type globally, then create it with
+`addDrawing({ type, points })` like any built-in. The `render(data, helpers)`
+function turns the drawing's data-space record into an SVG element; `helpers`
+gives you the data-to-screen projection so the drawing reprojects on zoom/pan.
+Custom drawings drag and serialize (into `getState()`) like built-ins.
+
+```javascript
+ApexStock.registerDrawingTool("markerDot", {
+  defaults: { radius: 6 },
+  render(data, helpers) {
+    const p = helpers.dataToScreen(data.points[0].x, data.points[0].y);
+    const c = document.createElementNS(helpers.svgNS, "circle");
+    c.setAttribute("cx", p.x);
+    c.setAttribute("cy", p.y);
+    c.setAttribute("r", data.radius);
+    c.setAttribute("fill", data.color);
+    return c;
+  },
+});
+
+apexStock.addDrawing({ type: "markerDot", points: [{ x: someTime, y: 132 }], color: "#e91e63" });
+```
+
+`helpers` exposes `svgNS`, `dataToScreen(x, y)`, `screenToData(x, y)`,
+`getChartBounds()`, and `extendToBounds(p1, p2)`. Custom types may not shadow a
+built-in type name; pass `overwrite: true` to replace a previous registration.
+A serialized custom drawing re-renders after reload only if the tool has been
+registered again first.
 
 ## Data adapters
 

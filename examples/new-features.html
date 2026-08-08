@@ -234,6 +234,26 @@
           </p>
         </section>
 
+        <!-- Programmatic drawings (price/time-anchored) -->
+        <section class="card">
+          <h3>Drawings (programmatic)</h3>
+          <div class="row">
+            <button id="drwTrend">trend line</button>
+            <button id="drwRay">ray</button>
+            <button id="drwHLine">h-line</button>
+            <button id="drwVLine">v-line</button>
+            <button id="drwZone">zone</button>
+            <button id="drwFib">fib</button>
+            <button id="drwMeasure">measure</button>
+            <button id="drwSnap">snap trend (close)</button>
+            <button id="drwClear">clear</button>
+          </div>
+          <p style="font-size: 12px; color: #667085; margin: 8px 0 0">
+            Anchored to price/time via <code>addDrawing()</code>; they re-project
+            through zoom/pan and round-trip through <code>getState()</code>.
+          </p>
+        </section>
+
         <!-- Programmatic params + visible range -->
         <section class="card">
           <h3>Params &amp; range (programmatic)</h3>
@@ -516,6 +536,68 @@
         chart.addAnnotation({ type: "text", x: midX(), y: midY(), text: "note" })
       );
       $("annClear").addEventListener("click", () => chart.clearAnnotations());
+
+      // Programmatic drawings, anchored at two points ~40% and ~70% across.
+      const drwX = (frac) => {
+        const s = chart.series;
+        return s[Math.floor(s.length * frac)].x;
+      };
+      const drwY = (frac) => {
+        const s = chart.series;
+        return s[Math.floor(s.length * frac)].y[3]; // close
+      };
+      $("drwTrend").addEventListener("click", () =>
+        chart.addDrawing({
+          type: "trendline",
+          points: [{ x: drwX(0.4), y: drwY(0.4) }, { x: drwX(0.7), y: drwY(0.7) }],
+          color: "#00b746",
+        })
+      );
+      $("drwRay").addEventListener("click", () =>
+        chart.addDrawing({
+          type: "ray",
+          points: [{ x: drwX(0.4), y: drwY(0.4) }, { x: drwX(0.7), y: drwY(0.7) }],
+          color: "#f6a609",
+          dashArray: 4,
+        })
+      );
+      $("drwHLine").addEventListener("click", () =>
+        chart.addDrawing({ type: "horizontalLine", points: [{ y: midY() }], dashArray: 4 })
+      );
+      $("drwVLine").addEventListener("click", () =>
+        chart.addDrawing({ type: "verticalLine", points: [{ x: midX() }] })
+      );
+      $("drwZone").addEventListener("click", () => {
+        const y = midY();
+        chart.addDrawing({
+          type: "rectangle",
+          points: [{ x: drwX(0.4), y: y - 2 }, { x: drwX(0.7), y: y + 2 }],
+          fill: "#008FFB",
+          fillOpacity: 0.15,
+        });
+      });
+      $("drwFib").addEventListener("click", () =>
+        chart.addDrawing({
+          type: "fibRetracement",
+          points: [{ x: drwX(0.4), y: drwY(0.4) }, { x: drwX(0.7), y: drwY(0.7) }],
+          color: "#7c4dff",
+        })
+      );
+      $("drwMeasure").addEventListener("click", () =>
+        chart.addDrawing({
+          type: "measure",
+          points: [{ x: drwX(0.4), y: drwY(0.4) }, { x: drwX(0.7), y: drwY(0.7) }],
+        })
+      );
+      $("drwSnap").addEventListener("click", () =>
+        chart.addDrawing({
+          type: "trendline",
+          points: [{ x: drwX(0.4), y: 0 }, { x: drwX(0.7), y: 0 }],
+          snap: "close",
+          color: "#00b746",
+        })
+      );
+      $("drwClear").addEventListener("click", () => chart.clearDrawings());
 
       // Programmatic params + visible-range controls.
       $("rsiPeriod").addEventListener("change", (e) => {
