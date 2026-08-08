@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - New Features (0.4)</title>
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 {
+        text-align: center;
+        margin: 0 0 4px;
+      }
+      p.lead {
+        text-align: center;
+        color: #667085;
+        margin: 0 auto 20px;
+        max-width: 820px;
+      }
+      .wrap {
+        max-width: 1280px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 960px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(16, 24, 40, 0.08);
+        padding: 16px;
+      }
+      .panel {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .panel section {
+        border: 1px solid #eaecf0;
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .panel h3 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #475467;
+      }
+      .ind-group + .ind-group {
+        margin-top: 10px;
+      }
+      .ind-group > span {
+        font-size: 11px;
+        color: #98a2b3;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      label.ind {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 2px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .badge {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #eef4ff;
+        color: #2563eb;
+        border: 1px solid #d6e0ff;
+      }
+      .badge.custom {
+        background: #f4f0ff;
+        color: #6941c6;
+        border-color: #e4d7ff;
+      }
+      .badge.stream {
+        background: #edfcf2;
+        color: #067647;
+        border-color: #cdf2dd;
+      }
+      /* Scope demo button styling to our own buttons only — never ApexStock's
+         toolbar tools (which are also <button> elements sized via
+         --apexstock-button-size). */
+      button:not([class*="apexstock"]) {
+        padding: 7px 12px;
+        border: 1px solid #d0d5dd;
+        border-radius: 7px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      button:not([class*="apexstock"]):hover {
+        background: #f2f4f7;
+      }
+      button.primary {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+      }
+      button.primary:hover {
+        background: #1d4ed8;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      pre {
+        background: #0b1220;
+        color: #d7e0ee;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 11px;
+        line-height: 1.45;
+        max-height: 220px;
+        overflow: auto;
+        margin: 8px 0 0;
+      }
+      .kv {
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.7;
+      }
+      .kv b {
+        color: #475467;
+        font-weight: 600;
+      }
+      .log {
+        font-size: 12px;
+        max-height: 120px;
+        overflow: auto;
+        margin: 0;
+        padding-left: 16px;
+      }
+      .up {
+        color: #067647;
+      }
+      .down {
+        color: #b42318;
+      }
+      code {
+        background: #f2f4f7;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+    </style>
+
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+
+  <body>
+    <h1>ApexStock — New Features</h1>
+    <p class="lead">
+      A tour of the 0.4 developer-experience additions: a public
+      <b>event API</b>, <b>state serialization</b>, <b>custom indicators</b>
+      (with live streaming), <b>multiple oscillator panes</b>, and
+      <b>indicator introspection</b>. Hover the chart, toggle indicators, save
+      the layout, and press play.
+    </p>
+
+    <div class="wrap">
+      <div class="card">
+        <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+          <div class="row">
+            <button id="play" class="primary">▶ Play stream</button>
+            <button id="step">+1 bar</button>
+          </div>
+          <span class="kv"><b>bars:</b> <span id="barcount">0</span></span>
+        </div>
+        <div id="chart"></div>
+      </div>
+
+      <div class="panel">
+        <!-- 1. Introspection + multi-oscillator -->
+        <section class="card">
+          <h3>Indicators (from <code>listIndicators()</code>)</h3>
+          <div id="indicators"></div>
+          <p style="font-size: 12px; color: #667085; margin: 10px 0 0">
+            Tick several oscillators (RSI, MACD, Range %) to stack panes. The two
+            <span class="badge custom">custom</span> indicators were added with
+            <code>registerIndicator()</code>.
+          </p>
+        </section>
+
+        <!-- Comparison mode -->
+        <section class="card">
+          <h3>Comparison (multi-symbol)</h3>
+          <div class="row">
+            <button id="cmpPeerA">+ PEER-A</button>
+            <button id="cmpPeerB">+ PEER-B</button>
+            <button id="cmpMode">mode: percent</button>
+            <button id="cmpClear">clear</button>
+          </div>
+          <p style="font-size: 12px; color: #667085; margin: 8px 0 0">
+            Overlays other instruments on a secondary axis via
+            <code>addComparison()</code>; percent mode indexes each to its first point.
+          </p>
+        </section>
+
+        <!-- Data-space annotations -->
+        <section class="card">
+          <h3>Annotations (data-space)</h3>
+          <div class="row">
+            <button id="annYLine">y-line</button>
+            <button id="annYBand">y-band</button>
+            <button id="annXLine">x-line</button>
+            <button id="annPoint">point</button>
+            <button id="annText">text</button>
+            <button id="annClear">clear</button>
+          </div>
+          <p style="font-size: 12px; color: #667085; margin: 8px 0 0">
+            Added at price/time coordinates via <code>addAnnotation()</code>;
+            they persist across zoom, theme, and chart-type switches.
+          </p>
+        </section>
+
+        <!-- Programmatic params + visible range -->
+        <section class="card">
+          <h3>Params &amp; range (programmatic)</h3>
+          <label class="kv" style="display: flex; gap: 8px; align-items: center">
+            RSI period
+            <input id="rsiPeriod" type="number" value="14" min="2" max="50" style="width: 70px" />
+            <span style="color: #98a2b3; font-size: 12px">updateIndicator("rsi", {period})</span>
+          </label>
+          <div class="row" style="margin-top: 8px">
+            <button id="zoomLast">Zoom last 30</button>
+            <button id="zoomAll">Zoom all</button>
+          </div>
+        </section>
+
+        <!-- 2. State serialization -->
+        <section class="card">
+          <h3>Layout state (<code>getState</code> / <code>setState</code>)</h3>
+          <div class="row">
+            <button id="save">Save</button>
+            <button id="restore">Restore</button>
+            <button id="reset">Reset</button>
+          </div>
+          <pre id="state">{}</pre>
+        </section>
+
+        <!-- Data adapters -->
+        <section class="card">
+          <h3>Data adapters (<code>fromCSV</code> / <code>normalize</code> / <code>fromArrays</code>)</h3>
+          <div class="row">
+            <button id="csvLoad">Load CSV into chart</button>
+            <span class="kv"><b>parsed bars:</b> <span id="csvCount">—</span></span>
+          </div>
+          <pre id="csv" contenteditable="true" style="white-space: pre; min-height: 96px">Date,Open,High,Low,Close,Volume
+2024-06-03,182.4,184.1,181.2,183.6,41000000
+2024-06-04,183.6,186.0,183.0,185.4,38000000
+2024-06-05,185.4,188.2,185.0,187.9,52000000
+2024-06-06,187.9,189.5,186.1,186.8,47000000
+2024-06-07,186.8,187.3,182.9,184.2,61000000</pre>
+        </section>
+
+        <!-- Export -->
+        <section class="card">
+          <h3>Export (<code>exportImage</code> / <code>exportData</code>)</h3>
+          <div class="row">
+            <button id="expPng">PNG</button>
+            <button id="expSvg">SVG</button>
+            <button id="expCsv">CSV</button>
+            <button id="expJson">JSON (visible)</button>
+          </div>
+          <span class="kv"><b>last export:</b> <span id="expStatus">—</span></span>
+        </section>
+
+        <!-- 3. Event API -->
+        <section class="card">
+          <h3>Events (<code>on()</code>)</h3>
+          <div class="kv">
+            <div><b>crosshair:</b> <span id="cross">move over the chart…</span></div>
+            <div><b>last click:</b> <span id="click">—</span></div>
+            <div><b>range:</b> <span id="range">—</span></div>
+          </div>
+          <div style="margin-top: 8px">
+            <b class="kv">indicatorToggle log</b>
+            <ul id="log" class="log"></ul>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      // ─────────────────────────────────────────────────────────────────────
+      // 1. Register two CUSTOM indicators BEFORE constructing any chart.
+      //    Both include a streaming twin so they stay exact under appendData().
+      // ─────────────────────────────────────────────────────────────────────
+      const typical = (b) => +(((b.y[1] + b.y[2] + b.y[3]) / 3).toFixed(2));
+      ApexStock.registerIndicator("typical price", {
+        type: "overlay",
+        colors: ["#7a5af8"],
+        calc: (series) => series.map(typical),
+        stream: {
+          seed: () => ({}),
+          step: (s, series) => ({ value: typical(series[series.length - 1]), state: s }),
+          render: (v, x) => [{ name: "Typical price", point: { x, y: v } }],
+        },
+      });
+
+      const rangePct = (b) => +(((b.y[1] - b.y[2]) / b.y[3]) * 100).toFixed(2);
+      ApexStock.registerIndicator("range percent", {
+        type: "oscillator",
+        colors: ["#f04438"],
+        yaxis: { min: 0 },
+        calc: (series) => series.map(rangePct),
+        stream: {
+          seed: () => ({}),
+          step: (s, series) => ({ value: rangePct(series[series.length - 1]), state: s }),
+          render: (v, x) => [{ name: "Range percent", point: { x, y: v } }],
+        },
+      });
+
+      // ── Sample OHLC data ────────────────────────────────────────────────────
+      const DAY = 86400000;
+      const BASE = Date.UTC(2024, 0, 1);
+      function makeBar(i, prev) {
+        const o = prev;
+        const c = +(o + (Math.random() - 0.5) * 4).toFixed(2);
+        const h = +(Math.max(o, c) + Math.random() * 2).toFixed(2);
+        const l = +(Math.min(o, c) - Math.random() * 2).toFixed(2);
+        return { x: BASE + i * DAY, y: [o, h, l, c], v: Math.floor(Math.random() * 9e5) + 1e5 };
+      }
+      function seedData(n) {
+        const data = [];
+        let price = 100;
+        for (let i = 0; i < n; i++) {
+          const bar = makeBar(i, price);
+          data.push(bar);
+          price = bar.y[3];
+        }
+        return data;
+      }
+
+      const chart = new ApexStock(document.querySelector("#chart"), {
+        chart: { height: 460, animations: { enabled: false } },
+        series: [{ name: "Price", data: seedData(150) }],
+        theme: { mode: "light" },
+      });
+      chart.render();
+      chart.updateIndicator("moving average");
+      chart.updateIndicator("rsi");
+
+      const $ = (id) => document.getElementById(id);
+      const fmt = (t) => new Date(t).toISOString().slice(0, 10);
+
+      // ─────────────────────────────────────────────────────────────────────
+      // 5. Indicator introspection → build a live picker from listIndicators().
+      // ─────────────────────────────────────────────────────────────────────
+      function renderIndicators() {
+        const list = chart.listIndicators();
+        const groups = { overlay: [], oscillator: [] };
+        list.forEach((i) => groups[i.type].push(i));
+
+        const box = $("indicators");
+        box.innerHTML = "";
+        [
+          ["overlay", "Overlays (multiple)"],
+          ["oscillator", "Oscillators (stack as many as you like)"],
+        ].forEach(([type, title]) => {
+          const g = document.createElement("div");
+          g.className = "ind-group";
+          g.innerHTML = "<span>" + title + "</span>";
+          const badge = (cls, text) => {
+            const b = document.createElement("span");
+            b.className = "badge " + cls;
+            b.textContent = text;
+            return b;
+          };
+          groups[type].forEach((info) => {
+            const label = document.createElement("label");
+            label.className = "ind";
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = info.active;
+            cb.addEventListener("change", () => chart.updateIndicator(info.key));
+            label.appendChild(cb);
+            const text = document.createElement("span");
+            text.textContent = info.label;
+            label.appendChild(text);
+            // Append badges as elements (never via innerHTML, which would reparse
+            // the label and drop the checkbox's change listener).
+            if (!info.builtin) label.appendChild(badge("custom", "custom"));
+            if (info.streamable) label.appendChild(badge("stream", "stream"));
+            g.appendChild(label);
+          });
+          box.appendChild(g);
+        });
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // 2. State serialization JSON (live) + Save / Restore / Reset.
+      // ─────────────────────────────────────────────────────────────────────
+      let rafState = null;
+      function refreshStateJSON() {
+        if (rafState) return;
+        rafState = requestAnimationFrame(() => {
+          rafState = null;
+          $("state").textContent = JSON.stringify(chart.getState(), null, 2);
+        });
+      }
+      $("save").addEventListener("click", () => {
+        localStorage.setItem("apexstock-demo", JSON.stringify(chart.getState()));
+        flashLog("saved layout to localStorage");
+      });
+      $("restore").addEventListener("click", () => {
+        const raw = localStorage.getItem("apexstock-demo");
+        if (raw) chart.setState(JSON.parse(raw));
+        else flashLog("nothing saved yet");
+      });
+      $("reset").addEventListener("click", () => {
+        chart.setState({
+          version: 1,
+          theme: { mode: "light" },
+          chartType: "candlestick",
+          indicators: [],
+          zoom: null,
+        });
+      });
+
+      // ─────────────────────────────────────────────────────────────────────
+      // 3. Event API: crosshair, click, rangeChange, indicatorToggle.
+      // ─────────────────────────────────────────────────────────────────────
+      chart.on("crosshairMove", (e) => {
+        if (e.dataPointIndex < 0 || !e.ohlc) {
+          $("cross").textContent = "—";
+          return;
+        }
+        const { open, high, low, close } = e.ohlc;
+        const cls = close >= open ? "up" : "down";
+        $("cross").innerHTML =
+          fmt(e.x) +
+          ` &nbsp; O ${open} H ${high} L ${low} <span class="${cls}">C ${close}</span>` +
+          ` &nbsp; vol ${e.volume?.toLocaleString?.() ?? e.volume}`;
+      });
+      chart.on("click", (e) => {
+        $("click").textContent = e.x ? `${fmt(e.x)} @ ${e.ohlc?.close}` : "(empty area)";
+      });
+      chart.on("rangeChange", (e) => {
+        $("range").textContent = `${fmt(e.min)} → ${fmt(e.max)}  (${e.source})`;
+        refreshStateJSON();
+      });
+      chart.on("indicatorToggle", (e) => {
+        flashLog(`${e.key} ${e.active ? "added" : "removed"}`);
+        renderIndicators(); // keep the picker in sync (also covers setState)
+        refreshStateJSON();
+      });
+
+      // Comparison controls: synthetic peer instruments over the same dates.
+      function peerData(start, drift) {
+        const base = chart.series;
+        let p = start;
+        return base.map((bar) => {
+          p = +(p + (Math.random() - 0.5) * 3 + drift).toFixed(2);
+          return { x: bar.x, y: p };
+        });
+      }
+      $("cmpPeerA").addEventListener("click", () =>
+        chart.addComparison({ name: "PEER-A", data: peerData(60, 0.15) })
+      );
+      $("cmpPeerB").addEventListener("click", () =>
+        chart.addComparison({ name: "PEER-B", data: peerData(220, -0.1) })
+      );
+      $("cmpMode").addEventListener("click", () => {
+        const next = chart.getComparisonMode() === "percent" ? "absolute" : "percent";
+        chart.setComparisonMode(next);
+        $("cmpMode").textContent = "mode: " + next;
+      });
+      $("cmpClear").addEventListener("click", () => chart.clearComparisons());
+
+      // Data-space annotation controls (placed relative to the visible data).
+      const midY = () => {
+        const s = chart.series;
+        const last = s[s.length - 1].y;
+        return +(((last[1] + last[2]) / 2).toFixed(2));
+      };
+      const midX = () => {
+        const s = chart.series;
+        return s[Math.floor(s.length * 0.7)].x;
+      };
+      $("annYLine").addEventListener("click", () =>
+        chart.addAnnotation({ type: "yLine", y: midY(), label: "y-line" })
+      );
+      $("annYBand").addEventListener("click", () => {
+        const y = midY();
+        chart.addAnnotation({ type: "yBand", y: y - 1.5, y2: y + 1.5, opacity: 0.15 });
+      });
+      $("annXLine").addEventListener("click", () =>
+        chart.addAnnotation({ type: "xLine", x: midX(), label: "event" })
+      );
+      $("annPoint").addEventListener("click", () =>
+        chart.addAnnotation({ type: "point", x: midX(), y: midY(), label: "point" })
+      );
+      $("annText").addEventListener("click", () =>
+        chart.addAnnotation({ type: "text", x: midX(), y: midY(), text: "note" })
+      );
+      $("annClear").addEventListener("click", () => chart.clearAnnotations());
+
+      // Programmatic params + visible-range controls.
+      $("rsiPeriod").addEventListener("change", (e) => {
+        const p = Math.max(2, Math.min(50, +e.target.value || 14));
+        // Sets params AND ensures RSI is active (no toggle) — recomputes in place.
+        chart.updateIndicator("rsi", { period: p });
+      });
+      $("zoomLast").addEventListener("click", () => {
+        const s = chart.series;
+        if (s.length > 30) chart.setVisibleRange(s[s.length - 30].x, s[s.length - 1].x);
+      });
+      $("zoomAll").addEventListener("click", () => {
+        const s = chart.series;
+        if (s.length) chart.setVisibleRange(s[0].x, s[s.length - 1].x);
+      });
+
+      // Data adapters: parse the editable CSV block and load it into the chart.
+      $("csvLoad").addEventListener("click", () => {
+        const series = ApexStock.fromCSV($("csv").textContent);
+        $("csvCount").textContent = String(series.length);
+        if (series.length) chart.update({ series: [{ name: "CSV", data: series }] });
+      });
+
+      // Export: images (png/svg) and data (csv/json of the visible window).
+      $("expPng").addEventListener("click", () => {
+        chart.exportImage({ format: "png", download: true }).then((r) => {
+          $("expStatus").textContent =
+            r.format + (r.fallback ? " (png unsupported, fell back)" : "");
+        });
+      });
+      $("expSvg").addEventListener("click", () => {
+        chart
+          .exportImage({ format: "svg", download: true })
+          .then((r) => ($("expStatus").textContent = r.format));
+      });
+      $("expCsv").addEventListener("click", () => {
+        const csv = chart.exportData({ format: "csv", download: true });
+        $("expStatus").textContent = "csv, " + csv.split("\n").length + " lines";
+      });
+      $("expJson").addEventListener("click", () => {
+        const json = chart.exportData({
+          format: "json",
+          range: "visible",
+          download: true,
+        });
+        $("expStatus").textContent =
+          "json (visible), " + JSON.parse(json).length + " bars";
+      });
+
+      function flashLog(msg) {
+        const li = document.createElement("li");
+        li.textContent = msg;
+        $("log").prepend(li);
+        while ($("log").children.length > 20) $("log").lastChild.remove();
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // Streaming: show every indicator (incl. the custom ones) update live.
+      // ─────────────────────────────────────────────────────────────────────
+      const barcount = $("barcount");
+      function tick() {
+        const prev = chart.series[chart.series.length - 1];
+        const bar = makeBar(chart.series.length, prev.y[3]);
+        chart.appendData(bar, { view: "follow", maxPoints: 300 });
+        barcount.textContent = chart.series.length;
+      }
+      let timer = null;
+      $("play").addEventListener("click", () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+          $("play").textContent = "▶ Play stream";
+        } else {
+          timer = setInterval(tick, 600);
+          $("play").textContent = "⏸ Pause stream";
+        }
+      });
+      $("step").addEventListener("click", tick);
+
+      // Initial paint.
+      renderIndicators();
+      refreshStateJSON();
+      barcount.textContent = chart.series.length;
+    </script>
+  </body>
+</html>

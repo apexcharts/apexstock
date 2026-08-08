@@ -21,7 +21,8 @@
   "sideEffects": false,
   "files": [
     "dist",
-    "THEMING.md"
+    "THEMING.md",
+    "llms.txt"
   ],
   "dependencies": {
     "apex-commons": "^0.1.0"

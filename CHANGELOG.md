@@ -9,6 +9,175 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Changed
+
+- **Indicator display labels are now title-cased per word** (e.g. "Bollinger
+  Bands", "Stochastic Oscillator" instead of "Bollinger bands"). Affects the
+  dropdown labels and `listIndicators()`/`getIndicator()` `label` fields;
+  indicator keys and series names are unchanged.
+- **Multiple oscillator panes can now be active at once.** The previous
+  one-oscillator-at-a-time cap is lifted: the indicators dropdown treats
+  oscillators as independent toggles (like overlays), so RSI + MACD + Volume can
+  be stacked together. Each oscillator gets its own pane and the panes share the
+  indicator area evenly (auto-resized on add/remove). Adding a new oscillator no
+  longer evicts the current one. Multiple oscillators round-trip through
+  `getState`/`setState`.
+
+### Added
+
+- **Three new studies: ATR, Donchian Channels, Keltner Channels.**
+  - **ATR (`"atr"`)** - Average True Range volatility as an oscillator pane
+    (Wilder-smoothed true range, `period` default 14).
+  - **Donchian Channels (`"donchian channels"`)** - a band overlay of the
+    highest high / lowest low over a trailing `period` (default 20).
+  - **Keltner Channels (`"keltner channels"`)** - a band overlay of an EMA
+    midline offset by `multiplier * ATR` (`emaPeriod` 20, `atrPeriod` 10,
+    `multiplier` 2).
+  Each ships with a streaming twin (exact under `appendData()`; Keltner composes
+  the EMA + ATR steppers), round-trips through `getState`/`setState`, and
+  appears in `listIndicators()` and the dropdown like the built-ins.
+- **VWAP indicator (`"vwap"`).** Volume-weighted average price as a main-chart
+  overlay, cumulative from the first bar: `sum(price*volume)/sum(volume)`, where
+  `price` is the typical price `(high+low+close)/3` (`source: "hlc3"`, default)
+  or the close (`source: "close"`), e.g. `updateIndicator("vwap", { source:
+  "close" })`. Volume-less bars contribute 0 (the line uses the price until
+  volume accrues). Ships with a streaming twin, so it stays exact under
+  `appendData()` in O(1), and it round-trips through `getState`/`setState` and
+  appears in `listIndicators()` like the built-ins. Heavily requested; a common
+  gap. Session-anchored resets (per trading day) are a planned follow-up.
+- **`llms.txt` (agent-readable API surface).** A machine-readable summary of
+  ApexStock at the repo root (and shipped in the npm tarball) following the
+  llmstxt.org convention: setup, the data-point shape, the public `ApexStock`
+  API grouped by area, event names and payloads, indicator keys, and the
+  framework wrappers, so an LLM/coding agent can drive the library accurately.
+- **Programmatic export: images and data (`exportImage` / `exportData`).**
+  `exportImage({ format: "png" | "svg", scale, download, filename })` returns a
+  `Promise<{ format, blob, url, fallback? }>`. **PNG now produces a real raster**
+  by compositing the price chart and any oscillator panes via each ApexChart's
+  native `dataURI()` (pure SVG, so the canvas isn't tainted); browsers that
+  can't rasterize fall back to SVG and set `fallback: true`. SVG remains a full
+  vector snapshot. `exportData({ format: "csv" | "json", range: "all" |
+  "visible", includeVolume, raw, pretty, download, filename })` serializes the
+  OHLC series (columns `time, open, high, low, close[, volume]`; ISO-8601 time
+  by default) and round-trips through `ApexStock.fromCSV`. The toolbar download
+  button now uses this path (real PNG, with the SVG fallback). Backed by a new
+  `DataExport` helper and a reworked `Export` module. See the README "Export"
+  section.
+- **Optional ApexCharts injection.** ApexStock no longer forces you to assign
+  `window.ApexCharts` in a bundler/framework app. Pass the imported constructor
+  per instance (`new ApexStock(el, options, { ApexCharts })`) or register it
+  once app-wide (`ApexStock.setApexCharts(ApexCharts)`). Resolution order is
+  per-instance injection → app-wide default → the `window.ApexCharts` global, so
+  the existing global path (script tags) keeps working unchanged. The resolved
+  constructor is used for the oscillator panes too. The "not found" error now
+  spells out all three options. The React/Vue/Angular wrappers expose it as an
+  optional `apexCharts` prop/input that is forwarded at mount. See the README
+  "Using a bundler" section.
+- **Data adapters (`ApexStock.normalize` / `ApexStock.fromArrays` /
+  `ApexStock.fromCSV`).** Convert the common real-world shapes into the
+  `{ x, y: [open, high, low, close], v? }` point shape without hand-mapping:
+  arrays of objects/tuples (`normalize`), parallel column arrays (`fromArrays`),
+  and CSV text (`fromCSV`). Columns are matched by case-insensitive alias
+  (`date/time` -> x, `o` -> open, `vol` -> volume, ...) with an optional
+  `mapping` override; only `close` is required (missing OHLC is derived from it).
+  `fromCSV` handles quoted fields, embedded delimiters, headerless data, custom
+  delimiters, and CRLF/LF endings. Output is validated and time-sorted (reusing
+  the render pipeline's cleaning). Backed by a new `DataAdapter` helper
+  (`src/utils/DataAdapter.js`). See the README "Data adapters" section.
+- **Comparison mode (`addComparison` / `removeComparison` / `clearComparisons` /
+  `getComparisons` / `setComparisonMode` / `getComparisonMode`).** Overlay
+  additional instruments (e.g. AAPL vs MSFT vs SPY) as lines on a dedicated
+  **secondary y-axis**, so differing price scales never distort the primary
+  candlestick. Two modes: `"percent"` (default) shows indexed performance —
+  each instrument as % change from its first point — and `"absolute"` shows raw
+  prices. Comparisons persist across zoom, theme, chart-type switch, indicator
+  toggles, and `appendData` (the multi-axis binding is rebuilt safely around
+  each). Backed by a new `Comparison` manager (`src/overlays/Comparison.js`).
+  See the README "Comparison mode" section.
+- **Data-space annotation API (`addAnnotation` / `updateAnnotation` /
+  `removeAnnotation` / `clearAnnotations` / `getAnnotation` / `getAnnotations`).**
+  Place horizontal/vertical lines, bands, point markers, and text at data
+  coordinates (price/time): `type` is `"yLine"`, `"yBand"`, `"xLine"`,
+  `"xBand"`, `"point"`, or `"text"`. Distinct from the freehand drawing tools
+  (screen space) and the trading price lines. Annotations are id-based, persist
+  across update/theme/chart-type switches (re-applied like trading overlays),
+  and are removed by id so they never disturb price lines or indicator
+  annotations. Backed by a new `Annotations` manager
+  (`src/overlays/Annotations.js`). See the README "Annotations" section.
+- **Programmatic indicator params (`updateIndicator(key, params)` /
+  `setIndicatorParams(key, params)`).** Configure an indicator without the
+  settings popover, e.g. `updateIndicator("rsi", { period: 21 })`. The two-arg
+  form sets params and ensures the indicator is active (it never toggles it
+  off): an inactive indicator is added with the params; an active one is
+  recomputed in place (data + streaming state), preserving zoom. This also makes
+  overlay periods (e.g. moving average) configurable for the first time. The
+  one-arg `updateIndicator(key)` keeps its toggle behavior.
+- **Visible-range accessors (`getVisibleRange()` / `setVisibleRange(min, max)`).**
+  Read the currently visible x-window (the same values the `rangeChange` event
+  reports) or set it across the main chart and every indicator pane (fires
+  `rangeChange`, like an interactive zoom). Handy for lazy-loading data for the
+  visible window or syncing an external control.
+- **Indicator introspection (`listIndicators()` / `getIndicator(key)`).**
+  Enumerate every available indicator (built-in + custom) with its metadata and
+  live state — `key`, `label`, `type` (`"overlay"`/`"oscillator"`), `kind`,
+  `builtin`, `active` (on this instance), `streamable`, and current `params` —
+  for building custom indicator pickers and settings panels. `getIndicator` is
+  case-insensitive and returns null for unknown keys. See the README
+  "Introspecting indicators" section.
+- **Custom indicators (`ApexStock.registerIndicator(name, def)`).** Register your
+  own indicators without forking — they work with `updateIndicator(key)`, appear
+  in the indicators dropdown, and round-trip through `getState`/`setState`. A
+  declarative form (`{ type: "overlay"|"oscillator", calc(series, params),
+  defaultParams, colors, yaxis, chartOptions, ... }`) covers most cases; `calc`
+  may return one aligned line, a named multi-line map, or ready-made ApexCharts
+  series. An advanced form (`{ kind, build/apply/remove }`) plugs a raw registry
+  entry in verbatim. An optional `stream` twin (`{ seed, step, render }`) enables
+  incremental `appendData()` updates; without one, custom indicators are
+  recomputed from the full series on append (still exact). The previously
+  internal indicator registry (`INDICATOR_REGISTRY`) and streaming map
+  (`STREAM_MAP`) now have public registration surfaces
+  (`IndicatorHandlers.register`, `IndicatorStep.register`). See the README
+  "Custom Indicators" section.
+- **State serialization (`getState()` / `setState()`).** Capture the chart's
+  configurable state as portable, schema-versioned JSON (theme mode, active
+  chart type, active indicators with their params, and the visible x-range) and
+  restore it later, so a user's layout survives a reload or moves between
+  sessions/devices. `getState()` returns a `JSON.stringify`-safe object;
+  `setState(state)` reconciles theme, chart type, indicators (+params), the
+  toolbar selection, and zoom, and accepts any supported version (older states
+  are migrated internally; `ApexStock.migrateState(state)` and
+  `ApexStock.STATE_VERSION` are also exposed). Backed by a new internal
+  `StateSerializer` (`src/core/StateSerializer.js`), the serialization backbone
+  that later releases extend (drawings, trading overlays, event markers, panes).
+  Drawings and trading price lines are intentionally not part of v1 (they carry
+  non-serializable callbacks). See the README "State Persistence" section.
+- **Public event API.** Subscribe to chart events with `on(name, handler)`
+  (returns an unsubscribe function), plus `off(name, handler?)`, `once(name,
+  handler)`, and `emit(name, payload)`. Four built-in events are emitted:
+  `crosshairMove` and `click` (`{ dataPointIndex, seriesIndex, x, ohlc, volume,
+  nativeEvent }`, with `dataPointIndex: -1` and null fields when the pointer is
+  not over a candle), `rangeChange` (`{ min, max, source }` where `source` is
+  `"zoom"`, `"pan"`, or `"reset"`), and `indicatorToggle` (`{ key, active }`).
+  Subscribing is safe before `render()`; all subscriptions are dropped on
+  `destroy()`. See the README "Events" section. Backed by a new internal
+  `EventEmitter` (`src/core/EventEmitter.js`).
+
+### Fixed
+
+- **`destroy()` now fully tears the chart down (no leaks on SPA unmount).**
+  Previously `destroy()` left the underlying ApexCharts instances alive and
+  several `window`/`document` listeners registered, so unmounting/remounting in
+  a single-page app (the framework wrappers, or manual use) leaked listeners,
+  observers, and detached DOM over time. `destroy()` now: destroys the main
+  chart and every oscillator-pane ApexCharts instance; removes all listeners and
+  observers added by the axis, drawing tools, chart-type switch, overlay/event/
+  interaction managers, the element popup, and the indicator dropdowns (several
+  of which were previously anonymous and unremovable); drops the shared
+  stylesheet; and clears all event subscriptions. It is now idempotent and safe
+  to call before `render()` or more than once (e.g. React StrictMode). Also
+  hardened `syncOverlayPosition` against a pending post-`destroy()` timer firing
+  on detached DOM. Guarded by new mount/unmount leak tests.
+
 ## [0.3.1] - 2026-07-17
 
 ### Fixed

@@ -7,6 +7,9 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Multiple Chart Types**: Candlestick, line, area, heikinashi, ohlc, etc
 - **Technical Indicators**: 20+ built-in indicators including RSI, MACD, Bollinger Bands, and more
 - **Real-time Streaming**: Incremental `appendData()` updates price, indicators, and panes without a full rebuild
+- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, and `indicatorToggle` via `on()` / `off()` / `once()`
+- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, and zoom to portable JSON
+- **Custom Indicators**: Register your own indicators (overlay or oscillator, with optional live streaming) via `ApexStock.registerIndicator()`
 - **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
 - **Drawing Tools**: Interactive drawing capabilities for technical analysis
 - **Theme Support**: Light and dark theme modes with seamless switching
@@ -51,9 +54,11 @@ npm run packages:typecheck   # type-check each
 
 ## Basic Usage
 
-> **ApexCharts must be available as a global.** ApexStock calls
-> `new ApexCharts(...)` internally and does **not** import it, so ApexCharts has
-> to be loaded first (as `window.ApexCharts`).
+> **Provide ApexCharts.** ApexStock calls `new ApexCharts(...)` internally and
+> does **not** import it. Load it as a global (`window.ApexCharts`, ideal for
+> `<script>` tags) **or**, in a bundler/framework app, inject the imported
+> constructor (see [Using a bundler](#using-a-bundler-inject-apexcharts) below)
+> so you don't have to touch `window`.
 >
 > **Data shape (important):** each candle is `{ x, y: [open, high, low, close], v? }`.
 > The four prices live in a single `y` array, **not** as separate `o`/`h`/`l`/`c`
@@ -96,24 +101,51 @@ import ApexCharts from "apexcharts";
 import ApexStock from "apexstock";
 // import "apexstock/apexstock.css"; // optional: the CSS is auto-injected on import
 
-// ApexStock expects ApexCharts on the global scope.
-window.ApexCharts = ApexCharts;
-
-const apexStock = new ApexStock(document.getElementById("chart-container"), {
-  chart: { height: 600 },
-  series: [
-    {
-      name: "Stock Price",
-      data: [
-        { x: "2024-01-01", y: [100, 110, 95, 105], v: 1000000 },
-        { x: "2024-01-02", y: [105, 115, 100, 112], v: 1200000 },
-      ],
-    },
-  ],
-  theme: { mode: "light" },
-});
+// Inject the imported ApexCharts (no need to touch window). See below.
+const apexStock = new ApexStock(
+  document.getElementById("chart-container"),
+  {
+    chart: { height: 600 },
+    series: [
+      {
+        name: "Stock Price",
+        data: [
+          { x: "2024-01-01", y: [100, 110, 95, 105], v: 1000000 },
+          { x: "2024-01-02", y: [105, 115, 100, 112], v: 1200000 },
+        ],
+      },
+    ],
+    theme: { mode: "light" },
+  },
+  { ApexCharts } // <- inject the constructor
+);
 apexStock.render();
 ```
+
+### Using a bundler (inject ApexCharts)
+
+In a bundler/framework app, `ApexCharts` is a module local, not
+`window.ApexCharts`. Rather than assigning the global yourself, hand ApexStock
+the constructor. There are three ways, resolved in this order:
+
+```javascript
+import ApexCharts from "apexcharts";
+import ApexStock from "apexstock";
+
+// 1) Per instance (third constructor argument):
+new ApexStock(el, options, { ApexCharts });
+
+// 2) Once for the whole app (before creating any chart):
+ApexStock.setApexCharts(ApexCharts);
+new ApexStock(el, options); // picks up the registered constructor
+
+// 3) The global, unchanged — ideal for <script> tags:
+window.ApexCharts = ApexCharts;
+new ApexStock(el, options);
+```
+
+Resolution order per instance is **`options.ApexCharts` → `setApexCharts` default
+→ `window.ApexCharts`**. If none resolve, the constructor throws a clear error.
 
 ## Chart Options
 
@@ -219,13 +251,16 @@ These indicators are drawn directly on the price chart:
 | **Moving Average**             | `"moving average"`             | Simple moving average line                                        |
 | **Bollinger Bands**            | `"bollinger bands"`            | Price volatility bands (upper, middle, lower)                     |
 | **Exponential Moving Average** | `"exponential moving average"` | EMA line with exponential weighting                               |
+| **VWAP**                       | `"vwap"`                       | Volume-weighted average price (cumulative; `source: "hlc3"`/`"close"`) |
+| **Donchian Channels**          | `"donchian channels"`          | Highest-high / lowest-low band over `period` (default 20)         |
+| **Keltner Channels**           | `"keltner channels"`           | EMA midline +/- `multiplier`*ATR band (`emaPeriod` 20, `atrPeriod` 10, `multiplier` 2) |
 | **Fibonacci Retracements**     | `"fibonacci retracements"`     | Fibonacci retracement levels (0%, 23.6%, 38.2%, 50%, 61.8%, 100%) |
 | **Linear Regression**          | `"linear regression"`          | Linear regression trend line                                      |
 | **Ichimoku Cloud Indicator**   | `"ichimoku cloud indicator"`   | Complete Ichimoku system with cloud, lines                        |
 
 ### Oscillators (displayed in separate panels)
 
-These indicators are displayed in their own panels below the main chart. **Note**: Only one oscillator can be active at a time.
+These indicators are displayed in their own panels below the main chart. Multiple oscillators can be active at once; each gets its own pane and the panes share the indicator area evenly.
 
 | Oscillator                       | Key                              | Description                                            |
 | -------------------------------- | -------------------------------- | ------------------------------------------------------ |
@@ -236,6 +271,7 @@ These indicators are displayed in their own panels below the main chart. **Note*
 | **Stochastic Oscillator**        | `"stochastic oscillator"`        | %K and %D stochastic lines                             |
 | **Standard Deviation Indicator** | `"standard deviation indicator"` | Price volatility measure                               |
 | **Average Directional Index**    | `"average directional index"`    | ADX trend strength indicator                           |
+| **Average True Range**           | `"atr"`                          | ATR volatility (Wilder-smoothed true range)            |
 | **Chaikin Oscillator**           | `"chaikin oscillator"`           | Volume-based momentum oscillator                       |
 | **Commodity Channel Index**      | `"commodity channel index"`      | CCI overbought/oversold indicator                      |
 | **Trend Strength Index**         | `"trend strength index"`         | TSI momentum indicator                                 |
@@ -254,14 +290,13 @@ apexStock.updateIndicator("bollinger bands");
 apexStock.updateIndicator("fibonacci retracements");
 ```
 
-**Adding Oscillators (only one at a time):**
+**Adding Oscillators (stack as many as you like):**
 
 ```javascript
-// Add RSI (removes any existing oscillator)
+// Each call toggles that oscillator's pane on/off, independently.
 apexStock.updateIndicator("rsi");
-
-// Switch to MACD (removes RSI)
-apexStock.updateIndicator("macd");
+apexStock.updateIndicator("macd"); // RSI stays; MACD is added below it
+apexStock.updateIndicator("volumes"); // three panes now share the indicator area
 ```
 
 **Configuration in Chart Options:**
@@ -275,13 +310,101 @@ plotOptions: {
       'bollinger bands': { enabled: true },
       'exponential moving average': { enabled: true },
 
-      // Oscillators (only one will be active)
-      'rsi': { enabled: false },
-      'macd': { enabled: true },  // This will be the active oscillator
-      'volumes': { enabled: false }
+      // Oscillators (multiple can be active, each in its own pane)
+      'rsi': { enabled: true },
+      'macd': { enabled: true },
+      'volumes': { enabled: true }
     }
   }
 }
+```
+
+## Custom Indicators (`registerIndicator`)
+
+Add your own indicators without forking. Register once at app startup (before
+constructing charts); registered indicators work with `updateIndicator(key)`,
+appear in the indicators dropdown, and round-trip through `getState`/`setState`.
+
+```javascript
+// A simple overlay: 20-period highest-high channel top.
+ApexStock.registerIndicator("hh channel", {
+  type: "overlay", // or "oscillator"
+  defaultParams: { period: 20 },
+  calc(series, params) {
+    const p = params.period;
+    // Return one aligned line ((number|null)[])...
+    return series.map((_, i) =>
+      i < p - 1
+        ? null
+        : Math.max(...series.slice(i - p + 1, i + 1).map((b) => b.y[1]))
+    );
+  },
+  colors: ["#00E396"],
+});
+
+ApexStock.registerIndicator("myosc", { type: "oscillator", yaxis: { min: 0, max: 100 }, calc });
+
+// Then, on any instance created afterwards:
+apexStock.updateIndicator("hh channel");
+```
+
+`calc(series, params)` can return **one** aligned line (`(number|null)[]`), a
+named **multi-line** map (`{ Upper: [...], Lower: [...] }`), or ready-made
+ApexCharts **series** (`[{ name, data }]`). Definition fields:
+
+| Field | Description |
+| --- | --- |
+| `type` | `"overlay"` (on the price chart) or `"oscillator"` (own pane). Required for the declarative form. |
+| `calc` | `(series, params) => output`. Required for the declarative form. |
+| `defaultParams` | Default params merged into each `calc` call and captured by `getState`. |
+| `color` / `colors` | Stroke color(s). |
+| `chartType`, `yaxis`, `chartOptions` | Oscillator pane appearance (series type, y-axis, extra ApexCharts options). |
+| `label` | Series/display name (defaults to a title-cased key). |
+| `stream` | Optional streaming twin for live `appendData()` (see below). |
+| `overwrite` | Allow replacing an already-registered key. |
+
+**Advanced form:** pass `{ kind, build/apply/remove }` to plug a raw registry
+entry in verbatim for full control over the ApexCharts series/options.
+
+### Introspecting indicators
+
+Enumerate the available indicators (built-in + custom) with their live state to
+build a custom picker or settings panel:
+
+```javascript
+apexStock.listIndicators();
+// [{ key: "rsi", label: "RSI", type: "oscillator", kind: "oscillator",
+//    builtin: true, streamable: true, active: false, params: { period: 14 } }, ...]
+
+apexStock.getIndicator("rsi"); // one entry (case-insensitive), or null if unknown
+```
+
+Each entry: `key`, `label` (display name), `type` (`"overlay"`/`"oscillator"`
+for grouping), `kind` (raw registry kind), `builtin`, `active` (on this
+instance), `streamable` (has a live `appendData()` twin), and `params` (current
+configurable params, `{}` when none).
+
+### Live streaming for custom indicators
+
+Without a `stream` twin, a custom indicator is recomputed from the full series on
+each `appendData()` (correct, but `O(n)`). Provide `stream` for incremental
+`O(tail)` updates:
+
+```javascript
+ApexStock.registerIndicator("running max", {
+  type: "overlay",
+  label: "Running Max",
+  calc: (series) => series.map((_, i) => Math.max(...series.slice(0, i + 1).map((b) => b.y[3]))),
+  stream: {
+    seed: (series) => ({ max: Math.max(...series.map((b) => b.y[3])) }),
+    step: (state, series) => {
+      const close = series[series.length - 1].y[3];
+      const max = Math.max(state.max, close);
+      return { value: max, state: { max } };
+    },
+    render: (value, x) => [{ name: "Running Max", point: { x, y: value } }],
+  },
+});
 ```
 
 ## Public Methods
@@ -309,7 +432,12 @@ apexStock.update({
 
 #### `destroy()`
 
-Cleans up the chart instance and removes event listeners.
+Fully tears the chart down: destroys the underlying ApexCharts instances (main
+chart + oscillator panes), removes every `window`/`document` listener and
+observer the chart added, drops the shared stylesheet (when the last instance in
+the scope is gone), and clears all event subscriptions. Idempotent and safe to
+call before `render()` or more than once. Call it on unmount so SPA route
+changes do not leak. The framework wrappers call it automatically.
 
 ```javascript
 apexStock.destroy();
@@ -335,13 +463,27 @@ const currentTheme = apexStock.getTheme(); // 'light' or 'dark'
 
 ### Indicator Methods
 
-#### `updateIndicator(indicatorKey)`
+#### `updateIndicator(indicatorKey[, params])`
 
-Adds or updates a specific indicator.
+With one argument, **toggles** an indicator on/off. With a `params` object, sets
+the indicator's parameters and ensures it is active (it never toggles off) —
+inactive indicators are added, active ones are recomputed in place.
 
 ```javascript
-apexStock.updateIndicator("rsi");
+apexStock.updateIndicator("rsi"); // toggle on/off
 apexStock.updateIndicator("moving average");
+
+apexStock.updateIndicator("rsi", { period: 21 }); // set params + ensure active
+apexStock.updateIndicator("moving average", { period: 5 });
+```
+
+#### `setIndicatorParams(indicatorKey, params)`
+
+Explicit form of the params overload above (chainable). Makes overlay periods
+(e.g. moving average) configurable too.
+
+```javascript
+apexStock.setIndicatorParams("macd", { fastPeriod: 8, slowPeriod: 21 });
 ```
 
 #### `removeIndicator(indicatorKey)`
@@ -350,6 +492,16 @@ Removes a specific indicator.
 
 ```javascript
 apexStock.removeIndicator("rsi");
+```
+
+#### `getVisibleRange()` / `setVisibleRange(min, max)`
+
+Read or set the visible x-axis window (same values as the `rangeChange` event).
+`setVisibleRange` zooms the main chart and every pane and fires `rangeChange`.
+
+```javascript
+const { min, max } = apexStock.getVisibleRange();
+apexStock.setVisibleRange(Date.UTC(2024, 0, 1), Date.UTC(2024, 5, 30));
 ```
 
 ### Chart Configuration Methods
@@ -416,6 +568,80 @@ const ichimoku = apexStock.calculateIchimoku(series);
 const fibonacci = apexStock.calculateFibonacciRetracements(series);
 const linearReg = apexStock.calculateLinearRegression(series, period);
 ```
+
+## Events
+
+Subscribe to chart events with `on(name, handler)`. It returns an unsubscribe
+function; `off(name, handler?)` and `once(name, handler)` are also available.
+Subscribing is safe any time after construction, including before `render()`.
+
+```javascript
+const off = apexStock.on("crosshairMove", (e) => {
+  if (e.dataPointIndex < 0) return; // pointer is not over a candle
+  console.log(e.x, e.ohlc.close, e.volume);
+});
+
+apexStock.on("rangeChange", ({ min, max, source }) => {
+  // source: "zoom" | "pan" | "reset"
+  loadDataForRange(min, max);
+});
+
+apexStock.on("indicatorToggle", ({ key, active }) => {
+  console.log(key, active ? "added" : "removed");
+});
+
+off(); // stop listening
+```
+
+| Event | Payload | Fires when |
+| --- | --- | --- |
+| `crosshairMove` | `{ dataPointIndex, seriesIndex, x, ohlc, volume, nativeEvent }` | The pointer moves over the price chart. `dataPointIndex` is `-1` (and `x`/`ohlc`/`volume` are `null`) when not over a candle. |
+| `click` | same as `crosshairMove` | The price chart is clicked. |
+| `rangeChange` | `{ min, max, source }` | The visible x-range changes. `source` is `"zoom"`, `"pan"`, or `"reset"`. |
+| `indicatorToggle` | `{ key, active }` | An indicator is added (`active: true`) or removed (`active: false`). |
+
+`emit(name, payload)` is also exposed so you can bridge your own events through
+the same bus. All subscriptions are dropped automatically on `destroy()`.
+
+## State Persistence (`getState` / `setState`)
+
+Capture the chart's configurable state as portable JSON and restore it later,
+so a user's layout survives a reload or moves between sessions and devices.
+
+```javascript
+// Save (after render) — e.g. persist per user/workspace.
+const state = apexStock.getState();
+localStorage.setItem("chart-state", JSON.stringify(state));
+
+// Restore (after render) on the same or a new instance.
+const saved = JSON.parse(localStorage.getItem("chart-state"));
+apexStock.setState(saved);
+```
+
+`getState()` returns a schema-versioned, `JSON.stringify`-safe object:
+
+```javascript
+{
+  version: 1,
+  theme: { mode: "light" },      // or "dark"
+  chartType: "candlestick",       // active type (candlestick, heikinashi, renko, line, area, ohlc, ...)
+  indicators: [                   // active indicators, in application order
+    { key: "moving average", params: {} },
+    { key: "rsi", params: { period: 14 } }
+  ],
+  zoom: { minX: 1577836800000, maxX: 1580515200000 } // visible x-range, or null
+}
+```
+
+`setState(state)` reconciles the live chart to that snapshot: it switches theme
+and chart type, adds/removes indicators (restoring their params), keeps the
+toolbar selection in sync, and restores the zoom. It accepts any supported
+version (older states are migrated automatically; `ApexStock.migrateState(state)`
+does the same up-front). Call `setState` after `render()`.
+
+Not captured in v1: drawings and trading price lines (they carry
+non-serializable callbacks and land in a later version). Persist those
+separately via `getPriceLines()` if you need them today.
 
 ## Real-time Streaming (`appendData`)
 
@@ -516,6 +742,140 @@ apexStock.getPriceLines(); // -> array of line configs
 | `closable` | Shows a ✕ button; clicking it removes the line and fires `onRemove({id})`. |
 | `onCross` | Fired as `{id, type, price, direction, bar}` when a closed bar (from `appendData`) crosses the line. |
 | `meta` | Arbitrary payload returned by `getPriceLine`/`getPriceLines`. |
+
+## Comparison mode (multi-symbol)
+
+Overlay additional instruments to compare their movement against the primary
+symbol. Because compared tickers rarely share the primary's price scale, they
+render as lines on a dedicated **secondary y-axis**; the primary candlestick and
+indicators keep their own axis.
+
+```javascript
+apexStock.addComparison({ name: "MSFT", data: msftBars }); // data: [{x, y}] or OHLC (uses close)
+apexStock.addComparison({ name: "SPY", data: spyBars, color: "#FEB019" });
+
+apexStock.setComparisonMode("percent"); // indexed % change from each series' first point (default)
+apexStock.setComparisonMode("absolute"); // raw prices instead
+
+apexStock.getComparisons(); // -> [{ name, color, points }]
+apexStock.removeComparison("SPY");
+apexStock.clearComparisons();
+```
+
+- **`percent`** (default): every instrument is indexed to its first point (0%),
+  so you compare *performance* ("who's up more") regardless of nominal price.
+- **`absolute`**: raw close prices on the secondary axis (best for same-scale peers).
+
+Comparisons persist across zoom, theme changes, chart-type switches, indicator
+toggles, and `appendData`. The compared instrument's data is supplied by you
+(ApexStock does not fetch it); pass `[{x, y}]` closes or full OHLC bars (the
+close is used).
+
+## Annotations (data-space)
+
+Place lines, bands, points, and text at **data coordinates** (price/time).
+Unlike the freehand drawing tools (screen space) and the trading price lines,
+these are a general, id-based API and persist across update/theme/chart-type
+switches.
+
+```javascript
+// Horizontal line + shaded price band
+apexStock.addAnnotation({ type: "yLine", y: 128.5, label: "Resistance" });
+apexStock.addAnnotation({ type: "yBand", y: 120, y2: 124, opacity: 0.15 });
+
+// Vertical marker at a date + a highlighted date range
+apexStock.addAnnotation({ type: "xLine", x: "2024-03-20", label: "Earnings" });
+apexStock.addAnnotation({ type: "xBand", x: "2024-04-01", x2: "2024-04-08" });
+
+// Point marker and a floating text label at (x, y)
+const id = apexStock.addAnnotation({ type: "point", x: t, y: 131, label: "Buy" });
+apexStock.addAnnotation({ type: "text", x: t, y: 118, text: "support zone" });
+
+apexStock.updateAnnotation(id, { y: 130 }); // patch
+apexStock.removeAnnotation(id);
+apexStock.getAnnotations(); // -> array of annotation configs
+apexStock.clearAnnotations(); // removes only annotations added this way
+```
+
+| Type | Required coords | Notes |
+| --- | --- | --- |
+| `yLine` | `y` | Horizontal line. |
+| `yBand` | `y`, `y2` | Horizontal shaded band. |
+| `xLine` | `x` | Vertical line (x is a timestamp/date/category). |
+| `xBand` | `x`, `x2` | Vertical shaded band. |
+| `point` | `x`, `y` | Marker (customize via `marker`). |
+| `text` | `x`, `y` | Text label, no marker. |
+
+Common fields: `label`/`text`, `color`, `fillColor`, `opacity`, `textColor`,
+`strokeDashArray`, `width`, `labelPosition`, `marker`, `meta`, and a stable
+`id` (auto-generated when omitted).
+
+## Data adapters
+
+Your data rarely arrives in the `{ x, y: [open, high, low, close], v? }` shape.
+These static helpers convert the common shapes for you, and the output is already
+validated and time-sorted (they reuse the same cleaning as the render pipeline),
+so you can pass it straight into `series`.
+
+```javascript
+// 1) Arrays of objects or tuples. Columns are matched by case-insensitive
+//    alias: date/time -> x, o -> open, c -> close, vol -> volume, ...
+const series = ApexStock.normalize([
+  { date: "2024-01-01", o: 100, h: 110, l: 95, c: 105, v: 1_000_000 },
+  { date: "2024-01-02", o: 105, h: 115, l: 100, c: 112, v: 1_200_000 },
+]);
+
+// Different column names? Pass a mapping (it wins over the aliases).
+ApexStock.normalize(rows, { x: "Date", close: "Adj Close" });
+
+// Tuples are read positionally as [x, open, high, low, close, volume].
+ApexStock.normalize([[1704067200000, 100, 110, 95, 105, 1_000_000]]);
+
+// 2) Parallel column arrays. Only `close` is required; missing OHLC columns
+//    are derived from it (a close-only feed becomes flat candles).
+ApexStock.fromArrays({
+  t: [t0, t1, t2],
+  open: [100, 105, 112],
+  high: [110, 115, 118],
+  low: [95, 100, 108],
+  close: [105, 112, 116],
+});
+ApexStock.fromArrays({ close: [105, 112, 116] }); // x falls back to 0,1,2
+
+// 3) CSV text. The header row drives alias resolution by default.
+ApexStock.fromCSV(`Date,Open,High,Low,Close,Volume
+2024-01-01,100,110,95,105,1000000
+2024-01-02,105,115,100,112,1200000`);
+
+ApexStock.fromCSV(csvText, { header: false }); // positional columns
+ApexStock.fromCSV(csvText, { delimiter: ";", mapping: { close: "Last" } });
+```
+
+`fromCSV` handles quoted fields, embedded delimiters, and CRLF/LF line endings.
+
+## Export (image + data)
+
+Besides the toolbar download button, export programmatically:
+
+```javascript
+// Image. PNG composites the price chart + oscillator panes into one raster;
+// SVG is a full vector snapshot. Both return { format, blob, url }.
+const png = await apexStock.exportImage({ format: "png", scale: 2 });
+await apexStock.exportImage({ format: "svg", download: true }); // triggers a download
+
+// Data. CSV or JSON of the OHLC series; columns time,open,high,low,close[,volume].
+const csv = apexStock.exportData({ format: "csv" });
+apexStock.exportData({ format: "json", range: "visible", download: true });
+```
+
+- **`exportImage({ format, scale?, download?, filename? })`** → `Promise<{ format, blob, url, fallback? }>`.
+  `format` is `"png"` (default) or `"svg"`. A few browsers block rasterizing the
+  vector snapshot; PNG then falls back to SVG and sets `fallback: true`.
+- **`exportData({ format, range?, includeVolume?, raw?, pretty?, download?, filename? })`** → the serialized string.
+  `format` is `"csv"` (default) or `"json"`; `range` is `"all"` (default) or
+  `"visible"` (only the points in the current x-window). Time is ISO-8601 for
+  numeric timestamps (`raw: true` keeps the raw value). The CSV round-trips
+  through `ApexStock.fromCSV`.
 
 ## Time-frame Aggregation
 
