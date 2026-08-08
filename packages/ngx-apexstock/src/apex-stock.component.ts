@@ -17,6 +17,14 @@ export type StockChartOptions = ConstructorParameters<typeof ApexStock>[1];
 /** The underlying `ApexStock` instance type. */
 export type ApexStockInstance = InstanceType<typeof ApexStock>;
 
+/**
+ * The ApexCharts constructor type, for optional injection (the `ApexCharts`
+ * field of the third `ApexStock` constructor argument).
+ */
+export type ApexChartsCtor = NonNullable<
+  ConstructorParameters<typeof ApexStock>[2]
+>["ApexCharts"];
+
 type SeriesProp = StockChartOptions["series"];
 
 /**
@@ -74,6 +82,14 @@ export class ApexStockComponent
    */
   @Input() series?: SeriesProp;
 
+  /**
+   * Optional: the ApexCharts constructor, injected instead of relying on the
+   * `window.ApexCharts` global (bundler/framework-friendly). Forwarded to the
+   * ApexStock constructor at mount. Alternatively call
+   * `ApexStock.setApexCharts(ApexCharts)` once at app startup.
+   */
+  @Input() apexCharts?: ApexChartsCtor;
+
   @ViewChild("chartEl", { static: true })
   private chartElRef!: ElementRef<HTMLDivElement>;
 
@@ -82,7 +98,8 @@ export class ApexStockComponent
   ngAfterViewInit(): void {
     this.instance = new ApexStock(
       this.chartElRef.nativeElement,
-      toPlainOptions(this.options, this.series)
+      toPlainOptions(this.options, this.series),
+      { ApexCharts: this.apexCharts }
     );
     this.instance.render();
   }

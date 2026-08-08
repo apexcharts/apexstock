@@ -70,6 +70,24 @@ describe("ngx-apexstock ApexStockComponent", () => {
     );
   });
 
+  it("forwards the apexCharts input to the constructor for injection", () => {
+    const el = document.createElement("div");
+    const c = makeComponent(el);
+    const FakeApexCharts = function FakeApexCharts() {};
+    c.options = baseOptions;
+    c.apexCharts = FakeApexCharts as never;
+    c.ngAfterViewInit();
+    expect(instances[0].injection).toEqual({ ApexCharts: FakeApexCharts });
+  });
+
+  it("passes an undefined ApexCharts when the input is omitted", () => {
+    const el = document.createElement("div");
+    const c = makeComponent(el);
+    c.options = baseOptions;
+    c.ngAfterViewInit();
+    expect(instances[0].injection).toEqual({ ApexCharts: undefined });
+  });
+
   it("destroys on ngOnDestroy and exposes the instance/element", () => {
     const el = document.createElement("div");
     const c = makeComponent(el);

@@ -15,8 +15,8 @@ npm install ngx-apexstock apexstock apexcharts
 ```
 
 `apexcharts`, `apexstock`, `@angular/core`, and `@angular/common` are peer
-dependencies. ApexCharts must be available as a global, the same way the core
-library expects.
+dependencies. Provide ApexCharts either as a global (`window.ApexCharts`) or, in
+a bundler app, via the `apexCharts` input below (no need to touch `window`).
 
 ## Usage
 
@@ -49,6 +49,22 @@ OHLC points use the ApexStock shape `{ x, y: [open, high, low, close], v }`.
 | --- | --- | --- |
 | `options` | `StockChartOptions` | Full chart options (the 2nd arg to `new ApexStock`). Required. |
 | `series` | `StockChartOptions["series"]` | Convenience: overrides `options.series`. |
+| `apexCharts` | `ApexChartsCtor` | Optional: the imported ApexCharts constructor, injected instead of using the `window.ApexCharts` global. Applied at view init. |
+
+Injecting ApexCharts in a bundler app:
+
+```ts
+import ApexCharts from "apexcharts";
+
+@Component({
+  template: `<apex-stock [options]="options" [apexCharts]="apexCharts"></apex-stock>`,
+  // ...
+})
+export class PriceComponent {
+  apexCharts = ApexCharts; // bound into the [apexCharts] input above
+  options = { chart: { height: 420 } };
+}
+```
 
 Updates fire when an input changes via Angular change detection. Assign a new
 object/array reference (rather than mutating in place) to trigger an update.

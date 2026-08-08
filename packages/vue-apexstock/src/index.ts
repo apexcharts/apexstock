@@ -16,6 +16,14 @@ export type StockChartOptions = ConstructorParameters<typeof ApexStock>[1];
 /** The underlying `ApexStock` instance type. */
 export type ApexStockInstance = InstanceType<typeof ApexStock>;
 
+/**
+ * The ApexCharts constructor type, for optional injection (the `ApexCharts`
+ * field of the third `ApexStock` constructor argument).
+ */
+export type ApexChartsCtor = NonNullable<
+  ConstructorParameters<typeof ApexStock>[2]
+>["ApexCharts"];
+
 type SeriesProp = StockChartOptions["series"];
 
 /**
@@ -62,6 +70,16 @@ export default defineComponent({
       type: Array as PropType<SeriesProp>,
       default: undefined,
     },
+    /**
+     * Optional: the ApexCharts constructor, injected instead of relying on the
+     * `window.ApexCharts` global (bundler/framework-friendly). Forwarded to the
+     * ApexStock constructor at mount. Alternatively call
+     * `ApexStock.setApexCharts(ApexCharts)` once at app startup.
+     */
+    apexCharts: {
+      type: Function as PropType<ApexChartsCtor>,
+      default: undefined,
+    },
   },
   setup(props, { expose }) {
     const el = ref<HTMLDivElement | null>(null);
@@ -71,7 +89,8 @@ export default defineComponent({
       if (!el.value) return;
       instance = new ApexStock(
         el.value,
-        toPlainOptions(props.options, props.series)
+        toPlainOptions(props.options, props.series),
+        { ApexCharts: props.apexCharts }
       );
       instance.render();
     });

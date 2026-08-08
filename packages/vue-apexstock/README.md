@@ -14,8 +14,9 @@ unmount.
 npm install vue-apexstock apexstock apexcharts
 ```
 
-`apexcharts`, `apexstock`, and `vue` (3.x) are peer dependencies. ApexCharts
-must be available as a global, the same way the core library expects.
+`apexcharts`, `apexstock`, and `vue` (3.x) are peer dependencies. Provide
+ApexCharts either as a global (`window.ApexCharts`) or, in a bundler app, via
+the `apexCharts` prop below (no need to touch `window`).
 
 ## Usage
 
@@ -42,6 +43,20 @@ OHLC points use the ApexStock shape `{ x, y: [open, high, low, close], v }`.
 | --- | --- | --- |
 | `options` | `StockChartOptions` | Full chart options (the 2nd arg to `new ApexStock`). Required. |
 | `series` | `StockChartOptions["series"]` | Convenience: overrides `options.series`. |
+| `apexCharts` | `ApexChartsCtor` | Optional: the imported ApexCharts constructor, injected instead of using the `window.ApexCharts` global. Applied at mount. |
+
+Injecting ApexCharts in a bundler app:
+
+```vue
+<script setup>
+import ApexCharts from "apexcharts";
+import ApexStock from "vue-apexstock";
+</script>
+
+<template>
+  <ApexStock :options="options" :apex-charts="ApexCharts" />
+</template>
+```
 
 > Updates fire when the `options` or `series` **identity** changes (assign a new
 > object/array). In-place mutation of the same object is intentionally not

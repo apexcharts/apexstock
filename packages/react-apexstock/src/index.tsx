@@ -12,6 +12,14 @@ export type StockChartOptions = ConstructorParameters<typeof ApexStock>[1];
 /** The underlying `ApexStock` instance type. */
 export type ApexStockInstance = InstanceType<typeof ApexStock>;
 
+/**
+ * The ApexCharts constructor type, for optional injection (the `ApexCharts`
+ * field of the third `ApexStock` constructor argument).
+ */
+export type ApexChartsCtor = NonNullable<
+  ConstructorParameters<typeof ApexStock>[2]
+>["ApexCharts"];
+
 export interface ApexStockProps {
   /**
    * Full ApexStock chart options — `chart`, `theme`, `series`, `plotOptions`,
@@ -24,6 +32,13 @@ export interface ApexStockProps {
    * frequently-changing data via `series`.
    */
   series?: StockChartOptions["series"];
+  /**
+   * Optional: the ApexCharts constructor, injected instead of relying on the
+   * `window.ApexCharts` global (bundler/framework-friendly). Forwarded to the
+   * ApexStock constructor at mount. Alternatively call
+   * `ApexStock.setApexCharts(ApexCharts)` once at app startup.
+   */
+  apexCharts?: ApexChartsCtor;
   /** Class applied to the container element. */
   className?: string;
   /** Inline styles applied to the container element. */
@@ -70,7 +85,10 @@ function toPlainOptions(
  * objects to avoid an update on every parent re-render.
  */
 const ApexStockComponent = forwardRef<ApexStockRef, ApexStockProps>(
-  function ApexStockComponent({ options, series, className, style }, ref) {
+  function ApexStockComponent(
+    { options, series, apexCharts, className, style },
+    ref
+  ) {
     const elementRef = useRef<HTMLDivElement>(null);
     const instanceRef = useRef<ApexStockInstance | null>(null);
     const isInitialRender = useRef(true);
@@ -90,7 +108,8 @@ const ApexStockComponent = forwardRef<ApexStockRef, ApexStockProps>(
 
       const instance = new ApexStock(
         elementRef.current,
-        toPlainOptions(options, series)
+        toPlainOptions(options, series),
+        { ApexCharts: apexCharts }
       );
       instance.render();
       instanceRef.current = instance;

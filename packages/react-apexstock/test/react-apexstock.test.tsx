@@ -49,6 +49,19 @@ describe("react-apexstock <ApexStock>", () => {
     expect(instances[0].update).toHaveBeenCalledWith(next);
   });
 
+  it("forwards the apexCharts prop to the constructor for injection", () => {
+    const FakeApexCharts = function FakeApexCharts() {};
+    render(
+      <ApexStock options={baseOptions} apexCharts={FakeApexCharts as never} />
+    );
+    expect(instances[0].injection).toEqual({ ApexCharts: FakeApexCharts });
+  });
+
+  it("passes an undefined ApexCharts when the prop is omitted", () => {
+    render(<ApexStock options={baseOptions} />);
+    expect(instances[0].injection).toEqual({ ApexCharts: undefined });
+  });
+
   it("destroys the instance on unmount", () => {
     const { unmount } = render(<ApexStock options={baseOptions} />);
     const inst = instances[0];

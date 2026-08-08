@@ -50,6 +50,19 @@ describe("vue-apexstock <ApexStock>", () => {
     );
   });
 
+  it("forwards the apexCharts prop to the constructor for injection", () => {
+    const FakeApexCharts = function FakeApexCharts() {};
+    mount(ApexStock, {
+      props: { options: baseOptions, apexCharts: FakeApexCharts },
+    });
+    expect(instances[0].injection).toEqual({ ApexCharts: FakeApexCharts });
+  });
+
+  it("passes an undefined ApexCharts when the prop is omitted", () => {
+    mount(ApexStock, { props: { options: baseOptions } });
+    expect(instances[0].injection).toEqual({ ApexCharts: undefined });
+  });
+
   it("destroys the instance on unmount", () => {
     const wrapper = mount(ApexStock, { props: { options: baseOptions } });
     const inst = instances[0];

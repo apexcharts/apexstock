@@ -10,13 +10,15 @@ export const instances: MockApexStock[] = [];
 export class MockApexStock {
   el: HTMLElement;
   options: unknown;
+  injection: unknown;
   render = vi.fn();
   update = vi.fn();
   destroy = vi.fn();
 
-  constructor(el: HTMLElement, options: unknown) {
+  constructor(el: HTMLElement, options: unknown, injection?: unknown) {
     this.el = el;
     this.options = options;
+    this.injection = injection;
     instances.push(this);
   }
 }

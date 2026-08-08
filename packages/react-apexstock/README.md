@@ -15,8 +15,8 @@ npm install react-apexstock apexstock apexcharts
 ```
 
 `apexcharts`, `apexstock`, `react`, and `react-dom` are peer dependencies.
-ApexCharts must be available as a global (it's loaded the same way the core
-library expects). See the ApexStock docs for details.
+Provide ApexCharts either as a global (`window.ApexCharts`) or, in a bundler
+app, via the `apexCharts` prop below (no need to touch `window`).
 
 ## Usage
 
@@ -47,8 +47,18 @@ OHLC points use the ApexStock shape `{ x, y: [open, high, low, close], v }`.
 | --- | --- | --- |
 | `options` | `StockChartOptions` | Full chart options (the 2nd arg to `new ApexStock`). Required. |
 | `series` | `StockChartOptions["series"]` | Convenience: overrides `options.series` (handy for frequently-changing data). |
+| `apexCharts` | `ApexChartsCtor` | Optional: the imported ApexCharts constructor, injected instead of using the `window.ApexCharts` global. Applied at mount. |
 | `className` | `string` | Class on the container element. |
 | `style` | `React.CSSProperties` | Inline styles on the container element. |
+
+Injecting ApexCharts in a bundler app:
+
+```tsx
+import ApexCharts from "apexcharts";
+import ApexStock from "react-apexstock";
+
+<ApexStock options={options} apexCharts={ApexCharts} />;
+```
 
 > Pass **stable/memoized** `options` and `series` — a new object identity on
 > every render triggers an `update()`.
