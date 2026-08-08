@@ -1920,6 +1920,22 @@ export default class ApexStock {
     return Indicators.calculatePVT(series);
   }
 
+  calculateVWAP(series, source) {
+    return Indicators.calculateVWAP(series, source);
+  }
+
+  calculateATR(series, period) {
+    return Indicators.calculateATR(series, period);
+  }
+
+  calculateDonchian(series, period) {
+    return Indicators.calculateDonchian(series, period);
+  }
+
+  calculateKeltner(series, emaPeriod, atrPeriod, multiplier) {
+    return Indicators.calculateKeltner(series, emaPeriod, atrPeriod, multiplier);
+  }
+
   calculateFibonacciRetracementsForRange(series, startIndex, endIndex) {
     return Indicators.calculateFibonacciRetracementsForRange(
       series,

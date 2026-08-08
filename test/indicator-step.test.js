@@ -106,6 +106,51 @@ const CASES = [
     full: (s) => Indicators.calculatePVT(s).map((pt) => pt.y),
   },
   {
+    key: "vwap",
+    params: { source: "hlc3" },
+    splits: [1, 5], // cumulative from the first bar; O(1) throughout
+    full: (s, p) => Indicators.calculateVWAP(s, p.source),
+  },
+  {
+    key: "vwap",
+    params: { source: "close" },
+    splits: [1, 5],
+    full: (s, p) => Indicators.calculateVWAP(s, p.source),
+  },
+  {
+    key: "atr",
+    params: { period: 14 },
+    splits: [1, 20], // 1 exercises warm-up fallback; 20 is steady-state O(1)
+    full: (s, p) => Indicators.calculateATR(s, p.period).map((pt) => pt.y),
+  },
+  {
+    key: "donchian",
+    params: { period: 20 },
+    splits: [1, 30],
+    full: (s, p) => {
+      const d = Indicators.calculateDonchian(s, p.period);
+      return s.map((_, i) => ({ upper: d.upper[i], lower: d.lower[i] }));
+    },
+  },
+  {
+    key: "keltner",
+    params: { emaPeriod: 20, atrPeriod: 10, multiplier: 2 },
+    splits: [1, 40], // exercises the composed EMA + ATR warm-up and steady state
+    full: (s, p) => {
+      const k = Indicators.calculateKeltner(
+        s,
+        p.emaPeriod,
+        p.atrPeriod,
+        p.multiplier
+      );
+      return s.map((_, i) => ({
+        upper: k.upper[i],
+        lower: k.lower[i],
+        middle: k.middle[i],
+      }));
+    },
+  },
+  {
     key: "chaikin",
     params: { short: 3, long: 10 },
     splits: [1, 20], // 1 exercises warm-up; 20 is steady-state O(1)
@@ -220,15 +265,19 @@ describe("IndicatorStep agreement with full calculate*", () => {
         "bollinger",
         "cci",
         "chaikin",
+        "donchian",
         "ema",
+        "keltner",
         "linreg",
         "macd",
         "pvt",
         "rsi",
         "sma",
+        "atr",
         "stddev",
         "stochastic",
         "tsi",
+        "vwap",
       ].sort()
     );
     expect(IndicatorStep.has("sma")).toBe(true);

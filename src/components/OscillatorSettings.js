@@ -68,6 +68,9 @@ export default class OscillatorSettings {
       "average directional index": {
         period: 14,
       },
+      atr: {
+        period: 14,
+      },
       "chaikin oscillator": {
         shortPeriod: 3,
         longPeriod: 10,

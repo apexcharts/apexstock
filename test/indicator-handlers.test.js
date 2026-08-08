@@ -75,6 +75,7 @@ describe("IndicatorHandlers — overlays", () => {
   const overlayCases = [
     { key: "moving average", name: "Moving Average", type: "line" },
     { key: "exponential moving average", name: "EMA", type: "line" },
+    { key: "vwap", name: "VWAP", type: "line" },
     { key: "linear regression", name: "Linear Regression", type: "line" },
     { key: "bollinger bands", name: "Bollinger Bands", type: "rangeArea" },
   ];
@@ -163,6 +164,9 @@ describe("IndicatorHandlers.getDefaultConfig (registry-derived)", () => {
         "moving average",
         "bollinger bands",
         "exponential moving average",
+        "vwap",
+        "donchian channels",
+        "keltner channels",
         "fibonacci retracements",
         "linear regression",
         "ichimoku cloud indicator",
@@ -177,6 +181,7 @@ describe("IndicatorHandlers.getDefaultConfig (registry-derived)", () => {
         "stochastic oscillator",
         "standard deviation indicator",
         "average directional index",
+        "atr",
         "chaikin oscillator",
         "commodity channel index",
         "trend strength index",

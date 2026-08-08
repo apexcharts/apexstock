@@ -264,6 +264,84 @@ const INDICATOR_REGISTRY = {
     },
   },
 
+  vwap: {
+    kind: "overlay",
+    replaceNames: ["VWAP"],
+    build(context, params) {
+      const source = params && params.source === "close" ? "close" : "hlc3";
+      const data = toPoints(
+        context,
+        context.calculateVWAP(context.series, source)
+      );
+      return {
+        replaceNames: ["VWAP"],
+        series: [
+          {
+            name: "VWAP",
+            type: "line",
+            data,
+            color: context.colors.indicators.vwap,
+          },
+        ],
+      };
+    },
+  },
+
+  "donchian channels": {
+    kind: "overlay",
+    replaceNames: ["Donchian Channels"],
+    build(context, params) {
+      const period = params.period || 20;
+      const { upper, lower } = context.calculateDonchian(context.series, period);
+      const data = upper.map((u, i) => ({
+        x: context.series[i].x,
+        y: [lower[i], u],
+      }));
+      return {
+        replaceNames: ["Donchian Channels"],
+        series: [
+          {
+            name: "Donchian Channels",
+            type: "rangeArea",
+            data,
+            color: context.colors.indicators.donchian,
+          },
+        ],
+      };
+    },
+  },
+
+  "keltner channels": {
+    kind: "overlay",
+    replaceNames: ["Keltner Channels"],
+    build(context, params) {
+      const emaPeriod = params.emaPeriod || 20;
+      const atrPeriod = params.atrPeriod || 10;
+      const multiplier = params.multiplier || 2;
+      const { upper, lower } = context.calculateKeltner(
+        context.series,
+        emaPeriod,
+        atrPeriod,
+        multiplier
+      );
+      const data = upper.map((u, i) => ({
+        x: context.series[i].x,
+        y: [lower[i], u],
+      }));
+      return {
+        replaceNames: ["Keltner Channels"],
+        series: [
+          {
+            name: "Keltner Channels",
+            type: "rangeArea",
+            data,
+            color: context.colors.indicators.keltner,
+          },
+        ],
+      };
+    },
+  },
+
   "linear regression": {
     kind: "overlay",
     replaceNames: ["Linear Regression"],
@@ -641,6 +719,25 @@ const INDICATOR_REGISTRY = {
           },
         ],
         strokeColors: [context.colors.indicators.chaikin],
+      });
+    },
+  },
+
+  atr: {
+    kind: "oscillator",
+    build(context, params, common) {
+      const period = params.period || 14;
+      const atrData = context.calculateATR(context.series, period);
+      return lineOscillator(context, common, {
+        id: "atr",
+        series: [
+          {
+            name: "ATR",
+            data: atrData,
+            color: context.colors.indicators.atr,
+          },
+        ],
+        strokeColors: [context.colors.indicators.atr],
       });
     },
   },

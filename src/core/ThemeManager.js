@@ -60,7 +60,10 @@ export default class ThemeManager {
         indicators: {
           movingAverage: "#7D57C2",
           ema: "#FF9900",
+          vwap: "#E91E63",
           bollingerBands: "rgba(0, 114, 255, 0.08)",
+          donchian: "rgba(255, 152, 0, 0.10)",
+          keltner: "rgba(103, 58, 183, 0.10)",
           fibonacci: [
             "#7E7E7E",
             "#B5515E",
@@ -84,6 +87,7 @@ export default class ThemeManager {
           stochasticD: "#FF9933",
           stdDev: "#CC33FF",
           adx: "#9900CC",
+          atr: "#E67E22",
           chaikin: "#CC3333",
           cci: "#FF6600",
           tsi: "#0066CC",
@@ -119,7 +123,10 @@ export default class ThemeManager {
         indicators: {
           movingAverage: "#bb86fc",
           ema: "#ffb74d",
+          vwap: "#f06292",
           bollingerBands: "rgba(255, 232, 242, 0.12)",
+          donchian: "rgba(255, 183, 77, 0.14)",
+          keltner: "rgba(179, 136, 255, 0.16)",
           fibonacci: [
             "#7E7E7E",
             "#B5515E",
@@ -143,6 +150,7 @@ export default class ThemeManager {
           stochasticD: "#ffb74d",
           stdDev: "#ce93d8",
           adx: "#ba68c8",
+          atr: "#ffa726",
           chaikin: "#ef5350",
           cci: "#ff9e80",
           tsi: "#64b5f6",

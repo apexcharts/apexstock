@@ -57,6 +57,33 @@ function seedChaikin(series, params) {
 }
 
 /**
+ * Running state for ATR at the series' last bar: the (untruncated) Wilder-
+ * smoothed running ATR and the last close (the next TR needs it). Returns
+ * `atr: null` (still recording `prevClose`) until the first ATR lands
+ * (length >= period), which signals the step to keep falling back.
+ */
+function atrState(series, period) {
+  const n = series ? series.length : 0;
+  const empty = { atr: null, prevClose: n ? close(lastBar(series)) : null };
+  if (n < period) return empty;
+  const tr = new Array(n);
+  tr[0] = series[0].y[1] - series[0].y[2];
+  for (let i = 1; i < n; i++) {
+    const h = series[i].y[1];
+    const l = series[i].y[2];
+    const pc = series[i - 1].y[3];
+    tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+  }
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += tr[i];
+  let atr = sum / period;
+  for (let i = period; i < n; i++) {
+    atr = (atr * (period - 1) + tr[i]) / period;
+  }
+  return { atr, prevClose: close(lastBar(series)) };
+}
+
+/**
  * Running state for ADX at the series' last bar: the (untruncated) Wilder-
  * smoothed TR/+DM/-DM and the (untruncated) running ADX. Mirrors
  * Indicators.calculateADX exactly. Returns nulls until the first ADX value lands
@@ -217,6 +244,16 @@ const STEPPERS = {
     (arr) => arr[arr.length - 1]
   ),
 
+  // Donchian: highest high / lowest low over the last `period` bars.
+  donchian: windowed(
+    (p) => p.period,
+    (s, p) => Indicators.calculateDonchian(s, p.period),
+    (out) => ({
+      upper: out.upper[out.upper.length - 1],
+      lower: out.lower[out.lower.length - 1],
+    })
+  ),
+
   // Bollinger middle/stddev both span the last `period` closes.
   bollinger: windowed(
     (p) => p.period,
@@ -339,6 +376,101 @@ const STEPPERS = {
           : (currClose - state.prevClose) / state.prevClose;
       const prev = state.prev + changePct * vol;
       return { value: t(prev), state: { prev, prevClose: currClose } };
+    },
+  },
+
+  // VWAP: running cumulative sum(price*vol) / sum(vol) from the first bar, where
+  // price is the typical price (hlc3) or close. State carries the untruncated
+  // running sums; only the output is truncated (mirrors calculateVWAP exactly).
+  vwap: {
+    seed(series, params) {
+      const src = params && params.source === "close" ? "close" : "hlc3";
+      let cumPV = 0;
+      let cumV = 0;
+      for (let i = 0; i < series.length; i++) {
+        const y = series[i].y;
+        const price = src === "close" ? y[3] : (y[1] + y[2] + y[3]) / 3;
+        const vol = series[i].v || 0;
+        cumPV += price * vol;
+        cumV += vol;
+      }
+      return { cumPV, cumV };
+    },
+    step(state, series, params) {
+      const src = params && params.source === "close" ? "close" : "hlc3";
+      const y = lastBar(series).y;
+      const price = src === "close" ? y[3] : (y[1] + y[2] + y[3]) / 3;
+      const vol = lastBar(series).v || 0;
+      const cumPV = state.cumPV + price * vol;
+      const cumV = state.cumV + vol;
+      return {
+        value: t(cumV === 0 ? price : cumPV / cumV),
+        state: { cumPV, cumV },
+      };
+    },
+  },
+
+  // ATR (Wilder): running ATR_i = (ATR_{i-1}*(period-1) + TR_i)/period, seeded
+  // with the average of the first `period` TRs. State carries the untruncated
+  // running ATR and the prior close (for the next TR). Only the output is
+  // truncated (mirrors calculateATR). Falls back to a full recompute until the
+  // first ATR lands (length >= period).
+  atr: {
+    seed(series, params) {
+      return atrState(series, params.period);
+    },
+    step(state, series, params) {
+      const { period } = params;
+      // Warm-up: ATR not established yet -> full recompute + re-seed.
+      if (state.atr == null) {
+        const arr = Indicators.calculateATR(series, period);
+        return {
+          value: arr[arr.length - 1].y,
+          state: atrState(series, period),
+        };
+      }
+      const bar = lastBar(series);
+      const h = bar.y[1];
+      const l = bar.y[2];
+      const pc = state.prevClose;
+      const tr = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+      const atr = (state.atr * (period - 1) + tr) / period;
+      return { value: t(atr), state: { atr, prevClose: bar.y[3] } };
+    },
+  },
+
+  // Keltner: EMA midline +/- multiplier*ATR. Composes the ema + atr steppers
+  // (each proven exact), so the band matches calculateKeltner bar-for-bar. State
+  // nests both sub-states.
+  keltner: {
+    seed(series, params) {
+      return {
+        ema: STEPPERS.ema.seed(series, { period: params.emaPeriod }),
+        atr: STEPPERS.atr.seed(series, { period: params.atrPeriod }),
+      };
+    },
+    step(state, series, params) {
+      const e = STEPPERS.ema.step(state.ema, series, {
+        period: params.emaPeriod,
+      });
+      const a = STEPPERS.atr.step(state.atr, series, {
+        period: params.atrPeriod,
+      });
+      const nextState = { ema: e.state, atr: a.state };
+      if (e.value == null || a.value == null) {
+        return {
+          value: { upper: null, lower: null, middle: null },
+          state: nextState,
+        };
+      }
+      return {
+        value: {
+          upper: t(e.value + params.multiplier * a.value),
+          lower: t(e.value - params.multiplier * a.value),
+          middle: e.value,
+        },
+        state: nextState,
+      };
     },
   },
 
@@ -606,6 +738,42 @@ const STREAM_MAP = {
     params: (p) => ({ period: p.period || 14 }),
     render: (v, x) => [pt("Linear Regression", x, v)],
   },
+  vwap: {
+    key: "vwap",
+    kind: "overlay",
+    params: (p) => ({ source: p.source === "close" ? "close" : "hlc3" }),
+    render: (v, x) => [pt("VWAP", x, v)],
+  },
+  "donchian channels": {
+    key: "donchian",
+    kind: "overlay",
+    params: (p) => ({ period: p.period || 20 }),
+    // rangeArea band: y = [lower, upper]; null band when the value is null.
+    render: (v, x) => [
+      {
+        name: "Donchian Channels",
+        point: { x, y: v == null ? [null, null] : [v.lower, v.upper] },
+      },
+    ],
+  },
+  "keltner channels": {
+    key: "keltner",
+    kind: "overlay",
+    params: (p) => ({
+      emaPeriod: p.emaPeriod || 20,
+      atrPeriod: p.atrPeriod || 10,
+      multiplier: p.multiplier || 2,
+    }),
+    render: (v, x) => [
+      {
+        name: "Keltner Channels",
+        point: {
+          x,
+          y: v == null || v.upper == null ? [null, null] : [v.lower, v.upper],
+        },
+      },
+    ],
+  },
   "bollinger bands": {
     key: "bollinger",
     kind: "overlay",
@@ -669,6 +837,12 @@ const STREAM_MAP = {
     kind: "oscillator",
     params: (p) => ({ period: p.period || 14 }),
     render: (v, x) => [pt("ADX", x, v)],
+  },
+  atr: {
+    key: "atr",
+    kind: "oscillator",
+    params: (p) => ({ period: p.period || 14 }),
+    render: (v, x) => [pt("ATR", x, v)],
   },
   "chaikin oscillator": {
     key: "chaikin",

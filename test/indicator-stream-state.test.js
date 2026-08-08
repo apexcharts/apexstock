@@ -70,6 +70,18 @@ describe("IndicatorStep.resolve / streamableKeys (registry -> stepper map)", () 
     ["moving average", { period: 25 }, { key: "sma", params: { period: 25 } }],
     ["exponential moving average", {}, { key: "ema", params: { period: 10 } }],
     ["linear regression", {}, { key: "linreg", params: { period: 14 } }],
+    ["vwap", {}, { key: "vwap", params: { source: "hlc3" } }],
+    ["vwap", { source: "close" }, { key: "vwap", params: { source: "close" } }],
+    ["atr", {}, { key: "atr", params: { period: 14 } }],
+    ["donchian channels", {}, { key: "donchian", params: { period: 20 } }],
+    [
+      "keltner channels",
+      {},
+      {
+        key: "keltner",
+        params: { emaPeriod: 20, atrPeriod: 10, multiplier: 2 },
+      },
+    ],
     [
       "bollinger bands",
       {},

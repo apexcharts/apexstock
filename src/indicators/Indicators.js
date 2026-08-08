@@ -335,6 +335,147 @@ class Indicators {
   }
 
   /**
+   * Volume-Weighted Average Price (cumulative, from the first bar). At each bar
+   * `i`, `vwap = sum(price_k * volume_k) / sum(volume_k)` for `k = 0..i`, where
+   * `price` is the typical price `(high + low + close) / 3` (`source: "hlc3"`,
+   * default) or the `close` (`source: "close"`). Volume-less bars contribute 0;
+   * while cumulative volume is still 0 the price itself is used so the line is
+   * continuous. Only the output is truncated (the running sums are exact), so it
+   * matches the streaming twin bar-for-bar.
+   * @param {import("../types.js").Series} series
+   * @param {"hlc3"|"close"} [source="hlc3"]
+   * @returns {Array<number>}
+   */
+  static calculateVWAP(series, source = "hlc3") {
+    const cached = Indicators._cacheGet(series, "vwap:" + source);
+    if (cached !== undefined) return cached;
+    const out = [];
+    let cumPV = 0;
+    let cumV = 0;
+    for (let i = 0; i < series.length; i++) {
+      const y = series[i].y;
+      const price = source === "close" ? y[3] : (y[1] + y[2] + y[3]) / 3;
+      const vol = series[i].v || 0;
+      cumPV += price * vol;
+      cumV += vol;
+      out.push(Utils.truncateNumber(cumV === 0 ? price : cumPV / cumV));
+    }
+    return Indicators._cacheSet(series, "vwap:" + source, out);
+  }
+
+  /**
+   * Average True Range (Wilder). `TR_i = max(H-L, |H-prevC|, |L-prevC|)`
+   * (`TR_0 = H-L`); the first ATR at index `period-1` is the average of the
+   * first `period` TRs, then `ATR_i = (ATR_{i-1}*(period-1) + TR_i)/period`.
+   * Indices before `period-1` are null. The running ATR is kept untruncated and
+   * only the output is truncated, so it matches the streaming twin bar-for-bar.
+   * @param {import("../types.js").Series} series
+   * @param {number} [period=14]
+   * @returns {import("../types.js").IndicatorPoint[]}
+   */
+  static calculateATR(series, period = 14) {
+    const cached = Indicators._cacheGet(series, "atr:" + period);
+    if (cached !== undefined) return cached;
+    const n = series.length;
+    const out = series.map((p) => ({ x: p.x, y: null }));
+    if (n === 0 || n < period) {
+      return Indicators._cacheSet(series, "atr:" + period, out);
+    }
+    const tr = new Array(n);
+    tr[0] = series[0].y[1] - series[0].y[2];
+    for (let i = 1; i < n; i++) {
+      const h = series[i].y[1];
+      const l = series[i].y[2];
+      const pc = series[i - 1].y[3];
+      tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    }
+    let sum = 0;
+    for (let i = 0; i < period; i++) sum += tr[i];
+    let atr = sum / period;
+    out[period - 1] = { x: series[period - 1].x, y: Utils.truncateNumber(atr) };
+    for (let i = period; i < n; i++) {
+      atr = (atr * (period - 1) + tr[i]) / period;
+      out[i] = { x: series[i].x, y: Utils.truncateNumber(atr) };
+    }
+    return Indicators._cacheSet(series, "atr:" + period, out);
+  }
+
+  /**
+   * Donchian Channels: over a trailing window of `period` bars, `upper` is the
+   * highest high, `lower` is the lowest low, and `middle` is their midpoint.
+   * Indices before `period-1` are null. Windowed, so it agrees with the
+   * streaming twin by recomputing the same trailing window.
+   * @param {import("../types.js").Series} series
+   * @param {number} [period=20]
+   * @returns {{ upper: Array<number|null>, lower: Array<number|null>, middle: Array<number|null> }}
+   */
+  static calculateDonchian(series, period = 20) {
+    const cached = Indicators._cacheGet(series, "donchian:" + period);
+    if (cached !== undefined) return cached;
+    const upper = [];
+    const lower = [];
+    const middle = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < period - 1) {
+        upper.push(null);
+        lower.push(null);
+        middle.push(null);
+        continue;
+      }
+      let hh = -Infinity;
+      let ll = Infinity;
+      for (let j = i - period + 1; j <= i; j++) {
+        if (series[j].y[1] > hh) hh = series[j].y[1];
+        if (series[j].y[2] < ll) ll = series[j].y[2];
+      }
+      upper.push(Utils.truncateNumber(hh));
+      lower.push(Utils.truncateNumber(ll));
+      middle.push(Utils.truncateNumber((hh + ll) / 2));
+    }
+    return Indicators._cacheSet(series, "donchian:" + period, {
+      upper,
+      lower,
+      middle,
+    });
+  }
+
+  /**
+   * Keltner Channels: an EMA(close, `emaPeriod`) midline with bands offset by
+   * `multiplier * ATR(atrPeriod)`. A bar is null until both the EMA and the ATR
+   * are established. Composed from the (already truncated) EMA and ATR outputs,
+   * so it agrees with the streaming twin (which composes the EMA + ATR steppers).
+   * @param {import("../types.js").Series} series
+   * @param {number} [emaPeriod=20]
+   * @param {number} [atrPeriod=10]
+   * @param {number} [multiplier=2]
+   * @returns {{ upper: Array<number|null>, lower: Array<number|null>, middle: Array<number|null> }}
+   */
+  static calculateKeltner(series, emaPeriod = 20, atrPeriod = 10, multiplier = 2) {
+    const cacheKey = `keltner:${emaPeriod}:${atrPeriod}:${multiplier}`;
+    const cached = Indicators._cacheGet(series, cacheKey);
+    if (cached !== undefined) return cached;
+    const ema = Indicators.calculateEMA(series, emaPeriod);
+    const atr = Indicators.calculateATR(series, atrPeriod);
+    const upper = [];
+    const lower = [];
+    const middle = [];
+    for (let i = 0; i < series.length; i++) {
+      const e = ema[i];
+      const a = atr[i] ? atr[i].y : null;
+      if (e == null || a == null) {
+        upper.push(null);
+        lower.push(null);
+        middle.push(null);
+      } else {
+        upper.push(Utils.truncateNumber(e + multiplier * a));
+        lower.push(Utils.truncateNumber(e - multiplier * a));
+        middle.push(e);
+      }
+    }
+    return Indicators._cacheSet(series, cacheKey, { upper, lower, middle });
+  }
+
+  /**
    * Stochastic oscillator (%K and smoothed %D).
    * @param {import("../types.js").Series} series
    * @param {number} period
