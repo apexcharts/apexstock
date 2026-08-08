@@ -75,7 +75,10 @@
  *   reset ({@link RangeChangeEvent}).
  * - `indicatorToggle` fires when an indicator is added or removed
  *   ({@link IndicatorToggleEvent}).
- * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle"} ApexStockEventName
+ * - `drawingAdded` / `drawingUpdated` fire with `{ id, drawing }` when a
+ *   programmatic drawing is added or patched; `drawingRemoved` fires with
+ *   `{ id }`; `drawingsCleared` fires with `{}`.
+ * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared"} ApexStockEventName
  */
 
 /**
@@ -171,6 +174,8 @@
  * @property {{mode: ThemeMode}} theme - Theme mode.
  * @property {string} chartType - Active chart type (e.g. "candlestick", "heikinashi", "renko", "line", "area", "ohlc").
  * @property {IndicatorState[]} indicators - Active indicators, in application order.
+ * @property {object[]} drawings - Data-space drawings (v2+), each a plain-JSON
+ *   geometry+style record; restored verbatim by `setState`.
  * @property {{minX: number, maxX: number}|null} zoom - Visible x-range, or null for full/auto.
  */
 

@@ -10,6 +10,8 @@ import TradingOverlays from "./overlays/TradingOverlays";
 import TradingOverlayInteractions from "./overlays/TradingOverlayInteractions";
 import Annotations from "./overlays/Annotations";
 import Comparison from "./overlays/Comparison";
+import Drawings from "./overlays/Drawings";
+import { registerDrawingTool as _registerDrawingTool } from "./tools/drawing/DrawingToolRegistry";
 import XAxis from "./components/XAxis";
 import EventEmitter from "./core/EventEmitter";
 import StateSerializer from "./core/StateSerializer";
@@ -187,6 +189,9 @@ export default class ApexStock {
     this.annotations = new Annotations(this);
     // Comparison instruments (multi-symbol overlay on a secondary y-axis).
     this.comparison = new Comparison(this);
+    // Programmatic, data-space drawings (trend/ray/level lines, zones). A facade
+    // over the drawing layer; buffered before render(), flushed by reapply().
+    this.drawings = new Drawings(this);
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -442,6 +447,22 @@ export default class ApexStock {
    */
   static registerIndicator(name, def) {
     return IndicatorHandlers.register(name, def);
+  }
+
+  /**
+   * Register a custom drawing tool globally so `addDrawing({ type: name, ... })`
+   * can create it on any ApexStock instance. The tool supplies a
+   * `render(data, helpers)` that returns an SVG element from the drawing's
+   * data-space record; the drawing layer then reprojects, drags, and serializes
+   * it like a built-in shape. Register once at app startup. A serialized drawing
+   * of a custom type re-renders after reload only if the tool is registered
+   * again first.
+   * @param {string} name - Drawing type (case-insensitive); may not shadow a built-in.
+   * @param {import("./tools/drawing/DrawingToolRegistry.js").DrawingToolDefinition} def
+   * @returns {boolean} true if registered.
+   */
+  static registerDrawingTool(name, def) {
+    return _registerDrawingTool(name, def);
   }
 
   /**
@@ -908,6 +929,8 @@ export default class ApexStock {
     this.annotations.reapply();
     // Draw any comparison instruments added before render().
     this.comparison.reapply();
+    // Flush any drawings added before the drawing layer existed.
+    this.drawings.reapply();
   }
 
   /**
@@ -1205,6 +1228,7 @@ export default class ApexStock {
     if (this.tradingOverlays) safe(() => this.tradingOverlays.destroy());
     if (this.annotations) safe(() => this.annotations.destroy());
     if (this.comparison) safe(() => this.comparison.destroy());
+    if (this.drawings) safe(() => this.drawings.destroy());
     if (this.drawingTools && typeof this.drawingTools.destroy === "function") {
       safe(() => this.drawingTools.destroy());
     }
@@ -2171,6 +2195,58 @@ export default class ApexStock {
   /** @returns {object[]} copies of all annotation configs. */
   getAnnotations() {
     return this.annotations.getAll();
+  }
+
+  /**
+   * Add a programmatic, data-space drawing: a trend line, ray, horizontal price
+   * level, vertical time marker, or rectangle/zone, anchored to price/time so it
+   * re-projects through zoom/pan/resize like a mouse-drawn shape. Drawings are
+   * captured by {@link ApexStock#getState} and restored by
+   * {@link ApexStock#setState}.
+   *
+   * @param {import("./overlays/Drawings.js").DrawingConfig} config
+   *   `{ type, points: [{x, y}], color?, width?, fill?, dashArray?, ... }`.
+   * @returns {string|null} the drawing id, or null on invalid input.
+   */
+  addDrawing(config) {
+    return this.drawings.add(config);
+  }
+
+  /**
+   * Patch an existing drawing (geometry and/or style).
+   * @param {string} id
+   * @param {Partial<import("./overlays/Drawings.js").DrawingConfig>} patch
+   * @returns {boolean} false if no such drawing.
+   */
+  updateDrawing(id, patch) {
+    return this.drawings.update(id, patch);
+  }
+
+  /**
+   * Remove a drawing by id.
+   * @param {string} id
+   * @returns {boolean} false if no such drawing.
+   */
+  removeDrawing(id) {
+    return this.drawings.remove(id);
+  }
+
+  /** Remove every drawing (mouse-drawn shapes included). */
+  clearDrawings() {
+    this.drawings.clear();
+  }
+
+  /**
+   * @param {string} id
+   * @returns {object|null} a copy of the drawing config, or null.
+   */
+  getDrawing(id) {
+    return this.drawings.get(id);
+  }
+
+  /** @returns {object[]} copies of all drawing configs (mouse-drawn included). */
+  getDrawings() {
+    return this.drawings.getAll();
   }
 
   /**

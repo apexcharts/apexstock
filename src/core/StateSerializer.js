@@ -5,19 +5,21 @@
  * additions (drawings, trading overlays, event markers, panes) extend the
  * schema and the `migrate` step below rather than adding parallel save paths.
  *
- * v1 captures what the library authoritatively owns and can round-trip
- * losslessly: theme mode, active chart type, active indicators + their params,
- * and the visible x-range. The result is plain JSON (no functions), safe to
- * `JSON.stringify` and persist per user/workspace.
+ * v1 captured theme mode, active chart type, active indicators + their params,
+ * and the visible x-range. v2 adds `drawings`: the full data-space drawing set
+ * (trend/ray/level lines, zones, and any mouse-drawn shapes), which round-trips
+ * losslessly because every drawing already stores plain-JSON geometry in data
+ * coordinates. The result is plain JSON (no functions), safe to `JSON.stringify`
+ * and persist per user/workspace.
  *
- * Not in v1 (by design): drawings and trading price lines carry
- * non-serializable callbacks (`onMove`/`onCross`/custom renderers) and land in
- * v2 with a dedicated, lossless representation. A "timeframe"/interval is not
- * captured because ApexStock does not own one — interval aggregation is
- * consumer-driven via `ApexStock.aggregateOHLC`.
+ * Not yet captured (by design): trading price lines carry non-serializable
+ * callbacks (`onMove`/`onCross`/custom renderers) and land in a later version
+ * with a dedicated representation. A "timeframe"/interval is not captured
+ * because ApexStock does not own one — interval aggregation is consumer-driven
+ * via `ApexStock.aggregateOHLC`.
  */
 
-const VERSION = 1;
+const VERSION = 2;
 
 export default class StateSerializer {
   /** Current schema version. */
@@ -46,6 +48,11 @@ export default class StateSerializer {
         ? ctx.getCurrentZoomState()
         : null;
 
+    const drawings =
+      ctx.drawings && typeof ctx.drawings._serialize === "function"
+        ? ctx.drawings._serialize()
+        : [];
+
     return {
       version: VERSION,
       theme: {
@@ -54,6 +61,7 @@ export default class StateSerializer {
       chartType:
         (ctx.chartSwitch && ctx.chartSwitch.currentType) || "candlestick",
       indicators,
+      drawings,
       zoom:
         zoom && Number.isFinite(zoom.minX) && Number.isFinite(zoom.maxX)
           ? { minX: zoom.minX, maxX: zoom.maxX }
@@ -129,6 +137,12 @@ export default class StateSerializer {
     ) {
       ctx.applyZoomToAllCharts({ minX: s.zoom.minX, maxX: s.zoom.maxX });
     }
+
+    // Drawings: replace the current set with the state's (post-render, so the
+    // drawing layer exists; buffered otherwise). Guarded for fake ctxs.
+    if (ctx.drawings && typeof ctx.drawings._restore === "function") {
+      ctx.drawings._restore(Array.isArray(s.drawings) ? s.drawings : []);
+    }
   }
 
   /**
@@ -145,14 +159,19 @@ export default class StateSerializer {
         theme: { mode: "light" },
         chartType: "candlestick",
         indicators: [],
+        drawings: [],
         zoom: null,
       };
     }
 
-    // v1 is the current schema — nothing to migrate yet. Future bumps add
-    // stepwise migrations here, e.g.:
-    //   if ((state.version || 1) < 2) state = migrateV1toV2(state);
+    let s = { ...state };
+    // v1 -> v2: `drawings` did not exist; default it to an empty set.
+    if ((s.version || 1) < 2 && !Array.isArray(s.drawings)) {
+      s.drawings = [];
+    }
+    if (!Array.isArray(s.drawings)) s.drawings = [];
     // Newer-than-known versions pass through best-effort.
-    return { ...state, version: state.version || VERSION };
+    s.version = VERSION;
+    return s;
   }
 }

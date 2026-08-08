@@ -8,6 +8,7 @@ import TextAnnotationManager from "./TextAnnotationManager";
 import TooltipAnnotationManager from "./TooltipAnnotationManager";
 import ElementInteractionManager from "../../core/ElementInteractionManager";
 import Utils from "../../utils/Utils";
+import { getDrawingTool } from "./DrawingToolRegistry";
 
 export default class DrawingTools {
   constructor(ctx) {
@@ -623,6 +624,13 @@ export default class DrawingTools {
       const data = item.data;
       let element;
 
+      // Hidden drawings stay in the model (so they round-trip through state)
+      // but are not rendered.
+      if (data.visible === false) {
+        item.element = null;
+        return;
+      }
+
       switch (data.type) {
         case "line":
           element = document.createElementNS(
@@ -637,7 +645,180 @@ export default class DrawingTools {
           element.setAttribute("y2", end.y);
           element.setAttribute("stroke", data.color);
           element.setAttribute("stroke-width", data.width);
+          if (data.dashArray != null) {
+            element.setAttribute("stroke-dasharray", data.dashArray);
+          }
           break;
+
+        case "ray": {
+          // A half-line from (x1,y1) through (x2,y2), extended to the grid edge.
+          element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line"
+          );
+          const rp1 = this.coordinateConverter.dataToScreen(data.x1, data.y1);
+          const rp2 = this.coordinateConverter.dataToScreen(data.x2, data.y2);
+          const far = this._extendToBounds(rp1, rp2);
+          element.setAttribute("x1", rp1.x);
+          element.setAttribute("y1", rp1.y);
+          element.setAttribute("x2", far.x);
+          element.setAttribute("y2", far.y);
+          element.setAttribute("stroke", data.color);
+          element.setAttribute("stroke-width", data.width);
+          if (data.dashArray != null) {
+            element.setAttribute("stroke-dasharray", data.dashArray);
+          }
+          break;
+        }
+
+        case "measure": {
+          // A measurement box between two anchor points, labeled with the
+          // price change, percent change, and number of bars spanned. Tinted
+          // green when the move is up, red when down.
+          element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "g"
+          );
+          const ma = this.coordinateConverter.dataToScreen(data.x1, data.y1);
+          const mb = this.coordinateConverter.dataToScreen(data.x2, data.y2);
+          const up = data.y2 >= data.y1;
+          const tint = up ? data.upColor : data.downColor;
+          const left = Math.min(ma.x, mb.x);
+          const right = Math.max(ma.x, mb.x);
+          const top = Math.min(ma.y, mb.y);
+          const bottom = Math.max(ma.y, mb.y);
+
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          rect.setAttribute("x", left);
+          rect.setAttribute("y", top);
+          rect.setAttribute("width", Math.abs(right - left));
+          rect.setAttribute("height", Math.abs(bottom - top));
+          rect.setAttribute("fill", tint);
+          rect.setAttribute("fill-opacity", data.fillOpacity);
+          rect.setAttribute("stroke", tint);
+          rect.setAttribute("stroke-width", data.width);
+          element.appendChild(rect);
+
+          if (data.showLabel !== false) {
+            const dPrice = data.y2 - data.y1;
+            const dPct = data.y1 !== 0 ? (dPrice / data.y1) * 100 : 0;
+            const series = Array.isArray(this.ctx.series) ? this.ctx.series : [];
+            const lo = Math.min(data.x1, data.x2);
+            const hi = Math.max(data.x1, data.x2);
+            const bars = series.filter(
+              (pt) => pt && typeof pt.x === "number" && pt.x >= lo && pt.x <= hi
+            ).length;
+            const sign = dPrice >= 0 ? "+" : "";
+            const parts = [
+              `${sign}${Utils.truncateNumber(dPrice)} (${sign}${Utils.truncateNumber(dPct)}%)`,
+            ];
+            if (bars > 0) parts.push(`${bars} bars`);
+
+            const label = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "text"
+            );
+            label.setAttribute("x", (left + right) / 2);
+            label.setAttribute("y", top - 4);
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("fill", tint);
+            label.setAttribute("font-size", "11");
+            label.textContent = parts.join("  ·  ");
+            element.appendChild(label);
+          }
+          break;
+        }
+
+        case "fib": {
+          // Fibonacci retracement/extension: a group of horizontal level lines
+          // between the two anchor prices, spanning the anchors' time range,
+          // each labeled with its ratio.
+          element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "g"
+          );
+          const fa = this.coordinateConverter.dataToScreen(data.x1, data.y1);
+          const fb = this.coordinateConverter.dataToScreen(data.x2, data.y2);
+          const xLeft = Math.min(fa.x, fb.x);
+          const xRight = Math.max(fa.x, fb.x);
+          const levels = Array.isArray(data.levels) ? data.levels : [];
+          levels.forEach((r) => {
+            const price = data.y1 + (data.y2 - data.y1) * r;
+            const y = this.coordinateConverter.dataToScreen(data.x1, price).y;
+
+            const line = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line"
+            );
+            line.setAttribute("x1", xLeft);
+            line.setAttribute("y1", y);
+            line.setAttribute("x2", xRight);
+            line.setAttribute("y2", y);
+            line.setAttribute("stroke", data.color);
+            line.setAttribute("stroke-width", data.width);
+            if (data.dashArray != null) {
+              line.setAttribute("stroke-dasharray", data.dashArray);
+            }
+            element.appendChild(line);
+
+            if (data.showLabels !== false) {
+              const label = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "text"
+              );
+              label.setAttribute("x", xRight + 4);
+              label.setAttribute("y", y - 2);
+              label.setAttribute("fill", data.color);
+              label.setAttribute("font-size", "10");
+              label.textContent = `${(r * 100).toFixed(1)}%`;
+              element.appendChild(label);
+            }
+          });
+          break;
+        }
+
+        case "hline": {
+          // A price level spanning the full grid width.
+          element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line"
+          );
+          const b = this.coordinateConverter.getChartBounds();
+          const y = this.coordinateConverter.dataToScreen(b.xaxis, data.y).y;
+          element.setAttribute("x1", b.leftMargin);
+          element.setAttribute("y1", y);
+          element.setAttribute("x2", b.leftMargin + b.gridWidth);
+          element.setAttribute("y2", y);
+          element.setAttribute("stroke", data.color);
+          element.setAttribute("stroke-width", data.width);
+          if (data.dashArray != null) {
+            element.setAttribute("stroke-dasharray", data.dashArray);
+          }
+          break;
+        }
+
+        case "vline": {
+          // A time marker spanning the full grid height.
+          element = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line"
+          );
+          const b = this.coordinateConverter.getChartBounds();
+          const x = this.coordinateConverter.dataToScreen(data.x, b.yaxis).x;
+          element.setAttribute("x1", x);
+          element.setAttribute("y1", b.translateY);
+          element.setAttribute("x2", x);
+          element.setAttribute("y2", b.translateY + b.gridHeight);
+          element.setAttribute("stroke", data.color);
+          element.setAttribute("stroke-width", data.width);
+          if (data.dashArray != null) {
+            element.setAttribute("stroke-dasharray", data.dashArray);
+          }
+          break;
+        }
 
         case "brush":
         case "highlighter":
@@ -776,12 +957,43 @@ export default class DrawingTools {
           // Use TooltipAnnotationManager to handle tooltip element creation
           element = this.tooltipAnnotationManager.redrawTooltipElement(data);
           break;
+
+        default: {
+          // Custom drawing tools registered via ApexStock.registerDrawingTool.
+          const tool = getDrawingTool(data.type);
+          if (tool) {
+            const helpers = {
+              svgNS: "http://www.w3.org/2000/svg",
+              dataToScreen: (x, y) =>
+                this.coordinateConverter.dataToScreen(x, y),
+              screenToData: (x, y) =>
+                this.coordinateConverter.screenToData(x, y),
+              getChartBounds: () => this.coordinateConverter.getChartBounds(),
+              extendToBounds: (p1, p2) => this._extendToBounds(p1, p2),
+            };
+            try {
+              element = tool.render(data, helpers);
+            } catch (err) {
+              Utils.warn(
+                `Drawing tool "${data.type}" render() threw:`,
+                err
+              );
+            }
+          }
+          break;
+        }
       }
 
       if (element) {
         // Ensure element has its ID as a data attribute
         if (data.id) {
           element.dataset.elementId = data.id;
+        }
+
+        // Locked drawings render but cannot be selected or dragged.
+        if (data.locked) {
+          element.style.pointerEvents = "none";
+          element.dataset.locked = "true";
         }
 
         fragment.appendChild(element);
@@ -798,6 +1010,36 @@ export default class DrawingTools {
       this.elementInteractionManager.createVisualElements();
       this.elementInteractionManager.updateElementEventListeners();
     }
+  }
+
+  /**
+   * Given a ray's first two screen points, return the point where the ray
+   * (from p1 through p2) exits the chart's grid rectangle. Used to render an
+   * open-ended ray. Falls back to p2 for a degenerate (zero-length) ray.
+   * @param {{x:number,y:number}} p1 - Ray origin (screen space).
+   * @param {{x:number,y:number}} p2 - A second point defining direction.
+   * @returns {{x:number,y:number}} the exit point on the grid boundary.
+   */
+  _extendToBounds(p1, p2) {
+    const b = this.coordinateConverter.getChartBounds();
+    const left = b.leftMargin;
+    const top = b.translateY;
+    const right = b.leftMargin + b.gridWidth;
+    const bottom = b.translateY + b.gridHeight;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if (dx === 0 && dy === 0) return p2;
+
+    // Largest forward scale t (>= 0) that keeps the point inside the grid rect.
+    let tMax = Infinity;
+    if (dx > 0) tMax = Math.min(tMax, (right - p1.x) / dx);
+    else if (dx < 0) tMax = Math.min(tMax, (left - p1.x) / dx);
+    if (dy > 0) tMax = Math.min(tMax, (bottom - p1.y) / dy);
+    else if (dy < 0) tMax = Math.min(tMax, (top - p1.y) / dy);
+
+    if (!Number.isFinite(tMax) || tMax < 0) return p2;
+    return { x: p1.x + dx * tMax, y: p1.y + dy * tMax };
   }
 
   /**

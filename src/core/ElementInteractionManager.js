@@ -492,10 +492,21 @@ export default class ElementInteractionManager {
 
     switch (elementData.type) {
       case "line":
+      case "ray":
+      case "fib":
+      case "measure":
         this.elementStartX = elementData.x1;
         this.elementStartY = elementData.y1;
         this.elementStartX2 = elementData.x2;
         this.elementStartY2 = elementData.y2;
+        break;
+
+      case "hline":
+        this.elementStartY = elementData.y;
+        break;
+
+      case "vline":
+        this.elementStartX = elementData.x;
         break;
 
       case "rectangle":
@@ -616,11 +627,24 @@ export default class ElementInteractionManager {
 
     switch (elementData.type) {
       case "line":
-        // Move both endpoints of the line
+      case "ray":
+      case "fib":
+      case "measure":
+        // Move both anchor points (fib/ray/measure shift as a whole).
         elementData.x1 = this.elementStartX + dataSpaceDeltaX;
         elementData.y1 = this.elementStartY + dataSpaceDeltaY;
         elementData.x2 = this.elementStartX2 + dataSpaceDeltaX;
         elementData.y2 = this.elementStartY2 + dataSpaceDeltaY;
+        break;
+
+      case "hline":
+        // Move the price level (vertical drag only).
+        elementData.y = this.elementStartY + dataSpaceDeltaY;
+        break;
+
+      case "vline":
+        // Move the time marker (horizontal drag only).
+        elementData.x = this.elementStartX + dataSpaceDeltaX;
         break;
 
       case "rectangle":

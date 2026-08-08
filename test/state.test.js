@@ -57,28 +57,30 @@ function makeInstance() {
 }
 
 describe("StateSerializer.migrate", () => {
-  it("returns a valid empty v1 state for null/garbage", () => {
+  it("returns a valid empty v2 state for null/garbage", () => {
     const s = StateSerializer.migrate(null);
     expect(s).toEqual({
-      version: 1,
+      version: 2,
       theme: { mode: "light" },
       chartType: "candlestick",
       indicators: [],
+      drawings: [],
       zoom: null,
     });
-    expect(StateSerializer.migrate(42).version).toBe(1);
+    expect(StateSerializer.migrate(42).version).toBe(2);
   });
 
-  it("backfills a missing version and preserves fields", () => {
+  it("backfills a missing version, upgrades to v2, and preserves fields", () => {
     const s = StateSerializer.migrate({
       theme: { mode: "dark" },
       chartType: "line",
       indicators: [{ key: "rsi", params: { period: 9 } }],
       zoom: { minX: 1, maxX: 2 },
     });
-    expect(s.version).toBe(1);
+    expect(s.version).toBe(2);
     expect(s.theme.mode).toBe("dark");
     expect(s.indicators[0]).toEqual({ key: "rsi", params: { period: 9 } });
+    expect(s.drawings).toEqual([]); // v1 -> v2 backfill
   });
 });
 
@@ -93,12 +95,13 @@ describe("ApexStock#getState", () => {
     delete global.ApexCharts;
   });
 
-  it("captures a v1 shape with theme, chartType, indicators, zoom", () => {
+  it("captures a v2 shape with theme, chartType, indicators, drawings, zoom", () => {
     const s = inst.getState();
     expect(s.version).toBe(ApexStock.STATE_VERSION);
     expect(s.theme).toEqual({ mode: "light" });
     expect(s.chartType).toBe("candlestick");
     expect(s.indicators).toEqual([]);
+    expect(s.drawings).toEqual([]);
     expect(s.zoom).toEqual({ minX: 0, maxX: 59 });
   });
 
