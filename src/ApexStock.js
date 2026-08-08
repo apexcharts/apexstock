@@ -8,7 +8,11 @@ import IndicatorHandlers from "./indicators/IndicatorHandlers";
 import IndicatorStep from "./indicators/IndicatorStep";
 import TradingOverlays from "./overlays/TradingOverlays";
 import TradingOverlayInteractions from "./overlays/TradingOverlayInteractions";
+import Annotations from "./overlays/Annotations";
+import Comparison from "./overlays/Comparison";
 import XAxis from "./components/XAxis";
+import EventEmitter from "./core/EventEmitter";
+import StateSerializer from "./core/StateSerializer";
 import ThemeManager from "./core/ThemeManager";
 import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
@@ -16,6 +20,8 @@ import OscillatorSettings from "./components/OscillatorSettings";
 import SettingsControl from "./components/SettingsControl";
 import { LicenseManager, Watermark } from "apex-commons";
 import { aggregateOHLC, INTERVALS } from "./utils/Aggregation";
+import DataAdapter from "./utils/DataAdapter";
+import DataExport from "./tools/export/DataExport";
 
 /**
  * ApexStock — a financial-charting layer on top of ApexCharts. Renders an OHLC
@@ -33,10 +39,43 @@ export default class ApexStock {
   static _styleRefs = new WeakMap();
 
   /**
+   * App-wide fallback ApexCharts constructor, set via
+   * {@link ApexStock.setApexCharts}. Used when neither a per-instance
+   * `options.ApexCharts` nor a global `window.ApexCharts` is available — the
+   * bundler-friendly path for `import ApexCharts from "apexcharts"`.
+   * @type {*}
+   */
+  static _defaultApexCharts = null;
+
+  /**
+   * Register the ApexCharts constructor once for all subsequently-created
+   * instances, so bundler/framework users don't have to assign
+   * `window.ApexCharts` themselves:
+   *
+   * ```js
+   * import ApexCharts from "apexcharts";
+   * import ApexStock from "apexstock";
+   * ApexStock.setApexCharts(ApexCharts); // once at app startup
+   * ```
+   *
+   * Resolution order per instance: `options.ApexCharts` (constructor) →
+   * this default → the `ApexCharts` global. The global path still works
+   * unchanged for `<script>`-tag users.
+   * @param {*} ctor - The ApexCharts constructor.
+   * @returns {void}
+   */
+  static setApexCharts(ctor) {
+    ApexStock._defaultApexCharts = ctor;
+  }
+
+  /**
    * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
    * @param {import("./types.js").StockChartOptions} chartOptions - ApexCharts options whose `series[0].data` holds the OHLC points.
+   * @param {{ApexCharts?: *}} [options] - Optional injection: pass the imported
+   *   ApexCharts constructor as `options.ApexCharts` instead of relying on the
+   *   `window.ApexCharts` global (bundler/framework-friendly).
    */
-  constructor(chartEl, chartOptions) {
+  constructor(chartEl, chartOptions, options = {}) {
     // --- Validate the public boundary with clear, actionable errors ---
     // ApexStock is import-safe in Node/SSR (no DOM access happens at module
     // load), but it cannot *render* without a DOM. If a consumer constructs an
@@ -52,11 +91,21 @@ export default class ApexStock {
         "[ApexStock] A valid container DOM element must be provided as the first argument."
       );
     }
-    if (typeof ApexCharts === "undefined") {
+    // Resolve the ApexCharts constructor: per-instance injection wins, then the
+    // app-wide default (ApexStock.setApexCharts), then the global. This lets
+    // bundler users `import ApexCharts` and inject it instead of assigning
+    // `window.ApexCharts`, while the global path keeps working for script tags.
+    const ResolvedApexCharts =
+      (options && options.ApexCharts) ||
+      ApexStock._defaultApexCharts ||
+      (typeof ApexCharts !== "undefined" ? ApexCharts : null);
+    if (typeof ResolvedApexCharts !== "function") {
       throw new Error(
-        "[ApexStock] ApexCharts was not found. Install the `apexcharts` peer dependency and ensure it is loaded before creating an ApexStock instance."
+        "[ApexStock] ApexCharts was not found. Either load it as a global (`window.ApexCharts`), inject it via `new ApexStock(el, options, { ApexCharts })`, or register it once with `ApexStock.setApexCharts(ApexCharts)`. Install the `apexcharts` peer dependency first."
       );
     }
+    /** @type {*} The resolved ApexCharts constructor used for all panes. */
+    this._ApexCharts = ResolvedApexCharts;
     if (
       !chartOptions ||
       typeof chartOptions !== "object" ||
@@ -81,6 +130,15 @@ export default class ApexStock {
     this.totalHeight = chartOptions.chart.height || 350;
     this.Utils = Utils;
     this.xAxisHeight = 30; // Define xAxisHeight as a constant property
+
+    // Public event bus (crosshairMove / click / rangeChange / indicatorToggle).
+    // Created before render so consumers can subscribe immediately after
+    // construction, before the first render() wires the underlying chart events.
+    this._emitter = new EventEmitter();
+
+    // Document-level click handlers this instance adds (dropdown auto-close).
+    // Tracked so destroy() can remove them and not leak across SPA unmounts.
+    this._documentClickHandlers = [];
 
     chartOptions.chart.id = this.randomId();
     this.groupID = "group" + this.randomId();
@@ -124,6 +182,11 @@ export default class ApexStock {
     // Manages its own annotation lifecycle; re-applied on re-render so the lines
     // persist across update(), theme change, and chart-type switch.
     this.tradingOverlays = new TradingOverlays(this);
+    // Data-space annotations (y/x lines, bands, points, text). Like trading
+    // overlays, re-applied on re-render so they persist.
+    this.annotations = new Annotations(this);
+    // Comparison instruments (multi-symbol overlay on a secondary y-axis).
+    this.comparison = new Comparison(this);
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -203,6 +266,9 @@ export default class ApexStock {
             zoomed: this.handleZoom.bind(this),
             scrolled: this.handleScroll.bind(this),
             beforeResetZoom: this.handleBeforeResetZoom.bind(this),
+            mouseMove: (e, ctx, cfg) =>
+              this._emitPointerEvent("crosshairMove", e, cfg),
+            click: (e, ctx, cfg) => this._emitPointerEvent("click", e, cfg),
           },
           theme: {
             mode: this.theme,
@@ -275,7 +341,7 @@ export default class ApexStock {
 
     this.sanitizeTheme(this.mainChartOptions);
 
-    this.chart = new ApexCharts(this.mainChartDiv, this.mainChartOptions);
+    this.chart = new this._ApexCharts(this.mainChartDiv, this.mainChartOptions);
 
     this.oscillatorSettings = new OscillatorSettings(this);
   }
@@ -304,10 +370,281 @@ export default class ApexStock {
   }
 
   /**
+   * Convert an array of plain objects or tuples into the ApexStock OHLC point
+   * shape `{ x, y: [open, high, low, close], v? }`. Field names are resolved by
+   * case-insensitive alias (`date/time` -> x, `o` -> open, ...); pass a
+   * `mapping` to override. Output is validated and time-sorted.
+   * @param {Array<Object|Array>} rows
+   * @param {Object.<string,string|number>} [mapping]
+   * @returns {import("./types.js").Series}
+   */
+  static normalize(rows, mapping) {
+    return DataAdapter.normalize(rows, mapping);
+  }
+
+  /**
+   * Zip parallel column arrays (`{ open:[], high:[], low:[], close:[], ... }`)
+   * into an OHLC series. Only `close` is required; missing OHLC columns are
+   * derived from it.
+   * @param {Object.<string, Array>} columns
+   * @returns {import("./types.js").Series}
+   */
+  static fromArrays(columns) {
+    return DataAdapter.fromArrays(columns);
+  }
+
+  /**
+   * Parse CSV text into an OHLC series. Uses the header row (default) to
+   * alias-resolve columns; pass `{ header:false }` for positional data and/or a
+   * `mapping` to override.
+   * @param {string} text
+   * @param {{delimiter?:string, header?:boolean, mapping?:Object.<string,string|number>}} [options]
+   * @returns {import("./types.js").Series}
+   */
+  static fromCSV(text, options) {
+    return DataAdapter.fromCSV(text, options);
+  }
+
+  /**
    * The time-frame intervals accepted by {@link ApexStock.aggregateOHLC}.
    * @type {string[]}
    */
   static INTERVALS = INTERVALS;
+
+  /**
+   * The version of the state schema produced by {@link ApexStock#getState}.
+   * @type {number}
+   */
+  static STATE_VERSION = StateSerializer.VERSION;
+
+  /**
+   * Normalize a (possibly older) state object from {@link ApexStock#getState}
+   * to the current schema version. Useful when loading a persisted state before
+   * calling {@link ApexStock#setState}; `setState` also migrates internally.
+   * @param {*} state
+   * @returns {import("./types.js").ApexStockState}
+   */
+  static migrateState(state) {
+    return StateSerializer.migrate(state);
+  }
+
+  /**
+   * Register a custom indicator globally so every ApexStock instance created
+   * afterwards can use it via `updateIndicator(key)`, show it in the indicators
+   * dropdown, and capture/restore it through `getState`/`setState`. Register
+   * once at app startup, before constructing charts. See
+   * {@link IndicatorHandlers.register} for the definition shape (declarative
+   * `{ type, calc, ... }` or an advanced `{ kind, build/apply/remove }`), plus an
+   * optional `stream` twin for incremental `appendData()` updates.
+   * @param {string} name - Indicator key (case-insensitive).
+   * @param {import("./types.js").IndicatorDefinition} def
+   * @returns {string} The normalized (lowercased) key.
+   */
+  static registerIndicator(name, def) {
+    return IndicatorHandlers.register(name, def);
+  }
+
+  /**
+   * Subscribe to an ApexStock event. Safe to call any time after construction,
+   * including before {@link ApexStock#render}.
+   *
+   * Events:
+   * - `crosshairMove` / `click` — pointer over the price chart ({@link import("./types.js").CrosshairEvent}).
+   * - `rangeChange` — visible x-range changed via zoom/pan/reset ({@link import("./types.js").RangeChangeEvent}).
+   * - `indicatorToggle` — an indicator was added or removed ({@link import("./types.js").IndicatorToggleEvent}).
+   *
+   * @param {import("./types.js").ApexStockEventName|string} name
+   * @param {(payload: *) => void} handler
+   * @returns {() => void} An unsubscribe function.
+   */
+  on(name, handler) {
+    return this._emitter.on(name, handler);
+  }
+
+  /**
+   * Unsubscribe from an event. With a handler, removes just that handler;
+   * without one, removes all handlers for `name`.
+   * @param {import("./types.js").ApexStockEventName|string} name
+   * @param {(payload: *) => void} [handler]
+   * @returns {void}
+   */
+  off(name, handler) {
+    this._emitter.off(name, handler);
+  }
+
+  /**
+   * Subscribe to an event for a single emission.
+   * @param {import("./types.js").ApexStockEventName|string} name
+   * @param {(payload: *) => void} handler
+   * @returns {() => void} An unsubscribe function.
+   */
+  once(name, handler) {
+    return this._emitter.once(name, handler);
+  }
+
+  /**
+   * Emit a (typically custom) event to subscribers. Built-in events are emitted
+   * internally; this is exposed so consumers can bridge their own events through
+   * the same bus.
+   * @param {string} name
+   * @param {*} [payload]
+   * @returns {void}
+   */
+  emit(name, payload) {
+    this._emitter.emit(name, payload);
+  }
+
+  /**
+   * Build a {@link import("./types.js").CrosshairEvent} from an ApexCharts
+   * pointer event and emit it. Skips all work when nothing is subscribed, since
+   * `mouseMove` fires frequently.
+   * @param {"crosshairMove"|"click"} name
+   * @param {MouseEvent} e - The native DOM event.
+   * @param {{dataPointIndex?: number, seriesIndex?: number}} cfg - ApexCharts event config.
+   * @returns {void}
+   * @private
+   */
+  _emitPointerEvent(name, e, cfg) {
+    if (this._emitter.listenerCount(name) === 0) return;
+
+    const dataPointIndex =
+      cfg && Number.isInteger(cfg.dataPointIndex) ? cfg.dataPointIndex : -1;
+    const seriesIndex =
+      cfg && Number.isInteger(cfg.seriesIndex) && cfg.seriesIndex >= 0
+        ? cfg.seriesIndex
+        : 0;
+
+    let x = null;
+    let ohlc = null;
+    let volume = null;
+    const point =
+      dataPointIndex >= 0 && this.series ? this.series[dataPointIndex] : null;
+    if (point) {
+      x = point.x;
+      if (Array.isArray(point.y) && point.y.length >= 4) {
+        ohlc = {
+          open: point.y[0],
+          high: point.y[1],
+          low: point.y[2],
+          close: point.y[3],
+        };
+      }
+      volume = point.v != null ? point.v : null;
+    }
+
+    this._emitter.emit(name, {
+      dataPointIndex,
+      seriesIndex,
+      x,
+      ohlc,
+      volume,
+      nativeEvent: e,
+    });
+  }
+
+  /**
+   * Capture the chart's current state as a portable, schema-versioned JSON
+   * object: theme mode, active chart type, active indicators (with their
+   * params), and the visible x-range. The result is plain JSON (no functions),
+   * safe to `JSON.stringify` and persist per user/workspace. Restore it with
+   * {@link ApexStock#setState}.
+   * @returns {import("./types.js").ApexStockState}
+   */
+  getState() {
+    return StateSerializer.capture(this);
+  }
+
+  /**
+   * Restore a state previously produced by {@link ApexStock#getState} (any
+   * supported version — it is migrated internally). Reconciles theme, chart
+   * type, indicators (+params), the toolbar selection, and zoom. Call after
+   * {@link ApexStock#render}.
+   * @param {import("./types.js").ApexStockState} state
+   * @returns {this}
+   */
+  setState(state) {
+    StateSerializer.apply(this, state);
+    return this;
+  }
+
+  /**
+   * Reflect the current active indicators (`indicatorChartMap`) onto the
+   * Indicators toolbar dropdown (selected classes, `aria-selected`, trigger
+   * label) and `this.activeOscillator`. Used after a programmatic change (e.g.
+   * {@link ApexStock#setState}) so the toolbar UI matches the actual state.
+   * No-op before {@link ApexStock#render} builds the dropdown.
+   * @returns {void}
+   * @private
+   */
+  _syncIndicatorSelectionUI() {
+    let activeOscillator = null;
+    const container =
+      this.primaryToolbar &&
+      this.primaryToolbar.querySelector(".apexstock-custom-options");
+    const options = container
+      ? container.querySelectorAll(".apexstock-custom-option")
+      : [];
+    options.forEach((opt) => {
+      const key = opt.dataset.value;
+      const active = !!this.indicatorChartMap[key];
+      opt.classList.toggle("selected", active);
+      opt.setAttribute("aria-selected", active ? "true" : "false");
+      if (active && opt.dataset.type === "oscillator") activeOscillator = key;
+    });
+    this.activeOscillator = activeOscillator;
+
+    const trigger =
+      this.primaryToolbar &&
+      this.primaryToolbar.querySelector(".apexstock-custom-select-trigger");
+    if (trigger && container) {
+      const selected = container.querySelectorAll(
+        ".apexstock-custom-option.selected"
+      );
+      trigger.innerText =
+        selected.length > 0
+          ? `Indicators: ${Array.from(selected)
+              .map((o) => o.innerText)
+              .join(", ")}`
+          : "Select Indicators";
+    }
+  }
+
+  /**
+   * List every available indicator (built-in + custom) with its metadata and
+   * this instance's live state. Useful for building a custom indicator picker.
+   * @returns {import("./types.js").IndicatorInfo[]} In registry order.
+   */
+  listIndicators() {
+    return IndicatorHandlers.list().map((meta) => this._decorateIndicator(meta));
+  }
+
+  /**
+   * Metadata + live state for a single indicator, or null if unknown.
+   * @param {string} key - Indicator key (case-insensitive).
+   * @returns {import("./types.js").IndicatorInfo|null}
+   */
+  getIndicator(key) {
+    const meta = IndicatorHandlers.describe(key);
+    return meta ? this._decorateIndicator(meta) : null;
+  }
+
+  /**
+   * Decorate registry metadata with this instance's live state (active flag,
+   * current params, streaming support).
+   * @param {{key: string}} meta - Registry metadata from IndicatorHandlers.
+   * @returns {import("./types.js").IndicatorInfo}
+   * @private
+   */
+  _decorateIndicator(meta) {
+    return {
+      ...meta,
+      active: !!this.indicatorChartMap[meta.key],
+      streamable: IndicatorStep.isStreamable(meta.key),
+      params: this.oscillatorSettings
+        ? { ...this.oscillatorSettings.getIndicatorParams(meta.key) }
+        : {},
+    };
+  }
 
   /**
    * Drop a present-but-nullish top-level `theme` before handing options to
@@ -392,6 +729,8 @@ export default class ApexStock {
       if (this.xaxis) {
         this.xaxis.render();
       }
+
+      this._emitRangeChange("reset");
     }, 0);
   }
 
@@ -461,6 +800,8 @@ export default class ApexStock {
 
       // Reposition draggable price-line handles for the new visible range.
       if (this.tradingInteractions) this.tradingInteractions.sync();
+
+      this._emitRangeChange("zoom");
     }
   }
 
@@ -496,7 +837,28 @@ export default class ApexStock {
 
       // Reposition draggable price-line handles for the new visible range.
       if (this.tradingInteractions) this.tradingInteractions.sync();
+
+      this._emitRangeChange("pan");
     }
+  }
+
+  /**
+   * Emit the `rangeChange` event from the current `xaxisRange`. No-op when the
+   * range is not yet initialized or nothing is subscribed.
+   * @param {"zoom"|"pan"|"reset"} source - What triggered the change.
+   * @returns {void}
+   * @private
+   */
+  _emitRangeChange(source) {
+    if (!this._emitter || this._emitter.listenerCount("rangeChange") === 0) {
+      return;
+    }
+    if (!this.xaxisRange) return;
+    this._emitter.emit("rangeChange", {
+      min: this.xaxisRange.min,
+      max: this.xaxisRange.max,
+      source,
+    });
   }
 
   /**
@@ -517,11 +879,12 @@ export default class ApexStock {
     // Initialize the ChartSwitch component
     this.chartSwitch = new ChartSwitch(this);
 
-    // Initialize DrawingTools
-    new DrawingTools(this);
+    // Initialize DrawingTools (stored so destroy() can tear it down; it owns
+    // the overlay/event/interaction sub-managers that add global listeners).
+    this.drawingTools = new DrawingTools(this);
 
-    // Initialize Export
-    new Export(this, {
+    // Initialize Export (also exposes the toolbar download button).
+    this.exporter = new Export(this, {
       filename: "my-stock-chart.png",
     });
 
@@ -541,6 +904,10 @@ export default class ApexStock {
 
     // Draw any price lines added before render() (and sync the drag handles).
     this.tradingOverlays.reapply();
+    // Draw any annotations added before render().
+    this.annotations.reapply();
+    // Draw any comparison instruments added before render().
+    this.comparison.reapply();
   }
 
   /**
@@ -618,6 +985,11 @@ export default class ApexStock {
     const activeOscillator = this.activeOscillator;
     let currentZoomState = this.getCurrentZoomState();
     let themeConfig = this.themeManager.getChartConfig();
+
+    // Collapse comparison to a single axis before the series-replacing
+    // updateOptions below; it is rebuilt from source after the refresh.
+    const cmpActive = this.comparison && this.comparison.isActive();
+    if (cmpActive) this.comparison.suspend();
 
     // Indicators derive from the series data and theme colors; track whether
     // either actually changed so we can skip the (expensive) indicator rebuild
@@ -744,6 +1116,8 @@ export default class ApexStock {
     // Re-apply trading price lines: updateOptions can drop or stale dynamically
     // added annotations, and a theme change must recolor them.
     this.tradingOverlays.reapply();
+    this.annotations.reapply();
+    if (cmpActive) this.comparison.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
@@ -804,25 +1178,82 @@ export default class ApexStock {
    * Tear down sub-components and their listeners.
    * @returns {void}
    */
+  /**
+   * Tear down the chart and release every resource it holds: the underlying
+   * ApexCharts instances (main + oscillator panes), all managers (which remove
+   * their window/document listeners and observers), the shared stylesheet
+   * reference, this instance's own document listeners, and all event
+   * subscriptions. Idempotent and safe to call before {@link render} or twice
+   * (e.g. React StrictMode double-invoke). Guarantees no listener/DOM leak on
+   * SPA unmount.
+   * @returns {void}
+   */
   destroy() {
-    // Clean up trading overlays (remove annotations, drop state) + drag layer.
-    if (this.tradingInteractions) this.tradingInteractions.destroy();
-    if (this.tradingOverlays) this.tradingOverlays.destroy();
+    if (this._destroyed) return;
+    this._destroyed = true;
 
-    // Clean up ChartSwitch
+    const safe = (fn) => {
+      try {
+        fn();
+      } catch (err) {
+        Utils.error("Error during destroy():", err);
+      }
+    };
+
+    // Managers first (they read chart DOM), then the ApexCharts instances.
+    if (this.tradingInteractions) safe(() => this.tradingInteractions.destroy());
+    if (this.tradingOverlays) safe(() => this.tradingOverlays.destroy());
+    if (this.annotations) safe(() => this.annotations.destroy());
+    if (this.comparison) safe(() => this.comparison.destroy());
+    if (this.drawingTools && typeof this.drawingTools.destroy === "function") {
+      safe(() => this.drawingTools.destroy());
+    }
     if (this.chartSwitch && typeof this.chartSwitch.destroy === "function") {
-      this.chartSwitch.destroy();
+      safe(() => this.chartSwitch.destroy());
+    }
+    if (this.xaxis && typeof this.xaxis.destroy === "function") {
+      safe(() => this.xaxis.destroy());
+    }
+    if (this.zoomControls && typeof this.zoomControls.destroy === "function") {
+      safe(() => this.zoomControls.destroy());
     }
     if (
       this.oscillatorSettings &&
       typeof this.oscillatorSettings.destroy === "function"
     ) {
-      this.oscillatorSettings.destroy();
+      safe(() => this.oscillatorSettings.destroy());
     }
 
-    // Drop our reference to the shared stylesheet; removes it from <head>
+    // Destroy the oscillator-pane ApexCharts instances, then the main chart.
+    // ApexCharts.destroy() removes its own listeners, ResizeObserver, and DOM.
+    Object.values(this.indicatorChartMap || {}).forEach((c) => {
+      if (c && typeof c.destroy === "function") safe(() => c.destroy());
+    });
+    this.indicatorChartMap = {};
+    if (this.chart && typeof this.chart.destroy === "function") {
+      safe(() => this.chart.destroy());
+    }
+
+    // Remove this instance's own document-level click handlers.
+    if (this._documentClickHandlers) {
+      this._documentClickHandlers.forEach((h) =>
+        safe(() => document.removeEventListener("click", h))
+      );
+      this._documentClickHandlers = [];
+    }
+
+    // Drop our reference to the shared stylesheet; removes it from the DOM
     // once the last instance in this scope is gone.
-    this._removeStyles();
+    safe(() => this._removeStyles());
+
+    // Drop all event subscriptions so handlers cannot fire post-teardown and
+    // consumer closures are not retained.
+    if (this._emitter) safe(() => this._emitter.clear());
+
+    // Detach any remaining chrome and release references for GC.
+    if (this.chartEl) safe(() => (this.chartEl.innerHTML = ""));
+    this.chart = null;
+    this.drawingTools = null;
   }
 
   randomId() {
@@ -858,43 +1289,26 @@ export default class ApexStock {
     optionsContainer.setAttribute("role", "listbox");
     optionsContainer.setAttribute("aria-label", title);
 
-    // Selection logic shared by mouse click and keyboard (Enter/Space). Toggles
-    // the option (overlays = checkbox, oscillators = radio), refreshes the
-    // trigger label, and keeps `aria-selected` in sync.
+    // Selection logic shared by mouse click and keyboard (Enter/Space). Overlays
+    // and oscillators both toggle independently (checkbox behavior), so multiple
+    // oscillator panes can be stacked at once (e.g. RSI + MACD + Volume). Also
+    // refreshes the trigger label and keeps `aria-selected` in sync.
     const toggleOption = (option) => {
       const optionValue = option.dataset.value;
       const isOscillatorOption = option.dataset.type === "oscillator";
 
-      if (isOscillatorOption) {
-        if (option.classList.contains("selected")) {
-          option.classList.remove("selected");
-          this.removeIndicator(optionValue);
+      if (option.classList.contains("selected")) {
+        option.classList.remove("selected");
+        this.removeIndicator(optionValue);
+        // Best-effort bookkeeping: only clear if this was the tracked one.
+        if (isOscillatorOption && this.activeOscillator === optionValue) {
           this.activeOscillator = null;
-        } else {
-          // Radio behavior: clear any previously selected oscillator first.
-          optionsContainer
-            .querySelectorAll(
-              '.apexstock-custom-option[data-type="oscillator"]'
-            )
-            .forEach((opt) => {
-              if (opt.classList.contains("selected")) {
-                opt.classList.remove("selected");
-                this.removeIndicator(opt.dataset.value);
-              }
-            });
-          option.classList.add("selected");
-          this.activeOscillator = optionValue;
-          this.updateIndicator(optionValue);
         }
       } else {
-        // Checkbox behavior for overlays.
-        if (option.classList.contains("selected")) {
-          option.classList.remove("selected");
-          this.removeIndicator(optionValue);
-        } else {
-          option.classList.add("selected");
-          this.updateIndicator(optionValue);
-        }
+        option.classList.add("selected");
+        this.updateIndicator(optionValue);
+        // Track the most-recently-added oscillator (multiple may be active).
+        if (isOscillatorOption) this.activeOscillator = optionValue;
       }
 
       const selectedOptions = optionsContainer.querySelectorAll(
@@ -1057,8 +1471,9 @@ export default class ApexStock {
       }
     });
 
-    // Keep click listener for immediate closing when clicking elsewhere
-    document.addEventListener("click", (e) => {
+    // Keep click listener for immediate closing when clicking elsewhere.
+    // Tracked so destroy() can remove it (otherwise it leaks the instance).
+    const onDocClick = (e) => {
       if (!wrapper.contains(e.target)) {
         closeDropdown();
         if (dropdownTimeout) {
@@ -1066,7 +1481,9 @@ export default class ApexStock {
           dropdownTimeout = null;
         }
       }
-    });
+    };
+    document.addEventListener("click", onDocClick);
+    this._documentClickHandlers.push(onDocClick);
 
     this.primaryToolbarLeft.appendChild(wrapper);
     return wrapper;
@@ -1591,6 +2008,18 @@ export default class ApexStock {
     const fib = this.indicatorChartMap["fibonacci retracements"];
     if (fib && typeof fib.update === "function") fib.update();
 
+    // ── Custom indicators without a streaming twin ───────────────────────────────
+    // Streamable indicators (built-in or custom-with-stream) were patched above.
+    // A custom indicator registered without a `stream` twin is not in
+    // `_indicatorState`, so recompute it in place from the full series to keep it
+    // exact. O(full) per append, but only runs while such an indicator is active.
+    for (const key of Object.keys(this.indicatorChartMap)) {
+      if (!this.indicatorChartMap[key]) continue;
+      if (!IndicatorHandlers.isCustomRegistered(key)) continue;
+      if (IndicatorStep.isStreamable(key)) continue;
+      IndicatorHandlers.updateIndicatorDataInPlace(key, this);
+    }
+
     // ── X-axis + view policy ────────────────────────────────────────────────────
     this.initializeXAxisRange();
     const lastX = this.series[this.series.length - 1].x;
@@ -1694,13 +2123,132 @@ export default class ApexStock {
   }
 
   /**
-   * Add or refresh a technical indicator pane/overlay, preserving zoom state.
-   * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
-   * @returns {void}
+   * Add a data-space annotation: a horizontal/vertical line or band, a point
+   * marker, or a text label placed at data coordinates (price/time). Distinct
+   * from the freehand drawing tools (screen space) and the trading price lines.
+   * Annotations persist across update/theme/chart-type switches.
+   *
+   * @param {import("./overlays/Annotations.js").AnnotationConfig} config
+   *   `{ type: "yLine"|"yBand"|"xLine"|"xBand"|"point"|"text", ... }`.
+   * @returns {string|null} the annotation id, or null on invalid input.
    */
-  updateIndicator(indicatorKey) {
+  addAnnotation(config) {
+    return this.annotations.add(config);
+  }
+
+  /**
+   * Patch an existing annotation.
+   * @param {string} id
+   * @param {object} patch
+   * @returns {boolean} false if no such annotation.
+   */
+  updateAnnotation(id, patch) {
+    return this.annotations.update(id, patch);
+  }
+
+  /**
+   * Remove an annotation by id.
+   * @param {string} id
+   * @returns {boolean} false if no such annotation.
+   */
+  removeAnnotation(id) {
+    return this.annotations.remove(id);
+  }
+
+  /** Remove every annotation added via {@link addAnnotation}. */
+  clearAnnotations() {
+    this.annotations.clear();
+  }
+
+  /**
+   * @param {string} id
+   * @returns {object|null} a copy of the annotation config, or null.
+   */
+  getAnnotation(id) {
+    return this.annotations.get(id);
+  }
+
+  /** @returns {object[]} copies of all annotation configs. */
+  getAnnotations() {
+    return this.annotations.getAll();
+  }
+
+  /**
+   * Add a comparison instrument (e.g. another ticker) overlaid on the chart as a
+   * line on a secondary y-axis, to compare its movement against the primary
+   * symbol. See {@link ApexStock#setComparisonMode} for absolute vs. percent.
+   * @param {import("./overlays/Comparison.js").ComparisonConfig} config
+   *   `{ name, data: [{x, y}], color? }` (OHLC arrays use the close).
+   * @returns {string|null} the instrument name, or null on invalid input.
+   */
+  addComparison(config) {
+    return this.comparison.add(config);
+  }
+
+  /**
+   * Remove a comparison instrument by name.
+   * @param {string} name
+   * @returns {boolean} false if no such instrument.
+   */
+  removeComparison(name) {
+    return this.comparison.remove(name);
+  }
+
+  /** Remove every comparison instrument (restores the single price axis). */
+  clearComparisons() {
+    this.comparison.clear();
+  }
+
+  /** @returns {object[]} the current comparison instruments. */
+  getComparisons() {
+    return this.comparison.getAll();
+  }
+
+  /**
+   * Set the comparison normalization mode: `"percent"` (indexed % change from
+   * each instrument's first point, the default) or `"absolute"` (raw prices).
+   * @param {"absolute"|"percent"} mode
+   * @returns {this}
+   */
+  setComparisonMode(mode) {
+    this.comparison.setMode(mode);
+    return this;
+  }
+
+  /** @returns {"absolute"|"percent"} the current comparison mode. */
+  getComparisonMode() {
+    return this.comparison.getMode();
+  }
+
+  /**
+   * Add, remove, or reconfigure a technical indicator, preserving zoom state.
+   *
+   * - `updateIndicator(key)` — **toggles** the indicator on/off.
+   * - `updateIndicator(key, params)` — sets the indicator's params, ensures it
+   *   is active, and applies the change in place (never toggles it off). E.g.
+   *   `updateIndicator("rsi", { period: 21 })`. Equivalent to
+   *   {@link ApexStock#setIndicatorParams}.
+   *
+   * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
+   * @param {object} [params] - When provided, sets params + ensures active (no toggle).
+   * @returns {this|void}
+   */
+  updateIndicator(indicatorKey, params) {
+    // Params overload: set params + ensure active, without toggle semantics.
+    if (params && typeof params === "object") {
+      return this.setIndicatorParams(indicatorKey, params);
+    }
+
     // Store current zoom state before updating
     const zoomState = this.getCurrentZoomState();
+
+    const key = (indicatorKey || "").toLowerCase();
+    const wasActive = !!this.indicatorChartMap[key];
+
+    // Collapse comparison to a single axis first: adding an overlay series while
+    // a multi-axis binding is live would trip ApexCharts' bound/unbound check.
+    const cmpActive = this.comparison && this.comparison.isActive();
+    if (cmpActive) this.comparison.suspend();
 
     // Update the indicator
     IndicatorHandlers.updateIndicator(indicatorKey, this);
@@ -1708,12 +2256,22 @@ export default class ApexStock {
     // Maintain the incremental streaming state for the append path. updateIndicator
     // toggles, so seed when the indicator is now active and clear when it was
     // toggled off.
-    const key = (indicatorKey || "").toLowerCase();
     if (this.indicatorChartMap[key]) {
       this.seedIndicatorState(key);
     } else {
       this.clearIndicatorState(key);
     }
+
+    // Emit the add transition. The toggle-off path routes through
+    // removeIndicator() (invoked by IndicatorHandlers.updateIndicator), which
+    // emits the removal itself — so only the off->on case is emitted here to
+    // avoid a duplicate.
+    if (!wasActive && this.indicatorChartMap[key]) {
+      this._emitter.emit("indicatorToggle", { key, active: true });
+    }
+
+    // Rebind the comparison axes now that the overlay set has changed.
+    if (cmpActive) this.comparison.reapply();
 
     // Apply zoom state to all charts if we have valid zoom information
     if (zoomState) {
@@ -1727,6 +2285,50 @@ export default class ApexStock {
   }
 
   /**
+   * Set an indicator's parameters programmatically (e.g. change RSI's period),
+   * ensuring the indicator is active and applying the change in place — without
+   * the toggle semantics of {@link ApexStock#updateIndicator}. If the indicator
+   * is not active it is added with these params; if it is active its data (and
+   * streaming state) are recomputed in place, preserving zoom.
+   *
+   * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
+   * @param {object} params - Params to merge (e.g. `{ period: 21 }`).
+   * @returns {this}
+   */
+  setIndicatorParams(indicatorKey, params) {
+    const key = (indicatorKey || "").toLowerCase();
+    if (!params || typeof params !== "object" || !this.oscillatorSettings) {
+      return this;
+    }
+
+    // Merge the new params over the current (or default) ones.
+    const current =
+      this.oscillatorSettings.indicatorParams[key] ||
+      this.oscillatorSettings.defaultParams[key] ||
+      {};
+    this.oscillatorSettings.indicatorParams[key] = { ...current, ...params };
+
+    // Not active yet: activate it (toggle-on) with the new params.
+    if (!this.indicatorChartMap[key]) {
+      this.updateIndicator(key);
+      return this;
+    }
+
+    // Active: recompute its data in place (no teardown), re-seed the streaming
+    // state, and preserve zoom.
+    const zoomState = this.getCurrentZoomState();
+    const ok = IndicatorHandlers.updateIndicatorDataInPlace(key, this);
+    if (!ok) {
+      // Could not update in place: rebuild via remove + add.
+      this.removeIndicator(key);
+      this.updateIndicator(key);
+    }
+    this.seedIndicatorState(key);
+    if (zoomState) this.applyZoomToAllCharts(zoomState);
+    return this;
+  }
+
+  /**
    * Remove a technical indicator pane/overlay, preserving zoom state.
    * @param {string} indicatorKey - Indicator name (e.g. "rsi", "moving average").
    * @returns {void}
@@ -1735,11 +2337,25 @@ export default class ApexStock {
     // Store current zoom state before removing
     const zoomState = this.getCurrentZoomState();
 
+    const key = (indicatorKey || "").toLowerCase();
+    const wasActive = !!this.indicatorChartMap[key];
+
+    const cmpActive = this.comparison && this.comparison.isActive();
+    if (cmpActive) this.comparison.suspend();
+
     // Remove the indicator
     IndicatorHandlers.removeIndicator(indicatorKey, this);
 
     // Drop any incremental streaming state for the removed indicator.
     this.clearIndicatorState(indicatorKey);
+
+    // Emit the removal only if something was actually removed.
+    if (wasActive && !this.indicatorChartMap[key]) {
+      this._emitter.emit("indicatorToggle", { key, active: false });
+    }
+
+    // Rebind the comparison axes now that the overlay set has changed.
+    if (cmpActive) this.comparison.reapply();
 
     // Apply zoom state to remaining charts if we have valid zoom information
     if (zoomState) {
@@ -1775,6 +2391,132 @@ export default class ApexStock {
   }
 
   /**
+   * Get the currently visible x-axis range (the same values reported by the
+   * `rangeChange` event). Useful for lazy-loading data for the visible window or
+   * synchronizing an external control.
+   * @returns {{min: number, max: number}|null} Timestamps/category values, or null if not ready.
+   */
+  getVisibleRange() {
+    if (
+      !this.xaxisRange ||
+      !Number.isFinite(this.xaxisRange.min) ||
+      !Number.isFinite(this.xaxisRange.max)
+    ) {
+      return null;
+    }
+    return { min: this.xaxisRange.min, max: this.xaxisRange.max };
+  }
+
+  /**
+   * Set the visible x-axis range across the main chart and every indicator pane
+   * (zooms/pans to `[min, max]`). Fires a `rangeChange` event, like an
+   * interactive zoom. Pass the whole data extent to effectively reset the zoom.
+   * @param {number} min - Range start (timestamp/category value).
+   * @param {number} max - Range end.
+   * @returns {this}
+   */
+  setVisibleRange(min, max) {
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+      Utils.warn("setVisibleRange: expected finite min < max.");
+      return this;
+    }
+    // zoomX dispatches ApexCharts' "zoomed" event -> handleZoom, which updates
+    // xaxisRange, re-renders the custom axis, and emits `rangeChange`.
+    this.applyZoomToAllCharts({ minX: min, maxX: max });
+    return this;
+  }
+
+  /**
+   * Export the OHLC data as CSV or JSON text (for a "download data" button,
+   * reporting, or persistence). Columns: `time, open, high, low, close[,
+   * volume]`; `time` is ISO-8601 for numeric timestamps (pass `{ raw: true }`
+   * to keep the raw value). The CSV round-trips through
+   * {@link ApexStock.fromCSV}.
+   *
+   * @param {Object} [options]
+   * @param {"csv"|"json"} [options.format="csv"]
+   * @param {"all"|"visible"} [options.range="all"] - `"visible"` exports only
+   *   the points inside the current visible x-range (falls back to all when the
+   *   range isn't known yet).
+   * @param {boolean} [options.includeVolume] - Force the volume column on/off
+   *   (defaults to on when any point has a `v`).
+   * @param {boolean} [options.raw] - Emit raw `x` instead of ISO time.
+   * @param {boolean} [options.pretty] - Pretty-print JSON (default true).
+   * @param {boolean} [options.download] - Also trigger a file download.
+   * @param {string} [options.filename] - Download filename (extension added).
+   * @returns {string} The serialized text.
+   */
+  exportData(options = {}) {
+    const format = String(options.format || "csv").toLowerCase();
+    let series = Array.isArray(this.series) ? this.series : [];
+
+    if (options.range === "visible") {
+      const r = this.getVisibleRange();
+      if (r) {
+        const toTs = (x) =>
+          typeof x === "number" ? x : new Date(x).getTime();
+        series = series.filter((p) => {
+          const t = toTs(p.x);
+          return t >= r.min && t <= r.max;
+        });
+      }
+    }
+
+    const text =
+      format === "json"
+        ? DataExport.toJSON(series, options)
+        : DataExport.toCSV(series, options);
+
+    if (options.download) {
+      const ext = format === "json" ? "json" : "csv";
+      const mime = format === "json" ? "application/json" : "text/csv";
+      this._downloadText(
+        text,
+        options.filename || `apexstock-data.${ext}`,
+        mime
+      );
+    }
+    return text;
+  }
+
+  /**
+   * Export the chart as an image. PNG rasterizes a serialized snapshot of the
+   * chart; browsers that block `<foreignObject>` rasterization fall back to SVG
+   * (flagged as `fallback: true`). SVG is always available.
+   *
+   * @param {Object} [options]
+   * @param {"png"|"svg"} [options.format="png"]
+   * @param {number} [options.scale] - Output scale (resolution multiplier).
+   * @param {boolean} [options.download] - Also trigger a file download.
+   * @param {string} [options.filename] - Download filename (extension added).
+   * @returns {Promise<{format:"png"|"svg", blob: Blob, url: string, fallback?: boolean}>}
+   */
+  exportImage(options = {}) {
+    if (!this.exporter) {
+      // render() creates the button-bearing exporter; make a headless one so
+      // programmatic export works even before/without render().
+      this.exporter = new Export(this, {
+        filename: "my-stock-chart.png",
+        button: false,
+      });
+    }
+    return this.exporter.capture(options);
+  }
+
+  /** Trigger a browser download of text content. @private */
+  _downloadText(text, filename, mime) {
+    const blob = new Blob([text], { type: `${mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /**
    * Updates the chart theme
    * @param {string} newTheme - The new theme ('light' or 'dark')
    */
@@ -1785,6 +2527,11 @@ export default class ApexStock {
     }
 
     if (this.theme === newTheme) return;
+
+    // Collapse comparison to a single axis before the series-replacing
+    // updateOptions below; rebuilt (with re-read theme colors) afterwards.
+    const cmpActive = this.comparison && this.comparison.isActive();
+    if (cmpActive) this.comparison.suspend();
 
     this.themeManager.setTheme(newTheme);
     this.theme = this.themeManager.getTheme();
@@ -1812,6 +2559,8 @@ export default class ApexStock {
 
     // Recolor trading price lines for the new theme.
     this.tradingOverlays.reapply();
+    this.annotations.reapply();
+    if (cmpActive) this.comparison.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;

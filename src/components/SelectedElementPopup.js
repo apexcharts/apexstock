@@ -167,8 +167,9 @@ class SelectedElementPopup {
     // Add popup to chart container
     this.chartDiv.appendChild(this.popupElement);
 
-    // Close popup when clicking outside
-    document.addEventListener("mousedown", (e) => {
+    // Close popup when clicking outside. Keep a reference so destroy() can
+    // remove it (otherwise it leaks the popup across SPA unmounts).
+    this._boundOutsideMouseDown = (e) => {
       if (
         this.popupElement &&
         this.popupElement.style.display === "block" &&
@@ -176,7 +177,8 @@ class SelectedElementPopup {
       ) {
         this.hide();
       }
-    });
+    };
+    document.addEventListener("mousedown", this._boundOutsideMouseDown);
 
     // Prevent click events from closing the popup
     this.popupElement.addEventListener("click", (e) => {
@@ -302,6 +304,10 @@ class SelectedElementPopup {
    * Destroys the popup and removes event listeners
    */
   destroy() {
+    if (this._boundOutsideMouseDown) {
+      document.removeEventListener("mousedown", this._boundOutsideMouseDown);
+      this._boundOutsideMouseDown = null;
+    }
     if (this.popupElement && this.popupElement.parentNode) {
       this.popupElement.parentNode.removeChild(this.popupElement);
     }

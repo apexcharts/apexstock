@@ -943,6 +943,48 @@ const IndicatorStep = {
   step(key, state, series, params = {}) {
     return STEPPERS[key].step(state, series, params);
   },
+
+  /**
+   * Register a streaming twin for a custom indicator so the `appendData()` path
+   * updates it incrementally (instead of leaving it to a full recompute). Called
+   * by `IndicatorHandlers.register` when a custom indicator supplies a `stream`.
+   *
+   * @param {string} registryKey - The (lowercased) indicator key, matching its
+   *   INDICATOR_REGISTRY entry.
+   * @param {Object} stepper
+   * @param {"overlay"|"oscillator"} [stepper.kind="overlay"] - Where its series live.
+   * @param {(series:any[], params:any) => any} stepper.seed - Capture state from history.
+   * @param {(state:any, series:any[], params:any) => {value:any, state:any}} stepper.step -
+   *   Advance state by the last bar; returns the value at that bar + next state.
+   * @param {(value:any, x:*) => Array<{name:string, point:{x:*, y:*}}>} stepper.render -
+   *   Turn a stepped value into the rendered point(s) for the indicator's series.
+   * @param {(liveParams:any) => any} [stepper.params] - Translate live params to
+   *   the shape seed/step expect (defaults to identity).
+   * @returns {void}
+   */
+  register(registryKey, stepper) {
+    if (
+      !registryKey ||
+      !stepper ||
+      typeof stepper.seed !== "function" ||
+      typeof stepper.step !== "function" ||
+      typeof stepper.render !== "function"
+    ) {
+      Utils.warn(
+        `IndicatorStep.register("${registryKey}"): stream needs seed(), step(), and render() functions; skipping streaming twin.`
+      );
+      return;
+    }
+    const mathKey = "custom:" + registryKey;
+    STEPPERS[mathKey] = { seed: stepper.seed, step: stepper.step };
+    STREAM_MAP[registryKey] = {
+      key: mathKey,
+      kind: stepper.kind === "oscillator" ? "oscillator" : "overlay",
+      params:
+        typeof stepper.params === "function" ? stepper.params : (p) => p || {},
+      render: stepper.render,
+    };
+  },
 };
 
 export default IndicatorStep;

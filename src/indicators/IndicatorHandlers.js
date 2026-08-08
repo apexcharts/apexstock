@@ -1,4 +1,5 @@
 import Utils from "../utils/Utils";
+import IndicatorStep from "./IndicatorStep";
 
 /**
  * Maps a numeric (or null) value array to {x, y} points aligned to the series.
@@ -858,6 +859,133 @@ const INDICATOR_REGISTRY = {
   },
 };
 
+/** Keys shipped with the library — protected from accidental overwrite. */
+const BUILTIN_KEYS = new Set(Object.keys(INDICATOR_REGISTRY));
+
+/** Keys added at runtime via {@link IndicatorHandlers.register}. */
+const CUSTOM_KEYS = new Set();
+
+/**
+ * Default params for custom indicators, keyed by registry key. Merged into each
+ * instance's OscillatorSettings so custom params round-trip through getState().
+ * @type {Object.<string, object>}
+ */
+const CUSTOM_PARAMS = {};
+
+/** Fallback stroke palette for custom indicators that don't specify colors. */
+const CUSTOM_PALETTE = ["#008FFB", "#00E396", "#FEB019", "#FF4560", "#775DD0"];
+
+/** Derive a display name from a registry key (mirrors the dropdown's labeling). */
+function displayNameFor(key) {
+  if (key === "rsi" || key === "macd" || key === "vwap" || key === "atr") {
+    return key.toUpperCase();
+  }
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/\b\w/g, (s) => s.toUpperCase());
+}
+
+/** Pick a stroke color for the i-th series of a custom indicator. */
+function customColor(def, i) {
+  if (Array.isArray(def.colors) && def.colors[i]) return def.colors[i];
+  if (typeof def.color === "string" && i === 0) return def.color;
+  return CUSTOM_PALETTE[i % CUSTOM_PALETTE.length];
+}
+
+/**
+ * Normalize a custom `calc()` result into ApexCharts line series. Accepts:
+ * - `(number|null)[]` — one line aligned to the series (mapped to `{x, y}`),
+ * - `{ [seriesName]: (number|null)[] }` — several aligned lines,
+ * - `Array<{ name, data, ... }>` — ready-made ApexCharts series (used verbatim).
+ * @param {*} out - The calc() return value.
+ * @param {string} key
+ * @param {object} def
+ * @param {object} context - ApexStock instance.
+ * @returns {Array<object>}
+ */
+function customSeries(out, key, def, context) {
+  const name = def.label || displayNameFor(key);
+  const align = (values) =>
+    values.map((y, i) => ({ x: context.series[i] && context.series[i].x, y }));
+
+  if (Array.isArray(out)) {
+    if (out.length === 0) return [{ name, type: "line", data: [], color: customColor(def, 0) }];
+    // Ready-made series objects.
+    if (typeof out[0] === "object" && out[0] !== null && ("data" in out[0] || "name" in out[0])) {
+      return out.map((s, i) => ({ type: "line", color: customColor(def, i), ...s }));
+    }
+    // A single aligned numeric line.
+    return [{ name, type: "line", data: align(out), color: customColor(def, 0) }];
+  }
+  if (out && typeof out === "object") {
+    return Object.keys(out).map((seriesName, i) => ({
+      name: seriesName,
+      type: "line",
+      data: align(out[seriesName]),
+      color: customColor(def, i),
+    }));
+  }
+  return [];
+}
+
+/**
+ * Translate a declarative custom-indicator definition into an INDICATOR_REGISTRY
+ * entry (an overlay or oscillator `build`).
+ * @param {string} key
+ * @param {object} def - Declarative definition (see {@link IndicatorHandlers.register}).
+ * @returns {object} A registry entry.
+ */
+function buildDeclarativeEntry(key, def) {
+  const mergeParams = (params) => ({ ...(def.defaultParams || {}), ...(params || {}) });
+
+  if (def.type === "overlay") {
+    return {
+      kind: "overlay",
+      build(context, params) {
+        const series = customSeries(
+          def.calc(context.series, mergeParams(params)),
+          key,
+          def,
+          context
+        );
+        return { replaceNames: series.map((s) => s.name), series };
+      },
+    };
+  }
+
+  // oscillator
+  return {
+    kind: "oscillator",
+    build(context, params, common) {
+      const series = customSeries(
+        def.calc(context.series, mergeParams(params)),
+        key,
+        def,
+        context
+      );
+      let options = {
+        ...common,
+        chart: {
+          ...common.chart,
+          type: def.chartType || "line",
+          id: key.replace(/\s+/g, "") + context.groupID,
+        },
+        series,
+        stroke: {
+          ...common.stroke,
+          colors: series.map((s, i) => s.color || customColor(def, i)),
+        },
+      };
+      if (def.yaxis) options.yaxis = { ...common.yaxis, ...def.yaxis };
+      if (def.chartOptions) {
+        options = Object.assign({}, options, def.chartOptions);
+        if (!options.series) options.series = series;
+      }
+      return options;
+    },
+  };
+}
+
 export default class IndicatorHandlers {
   /**
    * Default indicator-availability config, derived from the registry so the
@@ -874,6 +1002,153 @@ export default class IndicatorHandlers {
       target[key] = { enabled: true };
     }
     return { overlays, oscillators };
+  }
+
+  /**
+   * Register a custom indicator so it is available to every ApexStock instance
+   * created afterwards — usable via `updateIndicator(key)`, listed in the
+   * indicators dropdown, and captured/restored by `getState`/`setState`. The
+   * registry is global; register once at app startup, before constructing charts.
+   *
+   * Declarative form (recommended):
+   * ```
+   * ApexStock.registerIndicator("supertrend", {
+   *   type: "overlay",                 // or "oscillator"
+   *   defaultParams: { period: 10, multiplier: 3 },
+   *   calc(series, params) {           // return one of:
+   *     return series.map((bar) => ...);              //  (number|null)[]  (one line)
+   *     // return { Upper: [...], Lower: [...] };      //  named multi-line map
+   *     // return [{ name: "X", data: [{x,y}] }];      //  ready-made series
+   *   },
+   *   colors: ["#00E396"],             // optional stroke colors
+   *   yaxis: { min: 0, max: 100 },     // optional (oscillator pane)
+   *   stream: {                        // optional: live appendData() support
+   *     seed(series, params) { return state; },
+   *     step(state, series, params) { return { value, state }; },
+   *     render(value, x) { return [{ name: "Supertrend", point: { x, y: value } }]; },
+   *   },
+   * });
+   * ```
+   * Advanced form: pass `{ kind, build/apply/remove }` to plug a raw registry
+   * entry in verbatim (full control over the ApexCharts series/options).
+   *
+   * @param {string} name - Indicator key (case-insensitive; stored lowercased).
+   * @param {object} def - Declarative or advanced definition.
+   * @returns {string} The normalized (lowercased) key.
+   */
+  static register(name, def) {
+    if (typeof name !== "string" || !name.trim()) {
+      throw new Error("registerIndicator: a non-empty `name` string is required.");
+    }
+    if (!def || typeof def !== "object") {
+      throw new Error("registerIndicator: a `definition` object is required.");
+    }
+    const key = name.trim().toLowerCase();
+
+    const exists = Object.prototype.hasOwnProperty.call(INDICATOR_REGISTRY, key);
+    if (exists && !def.overwrite) {
+      throw new Error(
+        `registerIndicator: "${key}" is already registered${
+          BUILTIN_KEYS.has(key) ? " (a built-in)" : ""
+        }. Pass { overwrite: true } to replace it.`
+      );
+    }
+
+    let entry;
+    if (typeof def.build === "function" || typeof def.apply === "function") {
+      // Advanced passthrough: use the raw registry shape as given.
+      const kind =
+        def.kind || (typeof def.apply === "function" ? "custom" : "overlay");
+      entry = { ...def, kind };
+    } else {
+      if (def.type !== "overlay" && def.type !== "oscillator") {
+        throw new Error(
+          `registerIndicator: "${key}" needs \`type\` "overlay" or "oscillator" (or an advanced \`build\`/\`apply\`).`
+        );
+      }
+      if (typeof def.calc !== "function") {
+        throw new Error(
+          `registerIndicator: "${key}" needs a \`calc(series, params)\` function.`
+        );
+      }
+      entry = buildDeclarativeEntry(key, def);
+    }
+
+    INDICATOR_REGISTRY[key] = entry;
+    CUSTOM_KEYS.add(key);
+    if (def.defaultParams && typeof def.defaultParams === "object") {
+      CUSTOM_PARAMS[key] = { ...def.defaultParams };
+    }
+
+    // Optional streaming twin for the appendData() path.
+    if (def.stream && typeof def.stream === "object") {
+      IndicatorStep.register(key, {
+        kind: entry.kind === "oscillator" ? "oscillator" : "overlay",
+        seed: def.stream.seed,
+        step: def.stream.step,
+        render: def.stream.render,
+        params: def.stream.params,
+      });
+    }
+
+    return key;
+  }
+
+  /**
+   * @param {string} key
+   * @returns {boolean} true if `key` was added via {@link register} (not built-in).
+   */
+  static isCustomRegistered(key) {
+    return CUSTOM_KEYS.has((key || "").toLowerCase());
+  }
+
+  /**
+   * Default params contributed by custom indicators, merged into each instance's
+   * OscillatorSettings so they surface in the settings UI and round-trip via
+   * getState().
+   * @returns {Object.<string, object>}
+   */
+  static getCustomDefaultParams() {
+    return CUSTOM_PARAMS;
+  }
+
+  /**
+   * @param {string} key
+   * @returns {boolean} true if `key` ships with the library (not custom-registered).
+   */
+  static isBuiltin(key) {
+    return BUILTIN_KEYS.has((key || "").toLowerCase());
+  }
+
+  /**
+   * Registry metadata for one indicator, or null if unknown. Static shape only
+   * (no per-instance `active`/`params`); {@link ../ApexStock.js#getIndicator}
+   * decorates it with instance state.
+   * @param {string} key
+   * @returns {{key: string, kind: string, type: "overlay"|"oscillator", label: string, builtin: boolean}|null}
+   */
+  static describe(key) {
+    const k = (key || "").toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(INDICATOR_REGISTRY, k)) return null;
+    const def = INDICATOR_REGISTRY[k];
+    return {
+      key: k,
+      kind: def.kind,
+      type: def.kind === "oscillator" ? "oscillator" : "overlay",
+      label: displayNameFor(k),
+      builtin: BUILTIN_KEYS.has(k),
+    };
+  }
+
+  /**
+   * Registry metadata for every registered indicator (built-in + custom), in
+   * registry order.
+   * @returns {Array<{key: string, kind: string, type: "overlay"|"oscillator", label: string, builtin: boolean}>}
+   */
+  static list() {
+    return Object.keys(INDICATOR_REGISTRY).map((key) =>
+      IndicatorHandlers.describe(key)
+    );
   }
 
   /**
@@ -988,14 +1263,24 @@ export default class IndicatorHandlers {
     indicatorDiv.style.width = "100%";
     context.indicatorContainer.appendChild(indicatorDiv);
 
-    context.updateAllChartHeights();
     if (!indicatorChartOptions.chart) indicatorChartOptions.chart = {};
-    const { indicatorHeight } = context.computeHeights(1); // one oscillator pane
+    // Size the new pane for the CURRENT number of panes (the div is already
+    // appended, so it is counted). updateAllChartHeights() below then resizes
+    // every pane, including this one, once its instance is registered — so
+    // multiple oscillator panes share the indicator area evenly.
+    const { indicatorHeight } = context.computeHeights(
+      context.indicatorContainer.children.length
+    );
     indicatorChartOptions.chart.height = indicatorHeight;
 
-    const chartInstance = new ApexCharts(indicatorDiv, indicatorChartOptions);
+    const ApexChartsCtor = context._ApexCharts || ApexCharts;
+    const chartInstance = new ApexChartsCtor(indicatorDiv, indicatorChartOptions);
     chartInstance.render();
     context.indicatorChartMap[indicatorKey] = chartInstance;
+
+    // Re-apportion heights now that the new pane exists in the map (shrinks the
+    // main chart and evenly divides the indicator area across all panes).
+    context.updateAllChartHeights();
 
     // Create the settings control for this oscillator.
     if (context.oscillatorSettings) {

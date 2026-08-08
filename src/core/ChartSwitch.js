@@ -592,12 +592,14 @@ export default class ChartSwitch {
       }
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener("click", (e) => {
+    // Close dropdown when clicking outside. Keep a reference so it can be
+    // removed on destroy() (otherwise it leaks across SPA unmounts).
+    this._boundOutsideClick = (e) => {
       if (!chartSwitchWrapper.contains(e.target)) {
         closeDropdown();
       }
-    });
+    };
+    document.addEventListener("click", this._boundOutsideClick);
 
     // Find the toolbar or parent element to insert the chart type dropdown
     // Look for the export button to position this next to it
@@ -623,6 +625,11 @@ export default class ChartSwitch {
 
     // Save current zoom state before changing chart type
     const zoomState = this.ctx.getCurrentZoomState();
+
+    // Collapse comparison to a single axis before the series-replacing update;
+    // rebuilt in the .then() below (its lines are carried over meanwhile).
+    const cmpActive = this.ctx.comparison && this.ctx.comparison.isActive();
+    if (cmpActive) this.ctx.comparison.suspend();
 
     this.currentType = type;
 
@@ -813,13 +820,20 @@ export default class ChartSwitch {
 
     // Update the chart with new series type
     this.chart.updateOptions(chartOptions, true, false, false).then(() => {
+      // Rebuild comparison (secondary axis) before restoring zoom, then
+      // re-apply the annotation-based overlays so they survive the switch.
+      if (cmpActive && this.ctx.comparison) this.ctx.comparison.reapply();
       this.ctx.applyZoomToAllCharts(zoomState);
-      // Re-apply trading price lines so they survive the chart-type switch.
       if (this.ctx.tradingOverlays) this.ctx.tradingOverlays.reapply();
+      if (this.ctx.annotations) this.ctx.annotations.reapply();
     });
   }
 
   destroy() {
+    if (this._boundOutsideClick) {
+      document.removeEventListener("click", this._boundOutsideClick);
+      this._boundOutsideClick = null;
+    }
     if (this.renkoSettingsControl) {
       this.renkoSettingsControl.destroy();
       this.renkoSettingsControl = null;

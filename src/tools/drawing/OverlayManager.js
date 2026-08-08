@@ -49,17 +49,33 @@ class OverlayManager {
       this.syncOverlayPosition();
     }, 100);
 
-    // Add resize listener
-    window.addEventListener("resize", () => {
-      this.syncOverlayPosition();
-    });
+    // Add resize listener. Keep a reference so it can be removed on destroy()
+    // (otherwise it leaks the manager across SPA unmounts).
+    this._boundResize = () => this.syncOverlayPosition();
+    window.addEventListener("resize", this._boundResize);
+  }
+
+  /** Remove the resize listener and detach the overlay wrapper from the DOM. */
+  destroy() {
+    if (this._boundResize) {
+      window.removeEventListener("resize", this._boundResize);
+      this._boundResize = null;
+    }
+    if (this.overlayWrapper && this.overlayWrapper.parentNode) {
+      this.overlayWrapper.parentNode.removeChild(this.overlayWrapper);
+    }
   }
 
   /**
    * Synchronizes the overlay position with the chart
    */
   syncOverlayPosition() {
-    if (!this.chartDiv || !this.overlayWrapper) return;
+    // Bail if torn down or detached from the DOM: a pending timer (e.g. the
+    // post-"updated" sync) can fire after destroy()/SPA unmount, when chartDiv
+    // has no parent and getBoundingClientRect would throw.
+    if (!this.chartDiv || !this.overlayWrapper || !this.chartDiv.parentNode) {
+      return;
+    }
 
     try {
       // Get the chart's position

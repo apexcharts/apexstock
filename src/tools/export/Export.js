@@ -13,10 +13,11 @@ export default class Export {
       filename: "apexstock-chart",
       quality: 1,
       scale: 1, // Higher scale for better resolution
+      button: true, // set false for a headless (programmatic-only) instance
       ...options,
     };
 
-    this.init();
+    if (this.options.button) this.init();
   }
 
   init() {
@@ -28,8 +29,6 @@ export default class Export {
   }
 
   createExportButton() {
-    const chartContainer = this.chartEl;
-
     // Create button container
     const buttonContainer = document.createElement("div");
     buttonContainer.className = "apexstock-export-btn-container";
@@ -57,6 +56,17 @@ export default class Export {
     this.buttonContainer = buttonContainer;
   }
 
+  /** The download-arrow icon markup (idle button state). */
+  _idleIcon() {
+    return `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    `;
+  }
+
   addButtonEventListener() {
     this.exportButton.addEventListener("click", (e) => {
       e.preventDefault();
@@ -70,62 +80,29 @@ export default class Export {
           </svg>
       `;
 
-      // Hide the export button temporarily for clean capture
+      const reset = () => {
+        this.buttonContainer.style.display = "block";
+        this.exportButton.disabled = false;
+        this.exportButton.innerHTML = this._idleIcon();
+      };
+
+      // Hide the export button temporarily for a clean capture. A short delay
+      // lets any in-flight animation settle before serialization.
       this.buttonContainer.style.display = "none";
-
-      // Wait a moment for any animations to complete
       setTimeout(() => {
-        // Get SVG string with foreignObject
-        this.getSvgString(this.options.scale)
-          .then((svgString) => {
-            // Convert SVG to downloadable file
-            return this.svgToPng(svgString);
-          })
-          .then((svgUrl) => {
-            // Show the export button again
-            this.buttonContainer.style.display = "block";
-
-            // Create download link
-            const downloadLink = document.createElement("a");
-            downloadLink.href = svgUrl;
-            downloadLink.download = this.options.filename.replace(
-              /\.png$/i,
-              ".svg"
-            );
-            document.body.appendChild(downloadLink);
-
-            // Trigger download
-            downloadLink.click();
-
-            // Clean up
-            document.body.removeChild(downloadLink);
-            URL.revokeObjectURL(svgUrl);
-
-            // Reset button state
-            this.exportButton.disabled = false;
-            this.exportButton.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-            `;
+        this.capture({ format: "png", download: true })
+          .then((res) => {
+            reset();
+            if (res && res.fallback) {
+              this.showNotification(
+                "PNG isn't supported in this browser; downloaded an SVG instead.",
+                "info"
+              );
+            }
           })
           .catch((error) => {
             Utils.error("Error capturing chart:", error);
-
-            // Reset button state
-            this.buttonContainer.style.display = "block";
-            this.exportButton.disabled = false;
-            this.exportButton.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-            `;
-
-            // Show error notification
+            reset();
             this.showNotification(
               "Failed to capture chart. Please try again.",
               "error"
@@ -311,27 +288,149 @@ export default class Export {
   }
 
   /**
-   * Convert SVG string to a downloadable file
-   * @param {string} svgString - SVG string
-   * @returns {Promise<string>} Promise that resolves with download URL
+   * Capture the chart as an image.
+   *
+   * SVG is always available (a serialized snapshot of the chart DOM). PNG is
+   * produced by rasterizing that SVG onto a canvas; some browsers refuse to
+   * rasterize `<foreignObject>` content (a security restriction) and taint the
+   * canvas, in which case this transparently falls back to SVG and flags it via
+   * `fallback: true` on the result.
+   *
+   * @param {{format?: "png"|"svg", scale?: number, download?: boolean, filename?: string}} [options]
+   * @returns {Promise<{format:"png"|"svg", blob: Blob, url: string, fallback?: boolean}>}
    */
-  svgToPng(svgString, scale) {
-    return new Promise((resolve, reject) => {
-      try {
-        // Create a Blob from the SVG string
-        const blob = new Blob([svgString], {
-          type: "image/svg+xml;charset=utf-8",
-        });
+  capture(options = {}) {
+    const format = (options.format || "png").toLowerCase() === "svg"
+      ? "svg"
+      : "png";
+    const scale = options.scale || this.options.scale || 1;
+    const download = !!options.download;
+    const baseName = options.filename || this.options.filename;
+
+    const asSvg = (svgString, fallback) => {
+      const blob = new Blob([svgString], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      if (download) this._triggerDownload(url, this._withExt(baseName, "svg"));
+      const res = { format: "svg", blob, url };
+      if (fallback) res.fallback = true;
+      return res;
+    };
+
+    if (format === "svg") {
+      return this.getSvgString(scale).then((svg) => asSvg(svg, false));
+    }
+
+    // PNG: composite the native ApexCharts raster (main chart + oscillator
+    // panes). These are pure SVG (no <foreignObject>), so the canvas is not
+    // tainted and a real PNG comes out. Fall back to SVG if anything fails
+    // (e.g. an older ApexCharts without dataURI).
+    return this.rasterize(scale)
+      .then((blob) => {
         const url = URL.createObjectURL(blob);
+        if (download) this._triggerDownload(url, this._withExt(baseName, "png"));
+        return { format: "png", blob, url };
+      })
+      .catch((err) => {
+        Utils.warn(
+          "PNG export unavailable, falling back to SVG:",
+          err && err.message
+        );
+        return this.getSvgString(scale).then((svg) => asSvg(svg, true));
+      });
+  }
 
-        // We'll download as SVG since PNG conversion has security issues
-        const filename = this.options.filename.replace(/\.png$/i, ".svg");
-
-        resolve(url);
-      } catch (err) {
-        reject(err);
-      }
+  /**
+   * Produce a PNG Blob by compositing the main chart and any oscillator panes,
+   * stacked vertically, using each ApexCharts instance's native `dataURI()`.
+   * @param {number} scale
+   * @returns {Promise<Blob>}
+   */
+  rasterize(scale) {
+    const charts = [
+      this.ctx.chart,
+      ...Object.values(this.ctx.indicatorChartMap || {}),
+    ].filter((c) => c && typeof c.dataURI === "function");
+    if (!charts.length) {
+      return Promise.reject(new Error("dataURI() is unavailable"));
+    }
+    return Promise.all(
+      charts.map((c) =>
+        Promise.resolve(c.dataURI({ scale })).then((r) =>
+          r && r.imgURI ? r.imgURI : null
+        )
+      )
+    ).then((uris) => {
+      const valid = uris.filter(Boolean);
+      if (!valid.length) throw new Error("no rasterizable chart panes");
+      return this._composite(valid);
     });
+  }
+
+  /** Load an image source into an <img>, resolving once decoded. */
+  _loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("image load failed"));
+      img.src = src;
+    });
+  }
+
+  /** Stack PNG data URLs vertically onto one canvas and return a PNG Blob. */
+  _composite(dataUrls) {
+    return Promise.all(dataUrls.map((u) => this._loadImage(u))).then((imgs) => {
+      const width = Math.max(...imgs.map((i) => i.width || 0), 1);
+      const height = Math.max(
+        imgs.reduce((sum, i) => sum + (i.height || 0), 0),
+        1
+      );
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const c2d = canvas.getContext("2d");
+      c2d.fillStyle = this._backgroundColor();
+      c2d.fillRect(0, 0, width, height);
+      let y = 0;
+      for (const img of imgs) {
+        c2d.drawImage(img, 0, y);
+        y += img.height || 0;
+      }
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (blob) =>
+            blob ? resolve(blob) : reject(new Error("canvas.toBlob returned null")),
+          "image/png",
+          this.options.quality
+        );
+      });
+    });
+  }
+
+  /** Opaque background color for rasterized PNGs. */
+  _backgroundColor() {
+    const bg =
+      this.chartEl && this.chartEl.style && this.chartEl.style.backgroundColor;
+    if (bg) return bg;
+    return this.ctx.isDarkTheme ? "#1e1e2d" : "#ffffff";
+  }
+
+  /** Swap/append a file extension on the configured filename. */
+  _withExt(name, ext) {
+    return String(name || "apexstock-chart").replace(/\.\w+$/i, "") + "." + ext;
+  }
+
+  /** Trigger a browser download of a URL, then release it. */
+  _triggerDownload(url, filename) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Revoke on the next tick so the download has a chance to start.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   showNotification(message, type = "info") {

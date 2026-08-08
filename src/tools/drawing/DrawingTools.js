@@ -988,6 +988,11 @@ export default class DrawingTools {
     // Clean up event listeners
     this.eventManager.destroy();
 
+    // Clean up the overlay manager (removes its window resize listener)
+    if (this.overlayManager && typeof this.overlayManager.destroy === "function") {
+      this.overlayManager.destroy();
+    }
+
     // Clean up text annotation manager
     this.textAnnotationManager.destroy();
 

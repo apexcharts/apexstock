@@ -120,12 +120,19 @@ describe("ApexStock CSS isolation", () => {
   });
 
   it("destroy() is safe before render and idempotent", () => {
-    const inst = new ApexStock(makeContainer(), makeOptions());
-    expect(() => inst.destroy()).not.toThrow(); // never injected a style
+    // Safe when no style was ever injected (e.g. destroy before render).
+    const early = new ApexStock(makeContainer(), makeOptions());
+    expect(() => early.destroy()).not.toThrow();
 
+    // Inject, then destroy: the shared style tag is removed.
+    const inst = new ApexStock(makeContainer(), makeOptions());
     inst._injectStyles();
+    expect(styleTags().length).toBe(1);
     inst.destroy();
-    expect(() => inst.destroy()).not.toThrow(); // double destroy
+    expect(styleTags().length).toBe(0);
+
+    // destroy() is terminal: a second call is a no-op, not an error.
+    expect(() => inst.destroy()).not.toThrow();
     expect(styleTags().length).toBe(0);
   });
 });

@@ -3,6 +3,8 @@
  * Manages customizable settings for oscillator indicators
  */
 
+import IndicatorHandlers from "../indicators/IndicatorHandlers";
+
 export default class OscillatorSettings {
   /**
    * Creates settings controls for oscillator indicators
@@ -94,6 +96,10 @@ export default class OscillatorSettings {
         period: 20,
         stdDev: 2,
       },
+      // Default params contributed by custom indicators registered via
+      // ApexStock.registerIndicator, so they surface in the settings UI and
+      // round-trip through getState()/setState().
+      ...IndicatorHandlers.getCustomDefaultParams(),
     };
   }
 

@@ -262,8 +262,9 @@ describe("trading overlays — persistence + theming", () => {
     const inst = makeInstance();
     inst.addPriceLine({ price: 100 });
     inst.addPriceLine({ price: 101 });
+    const chart = inst.chart; // capture before destroy() nulls the reference
     inst.destroy();
-    expect(inst.chart.removeAnnotation).toHaveBeenCalledTimes(2);
+    expect(chart.removeAnnotation).toHaveBeenCalledTimes(2);
     expect(inst.getPriceLines()).toEqual([]);
   });
 

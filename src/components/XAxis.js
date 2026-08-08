@@ -47,13 +47,12 @@ export default class XAxis {
       };
     };
 
-    // Handle window resize
-    window.addEventListener(
-      "resize",
-      debounce(() => {
-        this.updatePosition();
-      }, 100)
-    );
+    // Handle window resize. Keep a reference so destroy() can remove it
+    // (an inline handler would leak this instance across SPA unmounts).
+    this._boundWindowResize = debounce(() => {
+      this.updatePosition();
+    }, 100);
+    window.addEventListener("resize", this._boundWindowResize);
 
     // Use ResizeObserver if available to monitor chart container size changes
     if (typeof ResizeObserver !== "undefined" && this.context.chartEl) {
@@ -849,6 +848,12 @@ export default class XAxis {
    * Clean up resources and event listeners
    */
   destroy() {
+    // Remove the window resize listener
+    if (this._boundWindowResize) {
+      window.removeEventListener("resize", this._boundWindowResize);
+      this._boundWindowResize = null;
+    }
+
     // Remove resize observer if it exists
     if (this.resizeObserver && this.context.chartEl) {
       this.resizeObserver.unobserve(this.context.chartEl);
