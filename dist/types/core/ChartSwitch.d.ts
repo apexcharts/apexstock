@@ -51,6 +51,7 @@ export default class ChartSwitch {
      * Initialize the chart type dropdown
      */
     init(): void;
+    _boundOutsideClick: (e: any) => void;
     updateTheme(theme: any): void;
     /**
      * Change the chart type

@@ -27,6 +27,11 @@ export default class DrawingTools {
     drawingToolsConfig: any;
     availableTools: {
         line: boolean;
+        ray: boolean;
+        hline: boolean;
+        vline: boolean;
+        fib: boolean;
+        measure: boolean;
         brush: boolean;
         highlighter: boolean;
         rectangle: boolean;
@@ -70,6 +75,10 @@ export default class DrawingTools {
      * @param {MouseEvent} e - Mouse event
      */
     handleMouseDown(e: MouseEvent): void;
+    _interimItem: {
+        element: any;
+        data: any;
+    };
     /**
      * Creates a new SVG element based on the current tool
      */
@@ -92,6 +101,28 @@ export default class DrawingTools {
      * @param {Object} dataPoint - Current data point with x, y coordinates
      */
     updateElement(x: number, y: number, dataPoint: any): void;
+    /**
+     * Seed the data-space record for an interactive data-model tool at the start
+     * of a draw (start == end). Coordinates are updated during the drag.
+     * @param {string} tool - One of INTERACTIVE_DATA_TOOLS.
+     * @param {{dataX:number, dataY:number}} startPoint
+     * @returns {object|null} the seed drawing record, flagged `_drawing`.
+     */
+    _seedInteractiveData(tool: string, startPoint: {
+        dataX: number;
+        dataY: number;
+    }): object | null;
+    /**
+     * Update an interactive data-model record's coordinates from the pointer's
+     * current data-space position during a drag.
+     * @param {string} tool
+     * @param {object} data - The in-progress drawing record (mutated).
+     * @param {{x:number, y:number}} dataPoint
+     */
+    _updateInteractiveData(tool: string, data: object, dataPoint: {
+        x: number;
+        y: number;
+    }): void;
     /**
      * Abort an in-progress drawing (Escape). Removes the half-drawn element and
      * resets state without committing it to the elements array. No-op if no draw
@@ -127,6 +158,24 @@ export default class DrawingTools {
      * Redraws all elements based on their data coordinates
      */
     redrawElements(): void;
+    /**
+     * Given a ray's first two screen points, return the point where the ray
+     * (from p1 through p2) exits the chart's grid rectangle. Used to render an
+     * open-ended ray. Falls back to p2 for a degenerate (zero-length) ray.
+     * @param {{x:number,y:number}} p1 - Ray origin (screen space).
+     * @param {{x:number,y:number}} p2 - A second point defining direction.
+     * @returns {{x:number,y:number}} the exit point on the grid boundary.
+     */
+    _extendToBounds(p1: {
+        x: number;
+        y: number;
+    }, p2: {
+        x: number;
+        y: number;
+    }): {
+        x: number;
+        y: number;
+    };
     /**
      * Handles tool button clicks
      * @param {string} toolName - Name of the tool clicked

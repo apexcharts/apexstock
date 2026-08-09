@@ -9,6 +9,8 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-10
+
 ### Changed
 
 - **ApexCharts peer dependency bumped to `^6.7.0`** (from `^5.15.0`). ApexStock

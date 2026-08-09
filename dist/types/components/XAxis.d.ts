@@ -19,6 +19,7 @@ export default class XAxis {
      * Set up listeners for window resize and chart container size changes
      */
     setupResizeListener(): void;
+    _boundWindowResize: (...args: any[]) => void;
     /**
      * Sets up mouse tracking for the tooltip
      */

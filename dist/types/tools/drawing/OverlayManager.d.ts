@@ -13,6 +13,9 @@ declare class OverlayManager {
      * Sets up the SVG overlay for drawing
      */
     setupSVGOverlay(): void;
+    _boundResize: () => void;
+    /** Remove the resize listener and detach the overlay wrapper from the DOM. */
+    destroy(): void;
     /**
      * Synchronizes the overlay position with the chart
      */

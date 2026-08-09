@@ -1,7 +1,3 @@
-/**
- * OscillatorSettings.js
- * Manages customizable settings for oscillator indicators
- */
 export default class OscillatorSettings {
     /**
      * Creates settings controls for oscillator indicators

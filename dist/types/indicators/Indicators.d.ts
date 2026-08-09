@@ -101,6 +101,60 @@ declare class Indicators {
      */
     static calculatePVT(series: import("../types.js").Series): import("../types.js").IndicatorPoint[];
     /**
+     * Volume-Weighted Average Price (cumulative, from the first bar). At each bar
+     * `i`, `vwap = sum(price_k * volume_k) / sum(volume_k)` for `k = 0..i`, where
+     * `price` is the typical price `(high + low + close) / 3` (`source: "hlc3"`,
+     * default) or the `close` (`source: "close"`). Volume-less bars contribute 0;
+     * while cumulative volume is still 0 the price itself is used so the line is
+     * continuous. Only the output is truncated (the running sums are exact), so it
+     * matches the streaming twin bar-for-bar.
+     * @param {import("../types.js").Series} series
+     * @param {"hlc3"|"close"} [source="hlc3"]
+     * @returns {Array<number>}
+     */
+    static calculateVWAP(series: import("../types.js").Series, source?: "hlc3" | "close"): Array<number>;
+    /**
+     * Average True Range (Wilder). `TR_i = max(H-L, |H-prevC|, |L-prevC|)`
+     * (`TR_0 = H-L`); the first ATR at index `period-1` is the average of the
+     * first `period` TRs, then `ATR_i = (ATR_{i-1}*(period-1) + TR_i)/period`.
+     * Indices before `period-1` are null. The running ATR is kept untruncated and
+     * only the output is truncated, so it matches the streaming twin bar-for-bar.
+     * @param {import("../types.js").Series} series
+     * @param {number} [period=14]
+     * @returns {import("../types.js").IndicatorPoint[]}
+     */
+    static calculateATR(series: import("../types.js").Series, period?: number): import("../types.js").IndicatorPoint[];
+    /**
+     * Donchian Channels: over a trailing window of `period` bars, `upper` is the
+     * highest high, `lower` is the lowest low, and `middle` is their midpoint.
+     * Indices before `period-1` are null. Windowed, so it agrees with the
+     * streaming twin by recomputing the same trailing window.
+     * @param {import("../types.js").Series} series
+     * @param {number} [period=20]
+     * @returns {{ upper: Array<number|null>, lower: Array<number|null>, middle: Array<number|null> }}
+     */
+    static calculateDonchian(series: import("../types.js").Series, period?: number): {
+        upper: Array<number | null>;
+        lower: Array<number | null>;
+        middle: Array<number | null>;
+    };
+    /**
+     * Keltner Channels: an EMA(close, `emaPeriod`) midline with bands offset by
+     * `multiplier * ATR(atrPeriod)`. A bar is null until both the EMA and the ATR
+     * are established. Composed from the (already truncated) EMA and ATR outputs,
+     * so it agrees with the streaming twin (which composes the EMA + ATR steppers).
+     * @param {import("../types.js").Series} series
+     * @param {number} [emaPeriod=20]
+     * @param {number} [atrPeriod=10]
+     * @param {number} [multiplier=2]
+     * @returns {{ upper: Array<number|null>, lower: Array<number|null>, middle: Array<number|null> }}
+     */
+    static calculateKeltner(series: import("../types.js").Series, emaPeriod?: number, atrPeriod?: number, multiplier?: number): {
+        upper: Array<number | null>;
+        lower: Array<number | null>;
+        middle: Array<number | null>;
+    };
+    /**
      * Stochastic oscillator (%K and smoothed %D).
      * @param {import("../types.js").Series} series
      * @param {number} period

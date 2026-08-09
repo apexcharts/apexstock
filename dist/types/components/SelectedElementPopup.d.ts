@@ -21,6 +21,7 @@ declare class SelectedElementPopup {
      * Creates the popup DOM element
      */
     createPopup(): void;
+    _boundOutsideMouseDown: (e: any) => void;
     /**
      * Configure the popup based on element type
      * @param {Object} elementData - Data of the selected element

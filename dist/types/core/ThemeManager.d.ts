@@ -38,7 +38,10 @@ export default class ThemeManager {
             indicators: {
                 movingAverage: string;
                 ema: string;
+                vwap: string;
                 bollingerBands: string;
+                donchian: string;
+                keltner: string;
                 fibonacci: string[];
                 linearRegression: string;
                 tenkanSen: string;
@@ -54,6 +57,7 @@ export default class ThemeManager {
                 stochasticD: string;
                 stdDev: string;
                 adx: string;
+                atr: string;
                 chaikin: string;
                 cci: string;
                 tsi: string;
@@ -87,7 +91,10 @@ export default class ThemeManager {
             indicators: {
                 movingAverage: string;
                 ema: string;
+                vwap: string;
                 bollingerBands: string;
+                donchian: string;
+                keltner: string;
                 fibonacci: string[];
                 linearRegression: string;
                 tenkanSen: string;
@@ -103,6 +110,7 @@ export default class ThemeManager {
                 stochasticD: string;
                 stdDev: string;
                 adx: string;
+                atr: string;
                 chaikin: string;
                 cci: string;
                 tsi: string;
