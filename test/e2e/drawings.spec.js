@@ -103,6 +103,50 @@ test.describe("programmatic drawings", () => {
     expect(anchorX).toBe(at(50));
   });
 
+  test("draws anchored types interactively with the mouse toolbar", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    // The drawing toolbar renders its tool buttons.
+    await expect(
+      page.locator('.apexstock-drawing-tool[data-tool="ray"]')
+    ).toHaveCount(1);
+
+    const box = await page
+      .locator("#chart .apexstock-drawing-overlay")
+      .first()
+      .boundingBox();
+
+    async function drawWith(tool, x1, y1, x2, y2) {
+      await page.click(`.apexstock-drawing-tool[data-tool="${tool}"]`);
+      await page.mouse.move(box.x + x1, box.y + y1);
+      await page.mouse.down();
+      await page.mouse.move(box.x + x2, box.y + y2, { steps: 10 });
+      await page.mouse.up();
+    }
+
+    await drawWith("ray", 120, 300, 320, 130);
+    await drawWith("fib", 140, 280, 360, 150);
+    await drawWith("measure", 160, 260, 380, 170);
+    // Draw the hline in an empty region (right of the others) so its mousedown
+    // lands on the overlay, not on a prior drawing.
+    await drawWith("hline", 600, 380, 640, 360);
+
+    const types = await page.evaluate(() =>
+      window.__chart.getDrawings().map((d) => d.type).sort()
+    );
+    expect(types).toContain("ray");
+    expect(types).toContain("fibRetracement");
+    expect(types).toContain("measure");
+    expect(types).toContain("horizontalLine");
+
+    // The interactive drawings rendered on the overlay (ray + hline lines, plus
+    // the fib group's level lines).
+    expect(await overlayLines(page).count()).toBeGreaterThanOrEqual(8);
+    expect(errors).toEqual([]);
+  });
+
   test("drawings round-trip through getState()/setState()", async ({ page }) => {
     const errors = await gotoFixture(page);
 

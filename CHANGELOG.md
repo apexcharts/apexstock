@@ -42,6 +42,12 @@ those are called out explicitly below.
   `getDrawings()` also reports shapes made with the mouse toolbar. Adding,
   patching, removing, and clearing drawings emit `drawingAdded` / `drawingUpdated`
   / `drawingRemoved` / `drawingsCleared` events.
+- **Interactive mouse tools for the anchored drawings.** The drawing toolbar now
+  includes ray, horizontal line, vertical line, Fibonacci retracement, and measure
+  tools alongside the existing freehand tools, so the anchored types can be drawn
+  by dragging on the chart (not only via `addDrawing()`). They share the same
+  data-space model, so mouse-drawn ones reproject, drag, serialize, and appear in
+  `getDrawings()` identically. The former "Line" tool is now labeled "Trend line".
 - **Custom drawing tools via `ApexStock.registerDrawingTool(name, def)`.** Register
   a new data-space drawing type globally (the drawing-layer analogue of
   `registerIndicator`); `def.render(data, helpers)` returns an SVG element from

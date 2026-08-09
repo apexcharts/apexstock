@@ -60,7 +60,7 @@ Trading price lines (draggable/closable overlays):
 Annotations (data-space marks, distinct from freehand drawings):
 - `addAnnotation(config)` where `type` is `"yLine" | "yBand" | "xLine" | "xBand" | "point" | "text"`. `updateAnnotation(id, patch)`, `removeAnnotation(id)`, `clearAnnotations()`, `getAnnotation(id)`, `getAnnotations()`.
 
-Drawings (programmatic, price/time-anchored shapes that reproject through zoom/pan):
+Drawings (price/time-anchored shapes that reproject through zoom/pan; drawn with the mouse via the on-chart toolbar, which has a tool for each anchored type, or programmatically):
 - `addDrawing(config)` where `type` is `"trendline" | "ray" | "horizontalLine" | "verticalLine" | "rectangle" | "fibRetracement" | "fibExtension" | "measure"` (aliases: `line`, `hline`, `vline`, `zone`) and `points` is an array of `{x, y}` in data space (trendline/ray/rectangle/fib/measure need two points; horizontalLine uses the first point's `y`; verticalLine uses its `x`). Optional `color`, `width`, `fill`, `fillOpacity`, `dashArray`, `locked`, `visible`, `meta`; `snap` (`true` or `"open"|"high"|"low"|"close"`) snaps points to bar OHLC values; `levels`/`showLabels` tune the fib types; `upColor`/`downColor`/`showLabel` tune measure (which labels the price change, percent change, and bar count). Returns the drawing id.
 - `updateDrawing(id, patch)`, `removeDrawing(id)`, `clearDrawings()`, `getDrawing(id)`, `getDrawings()`. `getDrawings()` also reports shapes drawn with the mouse toolbar (brush/highlighter/circle/ellipse/text). Drawings are captured by `getState()` and restored by `setState()`.
 

@@ -10,6 +10,17 @@ import ElementInteractionManager from "../../core/ElementInteractionManager";
 import Utils from "../../utils/Utils";
 import { getDrawingTool } from "./DrawingToolRegistry";
 
+// Tools drawn interactively via the data-space model (seed on mousedown, update
+// data coords on drag, render through redrawElements) rather than the legacy
+// screen-space factory path used by line/brush/rectangle/circle/ellipse/text.
+const INTERACTIVE_DATA_TOOLS = new Set([
+  "ray",
+  "hline",
+  "vline",
+  "fib",
+  "measure",
+]);
+
 export default class DrawingTools {
   constructor(ctx) {
     this.chart = ctx.chart;
@@ -39,6 +50,11 @@ export default class DrawingTools {
     // Set default tools if not specified in configuration
     this.availableTools = {
       line: true,
+      ray: true,
+      hline: true,
+      vline: true,
+      fib: true,
+      measure: true,
       brush: true,
       highlighter: true,
       rectangle: true,
@@ -268,6 +284,21 @@ export default class DrawingTools {
 
       // Add element to drawing group
       this.drawingGroup.appendChild(this.currentElement);
+    } else if (INTERACTIVE_DATA_TOOLS.has(this.currentTool)) {
+      // Data-model tools: seed a data-space record, add it as an in-progress
+      // element (flagged so it is not selectable mid-draw), and render it. The
+      // drag updates its data coords and re-renders via redrawElements().
+      const data = this._seedInteractiveData(this.currentTool, this.startPoint);
+      if (data) {
+        this._interimItem = { element: null, data };
+        this.elements.push(this._interimItem);
+        this.currentElement = null;
+        this.currentElementData = data;
+        this.redrawElements();
+      }
+      e.preventDefault();
+      e.stopPropagation(); // block chart pan/zoom while drawing
+      return;
     } else {
       // Create a new element based on the selected tool
       this.createNewElement();
@@ -314,10 +345,15 @@ export default class DrawingTools {
    * @param {MouseEvent} e - Mouse event
    */
   handleMouseMove(e) {
-    if (!this.isDrawing || !this.currentTool || !this.currentElement) return;
+    if (!this.isDrawing || !this.currentTool) return;
 
     // Skip for text - text is handled by TextAnnotationManager with inline editing
     if (this.currentTool === "text") return;
+
+    // Data-model tools drive an in-progress element in this.elements (no live
+    // this.currentElement); the legacy factory tools need a live element.
+    if (!this.currentElement && !INTERACTIVE_DATA_TOOLS.has(this.currentTool))
+      return;
 
     // Prevent default to avoid text selection during drawing. This must run
     // synchronously, so it stays here rather than in the throttled body below.
@@ -339,7 +375,15 @@ export default class DrawingTools {
    * @param {MouseEvent} e - The most recent mouse move event
    */
   drawMove(e) {
-    if (!this.isDrawing || !this.currentElement) return;
+    if (!this.isDrawing) return;
+    if (
+      !this.currentElement &&
+      !(
+        this.currentElementData &&
+        INTERACTIVE_DATA_TOOLS.has(this.currentElementData.type)
+      )
+    )
+      return;
 
     // Get mouse position relative to overlay. The overlay is a stable container
     // (it doesn't move during a drag), so reuse its rect for 100ms to avoid a
@@ -367,6 +411,20 @@ export default class DrawingTools {
    * @param {Object} dataPoint - Current data point with x, y coordinates
    */
   updateElement(x, y, dataPoint) {
+    // Data-model tools: update the record's coordinates and re-render.
+    if (
+      this.currentElementData &&
+      INTERACTIVE_DATA_TOOLS.has(this.currentElementData.type)
+    ) {
+      this._updateInteractiveData(
+        this.currentElementData.type,
+        this.currentElementData,
+        dataPoint
+      );
+      this.redrawElements();
+      return;
+    }
+
     if (!this.currentElement || !this.currentElementData) return;
 
     // Skip for text - text is handled by TextAnnotationManager with inline editing
@@ -450,6 +508,82 @@ export default class DrawingTools {
   }
 
   /**
+   * Seed the data-space record for an interactive data-model tool at the start
+   * of a draw (start == end). Coordinates are updated during the drag.
+   * @param {string} tool - One of INTERACTIVE_DATA_TOOLS.
+   * @param {{dataX:number, dataY:number}} startPoint
+   * @returns {object|null} the seed drawing record, flagged `_drawing`.
+   */
+  _seedInteractiveData(tool, startPoint) {
+    const dataX = startPoint.dataX;
+    const dataY = startPoint.dataY;
+    const base = {
+      color: this.drawingColor,
+      width: this.drawingWidth,
+      _drawing: true,
+    };
+    switch (tool) {
+      case "ray":
+        return { ...base, type: "ray", x1: dataX, y1: dataY, x2: dataX, y2: dataY };
+      case "hline":
+        return { ...base, type: "hline", y: dataY };
+      case "vline":
+        return { ...base, type: "vline", x: dataX };
+      case "fib":
+        return {
+          ...base,
+          type: "fib",
+          fibType: "retracement",
+          x1: dataX,
+          y1: dataY,
+          x2: dataX,
+          y2: dataY,
+          levels: [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1],
+          showLabels: true,
+        };
+      case "measure":
+        return {
+          ...base,
+          type: "measure",
+          x1: dataX,
+          y1: dataY,
+          x2: dataX,
+          y2: dataY,
+          upColor: "#26a69a",
+          downColor: "#ef5350",
+          fillOpacity: 0.2,
+          showLabel: true,
+        };
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Update an interactive data-model record's coordinates from the pointer's
+   * current data-space position during a drag.
+   * @param {string} tool
+   * @param {object} data - The in-progress drawing record (mutated).
+   * @param {{x:number, y:number}} dataPoint
+   */
+  _updateInteractiveData(tool, data, dataPoint) {
+    switch (tool) {
+      case "ray":
+      case "fib":
+      case "measure":
+        data.x2 = dataPoint.x;
+        data.y2 = dataPoint.y;
+        break;
+      case "hline":
+        data.y = dataPoint.y;
+        break;
+      case "vline":
+        data.x = dataPoint.x;
+        break;
+    }
+  }
+
+  /**
    * Abort an in-progress drawing (Escape). Removes the half-drawn element and
    * resets state without committing it to the elements array. No-op if no draw
    * is active.
@@ -462,6 +596,20 @@ export default class DrawingTools {
     // Drop any drag update still queued for the next frame.
     if (this.throttledDrawMove) {
       this.throttledDrawMove.cancel();
+    }
+
+    // Data-model tools: drop the in-progress element from the model and redraw.
+    if (
+      this.currentElementData &&
+      INTERACTIVE_DATA_TOOLS.has(this.currentElementData.type)
+    ) {
+      const idx = this.elements.indexOf(this._interimItem);
+      if (idx !== -1) this.elements.splice(idx, 1);
+      this._interimItem = null;
+      this.currentElement = null;
+      this.currentElementData = null;
+      this.redrawElements();
+      return;
     }
 
     // Remove the uncommitted element from the DOM (text is owned by the
@@ -500,6 +648,26 @@ export default class DrawingTools {
     // Drop any drag update still queued for the next frame.
     if (this.throttledDrawMove) {
       this.throttledDrawMove.cancel();
+    }
+
+    // Data-model tools: finalize the in-progress element (already in the model).
+    if (
+      this.currentElementData &&
+      INTERACTIVE_DATA_TOOLS.has(this.currentElementData.type)
+    ) {
+      delete this.currentElementData._drawing;
+      if (!this.currentElementData.id) {
+        this.currentElementData.id = Utils.generateUniqueId(
+          this.currentElementData.type
+        );
+      }
+      // Re-render without the in-progress flag so it becomes selectable, and
+      // wire up interaction listeners.
+      this.redrawElements();
+      this.currentElement = null;
+      this.currentElementData = null;
+      this._interimItem = null;
+      return;
     }
 
     // For text tool, the elements are handled by TextAnnotationManager
@@ -990,10 +1158,11 @@ export default class DrawingTools {
           element.dataset.elementId = data.id;
         }
 
-        // Locked drawings render but cannot be selected or dragged.
-        if (data.locked) {
+        // Locked drawings (and the in-progress one during a live draw) render
+        // but cannot be selected or dragged.
+        if (data.locked || data._drawing) {
           element.style.pointerEvents = "none";
-          element.dataset.locked = "true";
+          if (data.locked) element.dataset.locked = "true";
         }
 
         fragment.appendChild(element);

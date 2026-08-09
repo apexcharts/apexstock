@@ -51,7 +51,42 @@ class ToolbarManager {
         icon: icon(
           '<line x1="5" y1="19" x2="19" y2="5"/><circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.6" fill="currentColor" stroke="none"/>'
         ),
-        tooltip: "Line",
+        tooltip: "Trend line",
+      },
+      {
+        name: "ray",
+        icon: icon(
+          '<line x1="4" y1="20" x2="20" y2="4"/><polyline points="13 4 20 4 20 11"/>'
+        ),
+        tooltip: "Ray",
+      },
+      {
+        name: "hline",
+        icon: icon(
+          '<line x1="3" y1="12" x2="21" y2="12"/><circle cx="7" cy="12" r="1.6" fill="currentColor" stroke="none"/>'
+        ),
+        tooltip: "Horizontal line",
+      },
+      {
+        name: "vline",
+        icon: icon(
+          '<line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="7" r="1.6" fill="currentColor" stroke="none"/>'
+        ),
+        tooltip: "Vertical line",
+      },
+      {
+        name: "fib",
+        icon: icon(
+          '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="20" y2="14"/><line x1="4" y1="18" x2="20" y2="18"/>'
+        ),
+        tooltip: "Fibonacci retracement",
+      },
+      {
+        name: "measure",
+        icon: icon(
+          '<rect x="4.5" y="7.5" width="15" height="9" rx="1"/><line x1="9" y1="7.5" x2="9" y2="16.5"/><line x1="15" y1="7.5" x2="15" y2="16.5"/>'
+        ),
+        tooltip: "Measure",
       },
       {
         name: "brush",

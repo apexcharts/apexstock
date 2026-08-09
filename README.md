@@ -812,10 +812,13 @@ Common fields: `label`/`text`, `color`, `fillColor`, `opacity`, `textColor`,
 
 ## Drawings (programmatic, price/time-anchored)
 
-Create trend lines, rays, price levels, time markers, and zones **from code**,
-anchored to data coordinates so they re-project through zoom, pan, and resize
-exactly like a shape drawn with the mouse toolbar. Points are `{x, y}` in data
-space (`x` is a timestamp/date/category, `y` is a price).
+Create trend lines, rays, price levels, time markers, zones, Fibonacci levels,
+and measurements **from code** or **with the mouse** (the on-chart drawing
+toolbar includes a tool for each), anchored to data coordinates so they
+re-project through zoom, pan, and resize. Mouse-drawn and programmatic drawings
+share one model, so both appear in `getDrawings()` and round-trip through state.
+Points are `{x, y}` in data space (`x` is a timestamp/date/category, `y` is a
+price).
 
 ```javascript
 // Trend line between two points
