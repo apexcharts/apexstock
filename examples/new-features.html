@@ -36,6 +36,16 @@
         .wrap {
           grid-template-columns: 1fr;
         }
+        /* On a single column, let the chart scroll with the page normally. */
+        .chart-col {
+          position: static;
+        }
+      }
+      /* Keep the chart in view while the (taller) options panel scrolls past. */
+      .chart-col {
+        position: sticky;
+        top: 16px;
+        align-self: start;
       }
       .card {
         background: #fff;
@@ -179,7 +189,7 @@
     </p>
 
     <div class="wrap">
-      <div class="card">
+      <div class="card chart-col">
         <div class="row" style="justify-content: space-between; margin-bottom: 10px">
           <div class="row">
             <button id="play" class="primary">▶ Play stream</button>
