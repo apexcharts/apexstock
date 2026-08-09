@@ -31,6 +31,7 @@
   "peerDependencies": {
     "@angular/common": ">=16.0.0",
     "@angular/core": ">=16.0.0",
+    "apexcharts": "^6.7.0",
     "apexstock": ">=0.3.0 <1"
   },
   "dependencies": {

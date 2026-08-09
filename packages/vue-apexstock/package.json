@@ -44,6 +44,7 @@
     "url": "https://github.com/apexcharts/apexstock/issues"
   },
   "peerDependencies": {
+    "apexcharts": "^6.7.0",
     "apexstock": ">=0.3.0 <1",
     "vue": "^3.3.0"
   },

@@ -11,6 +11,9 @@ those are called out explicitly below.
 
 ### Changed
 
+- **ApexCharts peer dependency bumped to `^6.7.0`** (from `^5.15.0`). ApexStock
+  now targets ApexCharts 6.x; consumers should upgrade their ApexCharts install
+  accordingly.
 - **Indicator display labels are now title-cased per word** (e.g. "Bollinger
   Bands", "Stochastic Oscillator" instead of "Bollinger bands"). Affects the
   dropdown labels and `listIndicators()`/`getIndicator()` `label` fields;
