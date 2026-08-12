@@ -1,20 +1,34 @@
 /* ==============================
  * 1. Common & Variables
  * ============================== */
+/*
+ * The roles that mean the same thing in every ApexCharts product fall back to
+ * the shared `--apx-*` family tokens, so a page can state its brand once on
+ * `:root` and have the stock chart follow along with the charts beside it.
+ * Precedence reads left to right in each declaration:
+ *
+ *   --apexstock-* set by the host  >  --apx-* family token  >  built-in default
+ *
+ * Only the light palette and the mode-independent accent take tokens. A single
+ * set of `--apx-*` values describes one appearance, so applying a light brand
+ * surface to the palette chosen for dark mode is how you get white text on
+ * white. The dark palette stays self-contained and always legible; override
+ * `--apexstock-dark-*` (see THEMING.md) to theme it.
+ */
 [class^="apexstock-"] {
   /* Light Theme Colors */
-  --apexstock-light-bg: #ffffff;
+  --apexstock-light-bg: var(--apx-surface, #ffffff);
   --apexstock-light-surface-2: #f8fafc;
-  --apexstock-light-border: #e4e7ec;
+  --apexstock-light-border: var(--apx-grid, #e4e7ec);
   --apexstock-light-border-strong: #d0d5dd;
   --apexstock-light-hover: #f2f4f7;
-  --apexstock-light-text: #1f2937;
+  --apexstock-light-text: var(--apx-fore, #1f2937);
   --apexstock-light-muted: #667085;
   --apexstock-light-selected: #eef4ff;
-  --apexstock-light-divider: #e4e7ec;
+  --apexstock-light-divider: var(--apx-grid, #e4e7ec);
   --apexstock-light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
 
-  /* Dark Theme Colors */
+  /* Dark Theme Colors — deliberately not token-backed, see the note above. */
   --apexstock-dark-bg: #1e242b;
   --apexstock-dark-surface-2: #272e36;
   --apexstock-dark-bg-alpha: rgba(255, 255, 255, 0.04);
@@ -27,8 +41,10 @@
   --apexstock-dark-divider: #3a434d;
   --apexstock-dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 
-  /* Accent Colors */
-  --apexstock-blue: #2563eb;
+  /* Accent Colors. The accent is the one role that means the same thing in both
+     modes here (this value is shared by light and dark), so it takes the family
+     token unconditionally. */
+  --apexstock-blue: var(--apx-accent, #2563eb);
   --apexstock-blue-hover: #1d4ed8;
   --apexstock-accent-soft: rgba(37, 99, 235, 0.1);
   --apexstock-danger: #dc3545;

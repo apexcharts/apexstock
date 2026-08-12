@@ -16,7 +16,10 @@ shows the override recipe.
 ## How theming works
 
 1. **Tokens** are declared on `[class^="apexstock-"]` (every ApexStock element),
-   so they are self-contained and never leak to or from your page's `:root`.
+   so they never leak *out* to your page. A few of them do read *in*: the roles
+   that mean the same thing in every ApexCharts product fall back to the shared
+   `--apx-*` family tokens, so one brand declaration on `:root` themes the whole
+   family. See [Family tokens](#family-tokens---apx-).
 2. **Light/dark** is driven by a class ApexStock adds to the chart container's
    parent: `apexstock-theme-light` or `apexstock-theme-dark` (from
    `theme.mode` in your options). Base rules read the `--apexstock-light-*`
@@ -87,18 +90,21 @@ copy it, change values, drop one selector around it.
 
 | Token | Default | Controls |
 | --- | --- | --- |
-| `--apexstock-light-bg` | `#ffffff` | Surface background (toolbar controls, dropdowns) |
+| `--apexstock-light-bg` | `var(--apx-surface, #ffffff)` | Surface background (toolbar controls, dropdowns) |
 | `--apexstock-light-surface-2` | `#f8fafc` | Secondary surface |
-| `--apexstock-light-border` | `#e4e7ec` | Default borders |
+| `--apexstock-light-border` | `var(--apx-grid, #e4e7ec)` | Default borders |
 | `--apexstock-light-border-strong` | `#d0d5dd` | Hover/emphasis borders |
 | `--apexstock-light-hover` | `#f2f4f7` | Hover background |
-| `--apexstock-light-text` | `#1f2937` | Primary text / icon stroke |
+| `--apexstock-light-text` | `var(--apx-fore, #1f2937)` | Primary text / icon stroke |
 | `--apexstock-light-muted` | `#667085` | Secondary text |
 | `--apexstock-light-selected` | `#eef4ff` | Selected option background |
-| `--apexstock-light-divider` | `#e4e7ec` | Toolbar dividers |
+| `--apexstock-light-divider` | `var(--apx-grid, #e4e7ec)` | Toolbar dividers |
 | `--apexstock-light-shadow` | `0 6px 24px rgba(16,24,40,.14)` | Dropdown/popup shadow |
 
 ### Dark palette (`apexstock-theme-dark`)
+
+None of these are family-token backed, on purpose: see
+[Family tokens](#family-tokens---apx-).
 
 | Token | Default | Controls |
 | --- | --- | --- |
@@ -118,7 +124,7 @@ copy it, change values, drop one selector around it.
 
 | Token | Default | Controls |
 | --- | --- | --- |
-| `--apexstock-blue` | `#2563eb` | Primary accent (active tool, focus ring, color swatch) |
+| `--apexstock-blue` | `var(--apx-accent, #2563eb)` | Primary accent (active tool, focus ring, color swatch) |
 | `--apexstock-blue-hover` | `#1d4ed8` | Accent hover |
 | `--apexstock-accent-soft` | `rgba(37,99,235,.1)` | Active option background tint |
 | `--apexstock-danger` | `#dc3545` | Destructive action (clear/delete) |
@@ -140,6 +146,63 @@ copy it, change values, drop one selector around it.
 | `--apexstock-as-ease` | `0.15s ease` | Control transition timing |
 
 ---
+
+---
+
+## Family tokens (`--apx-*`)
+
+Every product in the ApexCharts family reads the same five root tokens, so a
+page can state its brand once and have stock charts, plots, maps, trees, flow
+diagrams and Gantt charts all follow:
+
+| Token | Role |
+| --- | --- |
+| `--apx-accent` | The colour that means interactive or selected |
+| `--apx-fore` | Text and anything that must stay legible on the surface |
+| `--apx-grid` | Hairlines: borders, gridlines, dividers |
+| `--apx-surface` | The plane content sits on |
+| `--apx-series-1` … `--apx-series-N` | An ordered categorical palette (1-based) |
+
+```css
+:root {
+  --apx-accent: #5b21b6;
+  --apx-fore: #1f2937;
+  --apx-grid: #e4e7ec;
+  --apx-surface: #ffffff;
+}
+```
+
+Custom properties inherit, so declaring them on `:root` reaches every chart on
+the page. They sit **below** anything you set yourself, so adopting them cannot
+change a chart you had already themed:
+
+```
+--apexstock-* you set  >  --apx-* family token  >  built-in default
+```
+
+### Which ApexStock tokens take them
+
+`--apexstock-light-bg`, `--apexstock-light-border`, `--apexstock-light-text`,
+`--apexstock-light-divider` and `--apexstock-blue`. Everything else keeps its
+built-in default.
+
+### Why dark mode does not
+
+A single set of `--apx-*` values describes **one** appearance. ApexStock's mode
+is chosen by `theme.mode`, not by the page, so the two can disagree: a page with
+a light brand surface plus `theme.mode: 'dark'` would paint the dark palette
+white and put white text on it. Rather than guess, the dark palette stays
+self-contained and always legible.
+
+To brand dark mode, override the `--apexstock-dark-*` tokens directly with the
+[recipe above](#override-recipe-no-fork) — those still win over everything.
+
+### Opting out
+
+The [theme template](src/themes/apexstock-theme-template.css) pins every token
+to a literal value. Copying it wholesale is a deliberate opt-out: explicit
+values beat the family tokens, which is the same precedence rule as everywhere
+else. Delete the lines you want left to the family tokens.
 
 ## See it in action
 
