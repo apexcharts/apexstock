@@ -25,7 +25,7 @@
     "llms.txt"
   ],
   "dependencies": {
-    "apex-commons": "^0.3.0"
+    "apex-commons": "^0.4.0"
   },
   "scripts": {
     "build": "rollup -c && npm run build:types",

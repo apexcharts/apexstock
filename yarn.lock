@@ -1444,10 +1444,10 @@ ajv@^6.14.0:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
-apex-commons@^0.3.0:
-  version "0.3.0"
-  resolved "https://registry.npmjs.org/apex-commons/-/apex-commons-0.3.0.tgz#7504283baa37f35e375477feb26d2dbcb7315695"
-  integrity sha512-iCkyROBHkBCSroPJZBzittc30wy594mossqfjdFcceVEFYePEOzBTLbCZt+j66cQdQlM+0Z7mX80/RVMH5Qrew==
+apex-commons@^0.4.0:
+  version "0.4.0"
+  resolved "https://registry.npmjs.org/apex-commons/-/apex-commons-0.4.0.tgz#56f5e728508c72f924c14c97c4eb12dee2830968"
+  integrity sha512-72rKumGiPBgKQ9pW9SwaShR71yFA+99QsIn0XrX/Rc01xWYmgv8fEFgdQY900srdh2a6dy6HkNCkNf+YOdkDqw==
 
 assertion-error@^2.0.1:
   version "2.0.1"
