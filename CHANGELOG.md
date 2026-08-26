@@ -53,6 +53,15 @@ those are called out explicitly below.
   echo suppression so there is no feedback loop; the crosshair guide is a
   lightweight per-chart DOM overlay positioned from each chart's own axis.
 
+### Fixed
+
+- **Drawing-toolbar icons no longer render undersized.** The tool `<button>`s
+  never zeroed their native user-agent padding, and with `box-sizing: border-box`
+  that padding shrank the 32px button's content box and squished each icon to
+  ~18px wide. Zeroing the padding (plus a bump to a 20px glyph, heavier stroke,
+  and a touch more spacing) makes them render at full size and read clearly next
+  to the color swatch and dropdowns.
+
 ## [0.4.0] - 2026-08-10
 
 ### Changed

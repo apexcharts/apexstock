@@ -63,7 +63,15 @@
   --apexstock-as-ease: 0.15s ease;
 }
 
-[class^=apexstock-] * {
+/* Box-sizing + font reset for ApexStock's own elements and everything inside
+   them. Uses `*=` (contains), not `^=` (starts-with), because ApexStock appends
+   its theme class to the consumer's container, whose class attribute may already
+   start with the consumer's own class (e.g. "card apexstock-theme-light"); a
+   starts-with match would silently miss it. It also targets the elements
+   themselves, not only descendants, so top-level chrome like `.apexstock-toolbar`
+   (width:100% + padding) sizes inside its box instead of overflowing the chart. */
+[class*="apexstock-"],
+[class*="apexstock-"] * {
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -288,7 +296,7 @@
 .apexstock-drawing-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   z-index: 11;
   padding-left: 10px;
   margin-left: 8px;
@@ -298,6 +306,10 @@
 .apexstock-drawing-tool {
   width: var(--apexstock-button-size);
   height: var(--apexstock-button-size);
+  /* Zero the native <button> padding: with box-sizing:border-box the UA
+     horizontal padding would otherwise shrink the content box and squish the
+     icon (a 32px button rendered the icon at only ~18px wide). */
+  padding: 0;
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
@@ -308,6 +320,14 @@
   color: var(--apexstock-light-text);
   transition: background-color var(--apexstock-as-ease), color var(--apexstock-as-ease),
     border-color var(--apexstock-as-ease);
+}
+
+/* Lock the drawing-tool icon size centrally (the authority over the inline SVG
+   width/height), so the glyphs read at a comfortable size in the 32px button. */
+.apexstock-drawing-tool svg {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .apexstock-drawing-tool:hover {

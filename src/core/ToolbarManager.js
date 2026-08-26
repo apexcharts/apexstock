@@ -42,7 +42,7 @@ class ToolbarManager {
     // Clean, consistent monochrome SVG icons (stroke = currentColor, so they
     // adapt to the active theme). Feather/Lucide-style line icons.
     const icon = (paths) =>
-      `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
+      `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
 
     // Define all possible tools
     const allTools = [
