@@ -1,8 +1,13 @@
 import Utils from "../utils/Utils";
+import ThemePresets from "./ThemePresets";
 /**
  * ThemeManager.js
  * Handles theme management for ApexStock charts
  */
+
+// Inline `--apx-*` family custom properties a preset drives on the container.
+// Tracked so switching from a preset back to a plain mode clears them.
+const APX_PROPS = ["--apx-accent", "--apx-surface", "--apx-fore", "--apx-grid"];
 
 export default class ThemeManager {
   /**
@@ -13,6 +18,9 @@ export default class ThemeManager {
   constructor(ctx, initialTheme = "light") {
     this.ctx = ctx;
     this.themeStylesApplied = false;
+    /** Active preset def ({@link ThemePresets}), or null for a plain mode. */
+    this.preset = null;
+    this.presetName = null;
     this.initColorSchemes();
     this.setTheme(initialTheme || "light");
   }
@@ -23,8 +31,80 @@ export default class ThemeManager {
       themeName = "light";
     }
 
+    // A plain mode clears any active preset.
+    this.preset = null;
+    this.presetName = null;
     this.theme = themeName;
     this.isDarkTheme = themeName === "dark";
+  }
+
+  /**
+   * Apply a named preset (or a resolved def). Sets the base mode from the
+   * preset so all `isDarkTheme` logic keeps working; the preset then overrides
+   * the chart colors ({@link getChartConfig}) and chrome tokens
+   * ({@link applyThemeStyles}).
+   * @param {string|object} nameOrDef
+   * @returns {boolean} false if a name was given but is unknown.
+   */
+  applyPreset(nameOrDef) {
+    const def = ThemePresets.resolve(nameOrDef);
+    if (!def) {
+      Utils.warn(`Unknown theme preset: ${nameOrDef}`);
+      return false;
+    }
+    this.preset = def;
+    this.presetName = typeof nameOrDef === "string" ? nameOrDef : null;
+    this.theme = def.mode;
+    this.isDarkTheme = def.mode === "dark";
+    return true;
+  }
+
+  /** @returns {string|null} the active preset name, or null for a plain mode. */
+  getPreset() {
+    return this.presetName;
+  }
+
+  /**
+   * Write the current theme's chart colors (candlestick, grid, axis labels,
+   * background) into a chart-options object in place. This is the source of
+   * truth for `mainChartOptions`: at construction and on every theme change,
+   * `updateTheme` re-applies `Utils.extend(themeConfig, mainChartOptions)` with
+   * `mainChartOptions` winning, so a preset's colors must live here or they are
+   * overridden. For a plain mode it writes the exact built-in defaults, so
+   * switching a preset off restores the original appearance with no drift.
+   * @param {object} options - The chart-options object to mutate.
+   * @returns {object} the same object.
+   */
+  syncChartOptionsToTheme(options) {
+    if (!options) return options;
+    const p = this.preset;
+    const dark = this.isDarkTheme;
+    const up = p ? p.up : dark ? "#26A69A" : "#00B746";
+    const down = p ? p.down : dark ? "#EF5350" : "#EF403C";
+    const grid = p ? p.grid : dark ? "#404040" : "#e9ecef";
+    const axis = p ? p.axis : dark ? "#e0e0e0" : "#333";
+
+    options.chart = options.chart || {};
+    if (p) options.chart.background = p.background;
+    else delete options.chart.background;
+
+    options.plotOptions = options.plotOptions || {};
+    options.plotOptions.candlestick = options.plotOptions.candlestick || {};
+    options.plotOptions.candlestick.colors = { upward: up, downward: down };
+
+    options.grid = options.grid || {};
+    options.grid.borderColor = grid;
+
+    const applyAxis = (ax) => {
+      if (!ax || typeof ax !== "object") return;
+      ax.labels = ax.labels || {};
+      ax.labels.style = ax.labels.style || {};
+      ax.labels.style.colors = axis;
+    };
+    if (Array.isArray(options.yaxis)) options.yaxis.forEach(applyAxis);
+    else applyAxis(options.yaxis);
+
+    return options;
   }
 
   getTheme() {
@@ -36,7 +116,22 @@ export default class ThemeManager {
   }
 
   getColors() {
-    return this.colorSchemes[this.theme];
+    const base = this.colorSchemes[this.theme];
+    if (!this.preset) return base;
+    // A preset re-tints the semantic price-line roles so they match its
+    // candles/accent; the indicator palette stays the base-mode one.
+    const p = this.preset;
+    return {
+      ...base,
+      tradingOverlays: {
+        ...base.tradingOverlays,
+        buy: p.up,
+        takeProfit: p.up,
+        sell: p.down,
+        stopLoss: p.down,
+        order: p.accent,
+      },
+    };
   }
 
   /**
@@ -185,6 +280,20 @@ export default class ThemeManager {
     );
     chartContainer.classList.add(`apexstock-theme-${this.theme}`);
 
+    // Drive (or clear) the preset's chrome tokens on the container. Setting the
+    // `--apx-*` family here lets the toolbar/dropdown/legend/tooltip follow the
+    // preset through the existing token cascade (THEMING.md) with no per-element
+    // styling. A plain mode removes them so the built-in defaults return.
+    if (this.preset) {
+      const p = this.preset;
+      chartContainer.style.setProperty("--apx-accent", p.accent);
+      chartContainer.style.setProperty("--apx-surface", p.background);
+      chartContainer.style.setProperty("--apx-fore", p.axis);
+      chartContainer.style.setProperty("--apx-grid", p.grid);
+    } else {
+      APX_PROPS.forEach((prop) => chartContainer.style.removeProperty(prop));
+    }
+
     const colors = this.getColors();
     if (toolbar) {
       toolbar.style.backgroundColor = colors.toolbar.background;
@@ -302,7 +411,8 @@ export default class ThemeManager {
    * @returns {Object} Theme-specific chart configuration
    */
   getChartConfig() {
-    return {
+    const p = this.preset;
+    const config = {
       chart: {
         theme: {
           mode: this.theme,
@@ -312,24 +422,27 @@ export default class ThemeManager {
         theme: this.theme,
       },
       grid: {
-        borderColor: this.isDarkTheme ? "#505D66" : "#e9ecef",
+        borderColor: p ? p.grid : this.isDarkTheme ? "#505D66" : "#e9ecef",
         strokeDashArray: 3,
       },
       yaxis: {
         labels: {
           style: {
-            colors: this.isDarkTheme ? "#e0e0e0" : "#333",
+            colors: p ? p.axis : this.isDarkTheme ? "#e0e0e0" : "#333",
           },
         },
       },
       plotOptions: {
         candlestick: {
           colors: {
-            upward: this.isDarkTheme ? "#26A69A" : "#00B746",
-            downward: this.isDarkTheme ? "#EF5350" : "#EF403C",
+            upward: p ? p.up : this.isDarkTheme ? "#26A69A" : "#00B746",
+            downward: p ? p.down : this.isDarkTheme ? "#EF5350" : "#EF403C",
           },
         },
       },
     };
+    // A preset also tints the plot background (subtle for the light pack).
+    if (p) config.chart.background = p.background;
+    return config;
   }
 }

@@ -108,7 +108,7 @@ describe("ApexStock#getState", () => {
   it("captures a v2 shape with theme, chartType, indicators, drawings, zoom", () => {
     const s = inst.getState();
     expect(s.version).toBe(ApexStock.STATE_VERSION);
-    expect(s.theme).toEqual({ mode: "light" });
+    expect(s.theme).toEqual({ mode: "light", preset: null });
     expect(s.chartType).toBe("candlestick");
     expect(s.indicators).toEqual([]);
     expect(s.drawings).toEqual([]);

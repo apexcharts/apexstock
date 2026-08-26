@@ -81,6 +81,10 @@ export default class StateSerializer {
       version: VERSION,
       theme: {
         mode: typeof ctx.getTheme === "function" ? ctx.getTheme() : "light",
+        preset:
+          typeof ctx.getThemePreset === "function"
+            ? ctx.getThemePreset()
+            : null,
       },
       chartType:
         (ctx.chartSwitch && ctx.chartSwitch.currentType) || "candlestick",
@@ -114,14 +118,21 @@ export default class StateSerializer {
     if (!state || typeof state !== "object") return;
     const s = StateSerializer.migrate(state);
 
-    // Theme.
-    if (
-      s.theme &&
-      s.theme.mode &&
-      typeof ctx.getTheme === "function" &&
-      s.theme.mode !== ctx.getTheme()
-    ) {
-      ctx.updateTheme(s.theme.mode);
+    // Theme. A `preset` (named look) takes precedence over the plain `mode`;
+    // with no preset we ensure the plain mode (which also clears any live
+    // preset). `setThemePreset` / `updateTheme` are no-ops when already there.
+    if (s.theme) {
+      const wantPreset = s.theme.preset || null;
+      const wantMode = s.theme.mode || "light";
+      const curPreset =
+        typeof ctx.getThemePreset === "function" ? ctx.getThemePreset() : null;
+      const curMode =
+        typeof ctx.getTheme === "function" ? ctx.getTheme() : "light";
+      if (wantPreset && typeof ctx.setThemePreset === "function") {
+        if (wantPreset !== curPreset) ctx.setThemePreset(wantPreset);
+      } else if (typeof ctx.updateTheme === "function") {
+        if (wantMode !== curMode || curPreset) ctx.updateTheme(wantMode);
+      }
     }
 
     // Chart type.

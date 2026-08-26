@@ -20,6 +20,7 @@ import EventEmitter from "./core/EventEmitter";
 import StateSerializer from "./core/StateSerializer";
 import PriceScale from "./core/PriceScale";
 import ThemeManager from "./core/ThemeManager";
+import ThemePresets from "./core/ThemePresets";
 import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
@@ -209,10 +210,18 @@ export default class ApexStock {
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
-    // Initialize theme manager
-    const themeName =
-      (chartOptions.theme && chartOptions.theme.mode) || "light";
+    // Initialize theme manager. A `theme.preset` selects a named preset (which
+    // carries its own base mode); otherwise `theme.mode` picks plain light/dark.
+    const themeOpt = (chartOptions && chartOptions.theme) || {};
+    const themeName = themeOpt.mode || "light";
     this.themeManager = new ThemeManager(this, themeName);
+    if (themeOpt.preset != null) {
+      if (!this.themeManager.applyPreset(themeOpt.preset)) {
+        Utils.warn(
+          `Unknown theme preset "${themeOpt.preset}"; using "${themeName}".`
+        );
+      }
+    }
 
     this.theme = this.themeManager.getTheme();
     this.isDarkTheme = this.theme === "dark";
@@ -368,6 +377,11 @@ export default class ApexStock {
     // ApexCharts one; drop it so it never reaches the ApexCharts config.
     delete this.mainChartOptions.priceScale;
 
+    // Bake the active theme's chart colors (candles/grid/axis/background) into
+    // mainChartOptions so the initial render and every later theme change paint
+    // the preset (or the exact mode defaults when there is no preset).
+    this.themeManager.syncChartOptionsToTheme(this.mainChartOptions);
+
     this.sanitizeTheme(this.mainChartOptions);
 
     this.chart = new this._ApexCharts(this.mainChartDiv, this.mainChartOptions);
@@ -471,6 +485,25 @@ export default class ApexStock {
    */
   static registerIndicator(name, def) {
     return IndicatorHandlers.register(name, def);
+  }
+
+  /**
+   * Register (or override) a named theme preset globally, usable on any instance
+   * via `theme: { preset: name }` or `setThemePreset(name)`. A preset builds on
+   * a base `mode` ("light" | "dark") and overrides a small set of colors:
+   * `{ mode, up, down, grid, axis, background, accent }` (missing keys are
+   * backfilled from the base mode).
+   * @param {string} name
+   * @param {import("./core/ThemePresets.js").ThemePreset} def
+   * @returns {object|null} the stored preset def, or null on invalid input.
+   */
+  static registerTheme(name, def) {
+    return ThemePresets.register(name, def);
+  }
+
+  /** @returns {string[]} all known theme preset names (built-in + registered). */
+  static getThemePresets() {
+    return ThemePresets.names();
   }
 
   /**
@@ -1155,9 +1188,15 @@ export default class ApexStock {
       if (!updatedOptions.plotOptions.candlestick)
         updatedOptions.plotOptions.candlestick = {};
 
+      // Preset up/down when a preset is active, else the mode defaults.
+      const preset = this.themeManager.preset;
       updatedOptions.plotOptions.candlestick.colors = {
-        upward: this.isDarkTheme ? "#26A69A" : "#00B746",
-        downward: this.isDarkTheme ? "#EF5350" : "#EF403C",
+        upward: preset ? preset.up : this.isDarkTheme ? "#26A69A" : "#00B746",
+        downward: preset
+          ? preset.down
+          : this.isDarkTheme
+          ? "#EF5350"
+          : "#EF403C",
       };
     }
 
@@ -2840,7 +2879,9 @@ export default class ApexStock {
       return;
     }
 
-    if (this.theme === newTheme) return;
+    // No-op only when already on that plain mode (a preset shares a base mode,
+    // so switching from a preset to its mode must still clear the preset).
+    if (this.theme === newTheme && !this.themeManager.getPreset()) return;
 
     // Collapse comparison to a single axis before the series-replacing
     // updateOptions below; rebuilt (with re-read theme colors) afterwards.
@@ -2848,9 +2889,49 @@ export default class ApexStock {
     if (cmpActive) this.comparison.suspend();
 
     this.themeManager.setTheme(newTheme);
+    this._applyThemeChange(cmpActive);
+  }
+
+  /**
+   * Switch to a named theme preset (a curated look layered on light/dark; see
+   * `ApexStock.getThemePresets()` for the built-ins, `ApexStock.registerTheme`
+   * to add your own). The preset carries its own base mode.
+   * @param {string} name
+   * @returns {this}
+   */
+  setThemePreset(name) {
+    if (!ThemePresets.has(name)) {
+      Utils.warn(`Unknown theme preset: ${name}`);
+      return this;
+    }
+    const cmpActive = this.comparison && this.comparison.isActive();
+    if (cmpActive) this.comparison.suspend();
+
+    this.themeManager.applyPreset(name);
+    this._applyThemeChange(cmpActive);
+    return this;
+  }
+
+  /** @returns {string|null} the active theme preset name, or null for a plain mode. */
+  getThemePreset() {
+    return this.themeManager.getPreset();
+  }
+
+  /**
+   * Shared theme-change application for {@link updateTheme} and
+   * {@link setThemePreset}: sync mainChartOptions colors, restyle the chrome,
+   * push the config, and rebuild indicators/overlays for the new palette.
+   * @param {boolean} cmpActive - Whether comparison was active (and suspended).
+   * @private
+   */
+  _applyThemeChange(cmpActive) {
     this.theme = this.themeManager.getTheme();
     this.isDarkTheme = this.theme === "dark";
     this.colors = this.themeManager.getColors();
+
+    // Keep mainChartOptions' baked colors in sync so the extend below (which
+    // lets mainChartOptions win) applies the new theme/preset palette.
+    this.themeManager.syncChartOptionsToTheme(this.mainChartOptions);
     this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
 
     // Get theme configuration with preserved axis settings
@@ -2891,25 +2972,24 @@ export default class ApexStock {
       this.applyZoomToAllCharts(zoomState);
     }
 
-    // Update zoom controls theme (guarded: the control restyles via CSS theme
-    // classes and may not expose updateTheme).
+    // Sub-controls only understand the base mode.
+    const mode = this.theme;
     if (
       this.zoomControls &&
       typeof this.zoomControls.updateTheme === "function"
     ) {
-      this.zoomControls.updateTheme(newTheme);
+      this.zoomControls.updateTheme(mode);
     }
 
-    // Update ChartSwitch theme
     if (
       this.chartSwitch &&
       typeof this.chartSwitch.updateTheme === "function"
     ) {
-      this.chartSwitch.updateTheme(newTheme);
+      this.chartSwitch.updateTheme(mode);
     }
 
     if (this.oscillatorSettings) {
-      this.oscillatorSettings.updateTheme(newTheme);
+      this.oscillatorSettings.updateTheme(mode);
     }
   }
 

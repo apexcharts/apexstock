@@ -178,7 +178,8 @@
  * functions), safe to `JSON.stringify`.
  * @typedef {Object} ApexStockState
  * @property {number} version - Schema version (see `ApexStock.STATE_VERSION`).
- * @property {{mode: ThemeMode}} theme - Theme mode.
+ * @property {{mode: ThemeMode, preset?: string|null}} theme - Theme mode, and the
+ *   active named preset (or null for a plain mode).
  * @property {string} chartType - Active chart type (e.g. "candlestick", "heikinashi", "renko", "line", "area", "ohlc").
  * @property {IndicatorState[]} indicators - Active indicators, in application order.
  * @property {object[]} drawings - Data-space drawings (v2+), each a plain-JSON
