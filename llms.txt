@@ -49,7 +49,7 @@ Events:
 - `on(name, handler)` / `off(name, handler)` / `once(name, handler)` / `emit(name, payload)`. `on` returns an unsubscribe function. Event names below.
 
 State (serialization / layout persistence):
-- `getState()`: returns a versioned plain-JSON snapshot (theme, chart type, indicators+params, zoom, drawings, event markers, annotations, trading price lines). `setState(state)`: restore it. `ApexStock.STATE_VERSION`, `ApexStock.migrateState(old)` (static).
+- `getState()`: returns a versioned plain-JSON snapshot (theme, chart type, indicators+params, zoom, drawings, event markers, annotations, trading price lines, price-scale mode). `setState(state)`: restore it. `ApexStock.STATE_VERSION`, `ApexStock.migrateState(old)` (static).
 
 Visible range:
 - `getVisibleRange()` -> `{ min, max } | null`. `setVisibleRange(min, max)`: zoom/pan to a window (fires `rangeChange`).
@@ -73,6 +73,9 @@ Data legend (on-chart OHLC readout, opt-in):
 
 Comparison mode (multi-symbol on a secondary y-axis):
 - `addComparison({ name, data, color? })` (data is `[{x,y}]` closes or full OHLC), `removeComparison(name)`, `clearComparisons()`, `getComparisons()`. `setComparisonMode("percent" | "absolute")` / `getComparisonMode()`. `"percent"` (default) indexes each series to its first point.
+
+Price scale (primary y-axis):
+- `setPriceScale(mode, opts?)` / `getPriceScale()` -> `{ mode, base, logBase, indexBase }`. `mode`: `"linear"` (default), `"logarithmic"` (opts `logBase`, default 10), `"percent"` (% change from `opts.base` or the first bar's close), `"indexed"` (index where the baseline = `opts.indexBase`, default 100). Also settable at construction via `priceScale: { mode, base?, logBase?, indexBase? }`. `percent`/`indexed` only relabel the axis (affine), so indicators, drawings, annotations, and price lines stay in true price space. Fires `priceScaleChange`; captured by `getState()`.
 
 Export:
 - `export({ format: "png" | "svg" | "pdf" | "csv" | "json", scale?, range?, includeVolume?, raw?, pretty?, download?, filename? })` -> `Promise<{ format, blob, url, text?, fallback? }>`. The unified entry point: image/pdf honor `scale`; data formats honor `range`/`includeVolume`/`raw`/`pretty` and also return `text`. `pdf` is a single-page document embedding the chart raster (no external PDF library). `png` falls back to `svg` (`fallback: true`) on browsers that block raster capture.
@@ -107,6 +110,7 @@ Subscribe with `chart.on(name, handler)`:
 - `indicatorToggle`: an indicator was added or removed. Payload `{ key, active }`.
 - `drawingAdded` / `drawingUpdated`: a drawing was added or patched. Payload `{ id, drawing }`. `drawingRemoved`: payload `{ id }`. `drawingsCleared`: payload `{}`.
 - `eventMarkerAdded` / `eventMarkerUpdated`: an event marker was added or patched. Payload `{ id, marker }`. `eventMarkerRemoved`: payload `{ id }`. `eventMarkersCleared`: payload `{}`. `eventMarkerHover` / `eventMarkerClick`: pointer interaction with a marker. Payload `{ id, marker, nativeEvent }`.
+- `priceScaleChange`: the primary price-axis scale mode changed. Payload `{ mode, base, logBase, indexBase }`.
 
 ## Indicators (keys, case-insensitive)
 
@@ -131,5 +135,6 @@ React (`react-apexstock`), Vue 3 (`vue-apexstock`), Angular (`ngx-apexstock`). E
 ## Notes
 
 - Comparison mode uses a secondary y-axis; ApexStock rebuilds the multi-axis binding safely around any series mutation.
-- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, drawings, event markers, annotations, and trading price lines (schema v2). Price lines are captured as declarative config only; their callbacks (`onCross`/`onMove`/`onRemove`) are not serializable and are re-bound by the consumer after `setState`.
+- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, drawings, event markers, annotations, trading price lines, and the price-scale mode (schema v2). Price lines are captured as declarative config only; their callbacks (`onCross`/`onMove`/`onRemove`) are not serializable and are re-bound by the consumer after `setState`.
 - Percent comparison and indexed baselines use each series' first data point as the baseline.
+- Price scale `percent`/`indexed` modes are affine relabelings of the price axis (no data-space transform), so indicators, drawings, annotations, and price lines are unaffected; only `logarithmic` changes the gridline distribution.

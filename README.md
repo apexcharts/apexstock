@@ -14,6 +14,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Drawing Tools**: Interactive mouse toolbar plus a programmatic, price/time-anchored `addDrawing()` API (trend lines, rays, levels, zones)
 - **Event Markers**: Time-anchored earnings/dividend/split/news flags on the x-axis with hover cards via `addEventMarker()`
 - **Data Legend**: On-chart OHLC + change + volume + indicator readout that tracks the crosshair via `showLegend()`
+- **Price Scale Modes**: Linear, logarithmic, percent, and indexed primary-axis scaling via `setPriceScale()`
 - **Theme Support**: Light and dark theme modes with seamless switching
 - **Zoom Controls**: Interactive zoom and pan functionality
 - **Export Capabilities**: One `export({ format })` API for PNG, SVG, PDF, CSV, and JSON
@@ -604,6 +605,7 @@ off(); // stop listening
 | `drawingAdded` / `drawingUpdated` | `{ id, drawing }` | A programmatic drawing is added or patched. `drawingRemoved` fires `{ id }`; `drawingsCleared` fires `{}`. |
 | `eventMarkerAdded` / `eventMarkerUpdated` | `{ id, marker }` | An event marker is added or patched. `eventMarkerRemoved` fires `{ id }`; `eventMarkersCleared` fires `{}`. |
 | `eventMarkerHover` / `eventMarkerClick` | `{ id, marker, nativeEvent }` | The pointer enters or clicks a marker badge. |
+| `priceScaleChange` | `{ mode, base, logBase, indexBase }` | The primary price-axis scale mode changes (`setPriceScale`). |
 
 `emit(name, payload)` is also exposed so you can bridge your own events through
 the same bus. All subscriptions are dropped automatically on `destroy()`.
@@ -646,14 +648,15 @@ apexStock.setState(saved);
   priceLines: [                   // trading price lines (declarative config; no callbacks)
     { type: "stop-loss", price: 96, draggable: true }
   ],
+  priceScale: { mode: "logarithmic", base: null, logBase: 10, indexBase: 100 }, // or null (default linear)
   zoom: { minX: 1577836800000, maxX: 1580515200000 } // visible x-range, or null
 }
 ```
 
 `setState(state)` reconciles the live chart to that snapshot: it switches theme
 and chart type, adds/removes indicators (restoring their params), keeps the
-toolbar selection in sync, restores the drawings, event markers, annotations, and
-price lines, and restores the zoom. It accepts any supported version (older
+toolbar selection in sync, restores the drawings, event markers, annotations,
+price lines, and price-scale mode, and restores the zoom. It accepts any supported version (older
 states are migrated automatically; `ApexStock.migrateState(state)` does the same
 up-front). Call `setState` after `render()`.
 
@@ -788,6 +791,46 @@ Comparisons persist across zoom, theme changes, chart-type switches, indicator
 toggles, and `appendData`. The compared instrument's data is supplied by you
 (ApexStock does not fetch it); pass `[{x, y}]` closes or full OHLC bars (the
 close is used).
+
+## Price scale modes
+
+Control how the **primary price axis** is scaled and labelled, the way analysts
+expect from a price-scale menu:
+
+```javascript
+apexStock.setPriceScale("linear");                  // raw price, evenly spaced (default)
+apexStock.setPriceScale("logarithmic");             // log-distributed price axis
+apexStock.setPriceScale("logarithmic", { logBase: 2 });
+apexStock.setPriceScale("percent");                 // % change from the first bar
+apexStock.setPriceScale("percent", { base: 100 });  // ...or from an explicit baseline
+apexStock.setPriceScale("indexed");                 // index where the baseline = 100
+apexStock.setPriceScale("indexed", { indexBase: 1000 });
+
+apexStock.getPriceScale(); // -> { mode, base, logBase, indexBase }
+```
+
+Or set it up front:
+
+```javascript
+new ApexStock(el, {
+  chart: { height: 460 },
+  series: [{ name: "AAPL", data }],
+  priceScale: { mode: "logarithmic" },
+});
+```
+
+- **`linear`** and **`logarithmic`** change how price is *distributed* on the
+  axis (log makes equal percentage moves look equal). Logarithmic is delegated
+  to ApexCharts' native log axis.
+- **`percent`** and **`indexed`** are affine relabelings of price, so they leave
+  the gridlines where they are and only change the labels. Because nothing is
+  transformed in *data* space, your indicators, drawings, annotations, and
+  trading price lines stay in true price space and are completely unaffected.
+
+The mode persists across theme changes, chart-type switches, and `appendData`
+(the percent/indexed baseline is recomputed from the current first bar), is
+captured by `getState()`, and fires a `priceScaleChange` event. This is distinct
+from comparison mode's `percent`, which normalizes *overlaid instruments*.
 
 ## Annotations (data-space)
 

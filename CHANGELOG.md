@@ -11,6 +11,17 @@ those are called out explicitly below.
 
 ### Added
 
+- **Primary price-scale modes: `setPriceScale(mode, opts?)` / `getPriceScale()`,
+  plus a `priceScale` construction option.** Four modes for the price y-axis:
+  `linear` (default), `logarithmic` (native log axis, optional `logBase`),
+  `percent` (% change from the first bar or an explicit `base`), and `indexed`
+  (index where the baseline = `indexBase`, default 100). `percent` and `indexed`
+  are affine relabelings of the axis, so indicators, drawings, annotations, and
+  trading price lines stay in true price space and are unaffected; only
+  `logarithmic` changes the gridline distribution. The mode persists across
+  theme/chart-type switches and `appendData` (the baseline is recomputed from the
+  current first bar), is captured by `getState()` (schema v2 gains `priceScale`),
+  and emits a `priceScaleChange` event. See `examples/price-scale.html`.
 - **Unified `export({ format })` API** over `png` / `svg` / `pdf` / `csv` /
   `json`, returning a `Promise` of a consistent `{ format, blob, url }` (plus
   `text` for data formats). Folds the existing `exportImage` (still available) and

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Price Scale Modes</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 { text-align: center; margin: 0 0 4px; }
+      p.lead { text-align: center; color: #667085; margin: 0 auto 16px; max-width: 820px; }
+      .wrap { max-width: 1040px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(16,24,40,0.08); padding: 12px; margin-bottom: 14px; }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+      button { padding: 7px 12px; border: 1px solid #d0d5dd; border-radius: 7px; background: #fff; cursor: pointer; font-size: 13px; }
+      button:hover { background: #f8fafc; }
+      button.active { background: #111827; color: #fff; border-color: #111827; }
+      #status { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #344054; }
+    </style>
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <h1>ApexStock &bull; Price Scale Modes</h1>
+    <p class="lead">
+      One <code>setPriceScale(mode)</code> API. <b>Linear</b> and
+      <b>logarithmic</b> change how price is distributed; <b>percent</b> and
+      <b>indexed</b> only relabel the axis (% change / index from the first bar),
+      so indicators and drawings stay in true price space.
+    </p>
+
+    <div class="wrap">
+      <div class="row">
+        <button data-mode="linear" class="active">Linear</button>
+        <button data-mode="logarithmic">Logarithmic</button>
+        <button data-mode="percent">Percent</button>
+        <button data-mode="indexed">Indexed (100)</button>
+        <span id="status">Scale: linear</span>
+      </div>
+      <div class="card"><div id="chart"></div></div>
+    </div>
+
+    <script>
+      // Multiplicatively growing series, so linear vs logarithmic is obvious.
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2020, 0, 1);
+        let last = 20;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const drift = 1 + (n - 0.35) * 0.06; // upward bias, compounding
+          const o = last;
+          const c = +(o * drift).toFixed(2);
+          const h = +(Math.max(o, c) * (1 + n * 0.03)).toFixed(2);
+          const l = +(Math.min(o, c) * (1 - n * 0.03)).toFixed(2);
+          data.push({ x: base + i * 7 * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      const chart = new ApexStock(document.querySelector("#chart"), {
+        chart: { height: 460, animations: { enabled: false } },
+        theme: { mode: "light" },
+        series: [{ name: "GROWTHCO", data: generateData(180) }],
+      });
+      chart.render();
+      chart.updateIndicator("moving average");
+
+      const status = document.getElementById("status");
+      const buttons = document.querySelectorAll("button[data-mode]");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const mode = btn.getAttribute("data-mode");
+          chart.setPriceScale(mode);
+          buttons.forEach((b) => b.classList.toggle("active", b === btn));
+        });
+      });
+
+      chart.on("priceScaleChange", (s) => {
+        status.textContent =
+          "Scale: " + s.mode +
+          (s.mode === "logarithmic" ? " (base " + s.logBase + ")" : "") +
+          (s.mode === "indexed" ? " (index " + s.indexBase + ")" : "");
+      });
+    </script>
+  </body>
+</html>
