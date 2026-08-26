@@ -1,6 +1,6 @@
 # ApexStock
 
-> ApexStock is a commercial financial charting library built on ApexCharts. It renders OHLC/candlestick, heikin-ashi, renko, line, area, and column stock charts with technical indicators, drawing tools, trading price lines, data-space annotations, event markers, multi-symbol comparison, real-time streaming, theming, and image/data export. It is designed for embedding charts into web apps (SaaS, FinTech, dashboards), not as a standalone trading terminal.
+> ApexStock is a commercial financial charting library built on ApexCharts. It renders OHLC/candlestick, heikin-ashi, renko, line, area, and column stock charts with technical indicators, drawing tools, trading price lines, data-space annotations, event markers, an on-chart data legend, multi-symbol comparison, real-time streaming, theming, and image/data export. It is designed for embedding charts into web apps (SaaS, FinTech, dashboards), not as a standalone trading terminal.
 
 Key facts an integrator (or agent) needs:
 
@@ -67,6 +67,9 @@ Drawings (price/time-anchored shapes that reproject through zoom/pan; drawn with
 Event markers (time-anchored flags on the x-axis, distinct from annotations and drawings):
 - `addEventMarker(config)` where `config` is `{ x, type?, label?, color?, glyph?, position?, meta? }`. `x` is a timestamp/date/category; `type` is `"earnings" | "dividend" | "split" | "news" | "custom"` (default `"custom"`, each with a default glyph + color); `label` is the hover-card title; `glyph` overrides the badge text (1 to 3 chars); `position` is `"bottom"` (default) or `"top"`. Rendered on an HTML overlay that reprojects through zoom/pan and hides markers scrolled off the visible range. Returns the marker id.
 - `updateEventMarker(id, patch)`, `removeEventMarker(id)`, `clearEventMarkers()`, `getEventMarker(id)`, `getEventMarkers()`. Hovering a marker shows a card and fires `eventMarkerHover`; clicking fires `eventMarkerClick`. Markers are captured by `getState()` and restored by `setState()`.
+
+Data legend (on-chart OHLC readout, opt-in):
+- Enable at construction with `legend: { show: true, position?, showChange?, showVolume?, showIndicators? }`, or imperatively with `showLegend(opts?)` / `hideLegend()` / `toggleLegend()` / `isLegendVisible()`. A corner panel (position `"top-left"|"top-right"|"bottom-left"|"bottom-right"`) reads out the instrument's OHLC + change (vs the previous close) + volume at the crosshair (falling back to the latest bar), plus each main-chart overlay indicator's value. It is `pointer-events:none` and updates via the `crosshairMove` event.
 
 Comparison mode (multi-symbol on a secondary y-axis):
 - `addComparison({ name, data, color? })` (data is `[{x,y}]` closes or full OHLC), `removeComparison(name)`, `clearComparisons()`, `getComparisons()`. `setComparisonMode("percent" | "absolute")` / `getComparisonMode()`. `"percent"` (default) indexes each series to its first point.

@@ -11,6 +11,15 @@ those are called out explicitly below.
 
 ### Added
 
+- **On-chart data legend: `showLegend` / `hideLegend` / `toggleLegend` /
+  `isLegendVisible`, plus a `legend` construction option.** A corner panel that
+  reads out the instrument's OHLC, change (vs the previous close), and volume at
+  the crosshair (falling back to the latest bar), plus the value of each
+  main-chart overlay indicator. Tracks the pointer via the `crosshairMove` event,
+  stays in sync as indicators toggle, and is `pointer-events:none` so it never
+  intercepts chart interaction. Configurable `position`
+  (`top-left`/`top-right`/`bottom-left`/`bottom-right`), `showChange`,
+  `showVolume`, `showIndicators`. See `examples/data-legend.html`.
 - **`getState()` / `setState()` now persist annotations and trading price lines**
   (schema v2 gains `annotations` and `priceLines`). Combined with the drawings
   and event markers already captured, a saved state now round-trips the full set

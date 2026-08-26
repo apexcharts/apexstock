@@ -13,6 +13,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
 - **Drawing Tools**: Interactive mouse toolbar plus a programmatic, price/time-anchored `addDrawing()` API (trend lines, rays, levels, zones)
 - **Event Markers**: Time-anchored earnings/dividend/split/news flags on the x-axis with hover cards via `addEventMarker()`
+- **Data Legend**: On-chart OHLC + change + volume + indicator readout that tracks the crosshair via `showLegend()`
 - **Theme Support**: Light and dark theme modes with seamless switching
 - **Zoom Controls**: Interactive zoom and pan functionality
 - **Export Capabilities**: Export charts as images
@@ -862,6 +863,41 @@ Markers emit `eventMarkerAdded` / `eventMarkerUpdated` / `eventMarkerRemoved` /
 `eventMarkersCleared`, plus `eventMarkerHover` / `eventMarkerClick`
 (`{ id, marker, nativeEvent }`), and are captured by `getState()` /
 `setState()`. See [examples/event-markers.html](examples/event-markers.html).
+
+## Data legend (OHLC readout)
+
+The data legend is a small panel pinned in a corner of the price chart that reads
+out the instrument's OHLC, change (vs the previous close), and volume at the
+crosshair, plus the value of each main-chart overlay indicator. It tracks the
+pointer (via the `crosshairMove` event) and falls back to the latest bar when the
+pointer leaves the plot. The panel is `pointer-events:none`, so it never
+intercepts chart interaction.
+
+Enable it at construction with the `legend` option, or imperatively:
+
+```js
+// At construction
+const chart = new ApexStock(el, {
+  series: [{ name: "AAPL", data }],
+  legend: { show: true, position: "top-left" },
+});
+
+// Or imperatively (chainable)
+chart.showLegend({ position: "top-right" });
+chart.hideLegend();
+chart.toggleLegend();          // returns the new visibility
+chart.isLegendVisible();
+```
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `show` | `false` | Show the legend. |
+| `position` | `"top-left"` | `"top-left"` / `"top-right"` / `"bottom-left"` / `"bottom-right"`. |
+| `showChange` | `true` | Include the change (absolute + percent) vs the previous close. |
+| `showVolume` | `true` | Include a volume row. |
+| `showIndicators` | `true` | Include main-chart overlay indicator values. |
+
+See [examples/data-legend.html](examples/data-legend.html).
 
 ## Drawings (programmatic, price/time-anchored)
 
