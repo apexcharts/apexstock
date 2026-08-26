@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock Price Scale Fixture</title>
+    <style>
+      body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #fff; }
+      #chart { width: 900px; }
+    </style>
+    <script src="/apexcharts-js/dist/apexcharts.js"></script>
+    <script src="/apexstock/dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div id="chart"></div>
+
+    <script>
+      // Multiplicatively growing series so log vs linear actually differ.
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2020, 0, 1);
+        let last = 20;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const drift = 1 + (n - 0.35) * 0.06;
+          const o = last;
+          const c = +(o * drift).toFixed(2);
+          const h = +(Math.max(o, c) * (1 + n * 0.03)).toFixed(2);
+          const l = +(Math.min(o, c) * (1 - n * 0.03)).toFixed(2);
+          data.push({ x: base + i * 7 * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      window.__ready = false;
+      window.__scaleEvents = [];
+      document.addEventListener("DOMContentLoaded", function () {
+        const chart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 380, animations: { enabled: false }, redrawOnParentResize: false },
+          theme: { mode: "light" },
+          series: [{ name: "GROWTHCO", data: generateData(160) }],
+        });
+        chart.render();
+        chart.updateIndicator("moving average");
+        chart.on("priceScaleChange", (s) => window.__scaleEvents.push(s));
+        window.__chart = chart;
+
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            window.__ready = true;
+          })
+        );
+      });
+    </script>
+  </body>
+</html>

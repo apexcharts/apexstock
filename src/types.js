@@ -83,7 +83,9 @@
  *   `eventMarkersCleared` fires with `{}`. `eventMarkerHover` /
  *   `eventMarkerClick` fire with `{ id, marker, nativeEvent }` on pointer
  *   interaction with a marker badge.
- * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick"} ApexStockEventName
+ * - `priceScaleChange` fires with `{ mode, base, logBase, indexBase }` when the
+ *   primary price-axis scale mode changes.
+ * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange"} ApexStockEventName
  */
 
 /**
@@ -187,6 +189,8 @@
  *   bands, points, and text records.
  * @property {object[]} priceLines - Trading price lines (v2+), declarative config
  *   only; interactive callbacks (`onCross`/`onMove`/`onRemove`) are not captured.
+ * @property {{mode: "linear"|"logarithmic"|"percent"|"indexed", base: number|null, logBase: number, indexBase: number}|null} priceScale
+ *   - Primary price-axis scale mode (v2+), or null for the default linear scale.
  * @property {{minX: number, maxX: number}|null} zoom - Visible x-range, or null for full/auto.
  */
 

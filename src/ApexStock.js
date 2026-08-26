@@ -18,6 +18,7 @@ import XAxis from "./components/XAxis";
 import Legend from "./components/Legend";
 import EventEmitter from "./core/EventEmitter";
 import StateSerializer from "./core/StateSerializer";
+import PriceScale from "./core/PriceScale";
 import ThemeManager from "./core/ThemeManager";
 import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
@@ -192,6 +193,10 @@ export default class ApexStock {
     this.annotations = new Annotations(this);
     // Comparison instruments (multi-symbol overlay on a secondary y-axis).
     this.comparison = new Comparison(this);
+    // Primary price-axis scale mode (linear / logarithmic / percent / indexed).
+    // Re-asserted after comparison in every reapply chain so it patches the
+    // right primary axis when a comparison secondary axis is present.
+    this.priceScale = new PriceScale(this);
     // Programmatic, data-space drawings (trend/ray/level lines, zones). A facade
     // over the drawing layer; buffered before render(), flushed by reapply().
     this.drawings = new Drawings(this);
@@ -358,6 +363,10 @@ export default class ApexStock {
     // legend off so a user `legend` config (e.g. position "top-left", which
     // ApexCharts rejects) never leaks through the merge above.
     this.mainChartOptions.legend = { show: false };
+
+    // `priceScale` is an ApexStock option (consumed by PriceScale), not an
+    // ApexCharts one; drop it so it never reaches the ApexCharts config.
+    delete this.mainChartOptions.priceScale;
 
     this.sanitizeTheme(this.mainChartOptions);
 
@@ -957,6 +966,9 @@ export default class ApexStock {
     this.annotations.reapply();
     // Draw any comparison instruments added before render().
     this.comparison.reapply();
+    // Apply the configured price-scale mode (after comparison so it patches the
+    // correct primary axis).
+    this.priceScale.reapply();
     // Flush any drawings added before the drawing layer existed.
     this.drawings.reapply();
     // Draw any event markers added before render().
@@ -1173,6 +1185,8 @@ export default class ApexStock {
     this.tradingOverlays.reapply();
     this.annotations.reapply();
     if (cmpActive) this.comparison.reapply();
+    // Re-assert the price-scale mode for the rebuilt axis.
+    this.priceScale.reapply();
     // Reposition event markers for the new axis geometry.
     this.eventMarkers.reapply();
     // Re-establish the data legend for the new geometry/theme.
@@ -1264,6 +1278,7 @@ export default class ApexStock {
     if (this.tradingOverlays) safe(() => this.tradingOverlays.destroy());
     if (this.annotations) safe(() => this.annotations.destroy());
     if (this.comparison) safe(() => this.comparison.destroy());
+    if (this.priceScale) safe(() => this.priceScale.destroy());
     if (this.drawings) safe(() => this.drawings.destroy());
     if (this.eventMarkers) safe(() => this.eventMarkers.destroy());
     if (this.legend) safe(() => this.legend.destroy());
@@ -2421,6 +2436,37 @@ export default class ApexStock {
   }
 
   /**
+   * Set the primary price-axis scale mode. Purely an axis presentation change:
+   * indicators, drawings, annotations, and trading price lines stay in true
+   * price space and are unaffected.
+   *
+   * - `"linear"` — raw price, evenly spaced (default).
+   * - `"logarithmic"` — log-distributed price axis; `opts.logBase` (default 10).
+   * - `"percent"` — labelled as % change from a baseline (`opts.base`, default
+   *   the first data point's close).
+   * - `"indexed"` — labelled as an index where the baseline = `opts.indexBase`
+   *   (default 100).
+   *
+   * Fires `priceScaleChange`.
+   *
+   * @param {"linear"|"logarithmic"|"percent"|"indexed"} mode
+   * @param {{base?:number|null, logBase?:number, indexBase?:number}} [opts]
+   * @returns {this}
+   */
+  setPriceScale(mode, opts) {
+    this.priceScale.setMode(mode, opts);
+    return this;
+  }
+
+  /**
+   * @returns {{mode:"linear"|"logarithmic"|"percent"|"indexed", base:number|null, logBase:number, indexBase:number}}
+   *   the current price-scale configuration.
+   */
+  getPriceScale() {
+    return this.priceScale.get();
+  }
+
+  /**
    * Add, remove, or reconfigure a technical indicator, preserving zoom state.
    *
    * - `updateIndicator(key)` — **toggles** the indicator on/off.
@@ -2829,6 +2875,8 @@ export default class ApexStock {
     this.tradingOverlays.reapply();
     this.annotations.reapply();
     if (cmpActive) this.comparison.reapply();
+    // Re-assert the price-scale mode (re-read theme axis colors keep it intact).
+    this.priceScale.reapply();
     // Reposition event markers for the new axis geometry.
     this.eventMarkers.reapply();
     // Re-establish the data legend with the new theme palette.

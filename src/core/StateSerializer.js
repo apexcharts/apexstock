@@ -10,9 +10,10 @@
  * `drawings` (the full data-space drawing set: trend/ray/level lines, zones, and
  * any mouse-drawn shapes), `eventMarkers` (time-anchored earnings/dividend/split/
  * news/custom flags), `annotations` (data-space y/x lines, bands, points, text),
- * and `priceLines` (trading order/stop/take-profit/alert lines). The result is
- * plain JSON (no functions), safe to `JSON.stringify` and persist per
- * user/workspace.
+ * `priceLines` (trading order/stop/take-profit/alert lines), and `priceScale`
+ * (the primary-axis mode: linear/logarithmic/percent/indexed, or null for the
+ * default linear scale). The result is plain JSON (no functions), safe to
+ * `JSON.stringify` and persist per user/workspace.
  *
  * Price lines carry non-serializable interactive callbacks (`onCross`/`onMove`/
  * `onRemove`); only their declarative config is captured, so a consumer that
@@ -71,6 +72,11 @@ export default class StateSerializer {
         ? ctx.tradingOverlays._serialize()
         : [];
 
+    const priceScale =
+      ctx.priceScale && typeof ctx.priceScale._serialize === "function"
+        ? ctx.priceScale._serialize()
+        : null;
+
     return {
       version: VERSION,
       theme: {
@@ -83,6 +89,7 @@ export default class StateSerializer {
       eventMarkers,
       annotations,
       priceLines,
+      priceScale,
       zoom:
         zoom && Number.isFinite(zoom.minX) && Number.isFinite(zoom.maxX)
           ? { minX: zoom.minX, maxX: zoom.maxX }
@@ -187,6 +194,12 @@ export default class StateSerializer {
         Array.isArray(s.priceLines) ? s.priceLines : []
       );
     }
+
+    // Primary price-axis scale mode. A null snapshot resets to linear. Restored
+    // last so the theme/chart-type rebuilds above cannot clobber it.
+    if (ctx.priceScale && typeof ctx.priceScale._restore === "function") {
+      ctx.priceScale._restore(s.priceScale || null);
+    }
   }
 
   /**
@@ -207,6 +220,7 @@ export default class StateSerializer {
         eventMarkers: [],
         annotations: [],
         priceLines: [],
+        priceScale: null,
         zoom: null,
       };
     }
@@ -223,6 +237,9 @@ export default class StateSerializer {
     if (!Array.isArray(s.eventMarkers)) s.eventMarkers = [];
     if (!Array.isArray(s.annotations)) s.annotations = [];
     if (!Array.isArray(s.priceLines)) s.priceLines = [];
+    // `priceScale` arrived in the v2 line too; a scalar object or null (default
+    // linear). Normalize anything non-object to null.
+    if (typeof s.priceScale !== "object") s.priceScale = null;
     // Newer-than-known versions pass through best-effort.
     s.version = VERSION;
     return s;

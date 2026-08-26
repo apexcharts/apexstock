@@ -70,6 +70,7 @@ describe("StateSerializer.migrate", () => {
       eventMarkers: [],
       annotations: [],
       priceLines: [],
+      priceScale: null,
       zoom: null,
     });
     expect(StateSerializer.migrate(42).version).toBe(2);
@@ -89,6 +90,7 @@ describe("StateSerializer.migrate", () => {
     expect(s.eventMarkers).toEqual([]); // v1 -> v2 backfill
     expect(s.annotations).toEqual([]); // v1 -> v2 backfill
     expect(s.priceLines).toEqual([]); // v1 -> v2 backfill
+    expect(s.priceScale).toBeNull(); // v1 -> v2 backfill (default linear)
   });
 });
 
@@ -113,6 +115,7 @@ describe("ApexStock#getState", () => {
     expect(s.eventMarkers).toEqual([]);
     expect(s.annotations).toEqual([]);
     expect(s.priceLines).toEqual([]);
+    expect(s.priceScale).toBeNull();
     expect(s.zoom).toEqual({ minX: 0, maxX: 59 });
   });
 
@@ -229,6 +232,36 @@ describe("ApexStock#setState (integration)", () => {
       price: 120,
       label: "target",
     });
+  });
+
+  it("round-trips the price-scale mode into a fresh instance", () => {
+    inst.setPriceScale("logarithmic", { logBase: 2 });
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+    expect(state.priceScale).toEqual({
+      mode: "logarithmic",
+      base: null,
+      logBase: 2,
+      indexBase: 100,
+    });
+
+    const inst2 = makeInstance();
+    inst2.render();
+    inst2.setState(state);
+
+    expect(inst2.getPriceScale()).toEqual({
+      mode: "logarithmic",
+      base: null,
+      logBase: 2,
+      indexBase: 100,
+    });
+  });
+
+  it("restores a linear price scale when the state has none", () => {
+    inst.setPriceScale("percent");
+    expect(inst.getPriceScale().mode).toBe("percent");
+    // A state with no priceScale (e.g. captured before v2) resets to linear.
+    inst.setState({ version: 2, theme: { mode: "light" }, chartType: "candlestick" });
+    expect(inst.getPriceScale().mode).toBe("linear");
   });
 
   it("reconciles to exactly the state's indicator set", () => {
