@@ -15,6 +15,7 @@ import EventMarkers from "./overlays/EventMarkers";
 import { registerDrawingTool as _registerDrawingTool } from "./tools/drawing/DrawingToolRegistry";
 import ChartSync from "./core/ChartSync";
 import XAxis from "./components/XAxis";
+import Legend from "./components/Legend";
 import EventEmitter from "./core/EventEmitter";
 import StateSerializer from "./core/StateSerializer";
 import ThemeManager from "./core/ThemeManager";
@@ -197,6 +198,9 @@ export default class ApexStock {
     // Time-anchored event markers (earnings/dividends/splits/news/custom) drawn
     // on an HTML overlay; reprojected on zoom/pan and rebuilt on re-render.
     this.eventMarkers = new EventMarkers(this);
+    // On-chart data legend (OHLC + change + volume + overlay indicator values at
+    // the crosshair). Opt-in via options.legend or showLegend().
+    this.legend = new Legend(this);
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -348,6 +352,12 @@ export default class ApexStock {
       },
       newChartOptions
     );
+
+    // ApexStock's own data legend (see Legend.js) replaces ApexCharts' native
+    // legend, and `options.legend` configures IT. Force the native ApexCharts
+    // legend off so a user `legend` config (e.g. position "top-left", which
+    // ApexCharts rejects) never leaks through the merge above.
+    this.mainChartOptions.legend = { show: false };
 
     this.sanitizeTheme(this.mainChartOptions);
 
@@ -951,6 +961,8 @@ export default class ApexStock {
     this.drawings.reapply();
     // Draw any event markers added before render().
     this.eventMarkers.reapply();
+    // Show the data legend if enabled via options.legend.
+    this.legend.reapply();
   }
 
   /**
@@ -1163,6 +1175,8 @@ export default class ApexStock {
     if (cmpActive) this.comparison.reapply();
     // Reposition event markers for the new axis geometry.
     this.eventMarkers.reapply();
+    // Re-establish the data legend for the new geometry/theme.
+    this.legend.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
@@ -1252,6 +1266,7 @@ export default class ApexStock {
     if (this.comparison) safe(() => this.comparison.destroy());
     if (this.drawings) safe(() => this.drawings.destroy());
     if (this.eventMarkers) safe(() => this.eventMarkers.destroy());
+    if (this.legend) safe(() => this.legend.destroy());
     if (this.drawingTools && typeof this.drawingTools.destroy === "function") {
       safe(() => this.drawingTools.destroy());
     }
@@ -2273,6 +2288,40 @@ export default class ApexStock {
   }
 
   /**
+   * Show the on-chart data legend: a corner panel that reads out the
+   * instrument's OHLC, change, and volume at the crosshair (falling back to the
+   * latest bar), plus the value of each main-chart overlay indicator. The panel
+   * is `pointer-events:none` and updates live via the `crosshairMove` event.
+   *
+   * @param {import("./components/Legend.js").LegendOptions} [opts]
+   *   `{ position?, showVolume?, showChange?, showIndicators? }`.
+   * @returns {ApexStock} this, for chaining.
+   */
+  showLegend(opts) {
+    this.legend.show(opts);
+    return this;
+  }
+
+  /** Hide the data legend. @returns {ApexStock} this, for chaining. */
+  hideLegend() {
+    this.legend.hide();
+    return this;
+  }
+
+  /**
+   * Toggle the data legend.
+   * @returns {boolean} the new visibility.
+   */
+  toggleLegend() {
+    return this.legend.toggle();
+  }
+
+  /** @returns {boolean} whether the data legend is currently shown. */
+  isLegendVisible() {
+    return this.legend.isVisible();
+  }
+
+  /**
    * Add a programmatic, data-space drawing: a trend line, ray, horizontal price
    * level, vertical time marker, or rectangle/zone, anchored to price/time so it
    * re-projects through zoom/pan/resize like a mouse-drawn shape. Drawings are
@@ -2714,6 +2763,8 @@ export default class ApexStock {
     if (cmpActive) this.comparison.reapply();
     // Reposition event markers for the new axis geometry.
     this.eventMarkers.reapply();
+    // Re-establish the data legend with the new theme palette.
+    this.legend.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;

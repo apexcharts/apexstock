@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock Data Legend Fixture</title>
+    <style>
+      body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #fff; }
+      #chart { width: 900px; }
+    </style>
+    <script src="/apexcharts-js/dist/apexcharts.js"></script>
+    <script src="/apexstock/dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div id="chart"></div>
+
+    <script>
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let last = 100;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 4).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      window.__ready = false;
+      document.addEventListener("DOMContentLoaded", function () {
+        const chart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 380, animations: { enabled: false }, redrawOnParentResize: false },
+          theme: { mode: "light" },
+          series: [{ name: "AAPL", data: generateData(120) }],
+          legend: { show: true, position: "top-left" },
+        });
+        chart.render();
+        // A main-chart overlay so the legend shows an indicator row.
+        chart.updateIndicator("moving average");
+        window.__chart = chart;
+
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            window.__ready = true;
+          })
+        );
+      });
+    </script>
+  </body>
+</html>
