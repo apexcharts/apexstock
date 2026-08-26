@@ -1,4 +1,5 @@
 import Utils from "../../utils/Utils";
+import { buildPdfFromJpeg } from "./PdfExport";
 /**
  * ApexStock Chart Export Functionality
  * This module adds a screenshot/export capability to ApexStock charts
@@ -378,8 +379,8 @@ export default class Export {
     });
   }
 
-  /** Stack PNG data URLs vertically onto one canvas and return a PNG Blob. */
-  _composite(dataUrls) {
+  /** Stack PNG data URLs vertically onto one opaque canvas. */
+  _compositeToCanvas(dataUrls) {
     return Promise.all(dataUrls.map((u) => this._loadImage(u))).then((imgs) => {
       const width = Math.max(...imgs.map((i) => i.width || 0), 1);
       const height = Math.max(
@@ -397,14 +398,79 @@ export default class Export {
         c2d.drawImage(img, 0, y);
         y += img.height || 0;
       }
-      return new Promise((resolve, reject) => {
-        canvas.toBlob(
-          (blob) =>
-            blob ? resolve(blob) : reject(new Error("canvas.toBlob returned null")),
-          "image/png",
-          this.options.quality
-        );
-      });
+      return canvas;
+    });
+  }
+
+  /** Stack PNG data URLs vertically onto one canvas and return a PNG Blob. */
+  _composite(dataUrls) {
+    return this._compositeToCanvas(dataUrls).then(
+      (canvas) =>
+        new Promise((resolve, reject) => {
+          canvas.toBlob(
+            (blob) =>
+              blob
+                ? resolve(blob)
+                : reject(new Error("canvas.toBlob returned null")),
+            "image/png",
+            this.options.quality
+          );
+        })
+    );
+  }
+
+  /**
+   * Rasterize the chart (main chart + oscillator panes) to a single canvas.
+   * @param {number} scale
+   * @returns {Promise<HTMLCanvasElement>}
+   */
+  rasterizeToCanvas(scale) {
+    const charts = [
+      this.ctx.chart,
+      ...Object.values(this.ctx.indicatorChartMap || {}),
+    ].filter((c) => c && typeof c.dataURI === "function");
+    if (!charts.length) {
+      return Promise.reject(new Error("dataURI() is unavailable"));
+    }
+    return Promise.all(
+      charts.map((c) =>
+        Promise.resolve(c.dataURI({ scale })).then((r) =>
+          r && r.imgURI ? r.imgURI : null
+        )
+      )
+    ).then((uris) => {
+      const valid = uris.filter(Boolean);
+      if (!valid.length) throw new Error("no rasterizable chart panes");
+      return this._compositeToCanvas(valid);
+    });
+  }
+
+  /**
+   * Export the chart as a single-page PDF: rasterize to a canvas, encode it as a
+   * JPEG, and embed that in a minimal PDF sized to the image (see
+   * {@link buildPdfFromJpeg}). Browser-only (needs canvas + `atob`).
+   *
+   * @param {Object} [options]
+   * @param {number} [options.scale] - Output scale (resolution multiplier).
+   * @param {boolean} [options.download] - Also trigger a file download.
+   * @param {string} [options.filename] - Download filename (extension added).
+   * @returns {Promise<{format:"pdf", blob: Blob, url: string}>}
+   */
+  capturePdf(options = {}) {
+    const scale = options.scale || this.options.scale || 1;
+    const download = !!options.download;
+    const baseName = options.filename || this.options.filename;
+    return this.rasterizeToCanvas(scale).then((canvas) => {
+      const jpegUrl = canvas.toDataURL("image/jpeg", this.options.quality || 0.92);
+      const base64 = jpegUrl.split(",")[1] || "";
+      const bin = atob(base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const pdf = buildPdfFromJpeg(bytes, canvas.width, canvas.height);
+      const blob = new Blob([pdf], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      if (download) this._triggerDownload(url, this._withExt(baseName, "pdf"));
+      return { format: "pdf", blob, url };
     });
   }
 

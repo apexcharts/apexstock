@@ -2627,6 +2627,82 @@ export default class ApexStock {
   }
 
   /**
+   * Lazily create the (headless) image/PDF exporter so programmatic export works
+   * even before/without render(). render() creates the button-bearing one.
+   * @returns {Export}
+   * @private
+   */
+  _ensureExporter() {
+    if (!this.exporter) {
+      this.exporter = new Export(this, {
+        filename: "my-stock-chart.png",
+        button: false,
+      });
+    }
+    return this.exporter;
+  }
+
+  /**
+   * Unified export: one entry point for every output format, returning a Promise
+   * of a consistent result. Image formats (`png`/`svg`) and `pdf` resolve with a
+   * `Blob` + object `url`; data formats (`csv`/`json`) resolve with the same plus
+   * the serialized `text`. `png` falls back to `svg` on browsers that block
+   * raster capture (flagged `fallback: true`). Pass `download: true` to also save
+   * a file.
+   *
+   * @param {Object} [options]
+   * @param {"png"|"svg"|"pdf"|"csv"|"json"} [options.format="png"]
+   * @param {number} [options.scale] - Image/PDF resolution multiplier.
+   * @param {"all"|"visible"} [options.range] - Data range (csv/json).
+   * @param {boolean} [options.includeVolume] - Volume column (csv/json).
+   * @param {boolean} [options.raw] - Raw `x` instead of ISO time (csv/json).
+   * @param {boolean} [options.pretty] - Pretty-print JSON.
+   * @param {boolean} [options.download] - Also trigger a file download.
+   * @param {string} [options.filename] - Download filename (extension added).
+   * @returns {Promise<{format:string, blob: Blob, url: string, text?: string, fallback?: boolean}>}
+   */
+  export(options = {}) {
+    const format = String(options.format || "png").toLowerCase();
+
+    if (format === "csv" || format === "json") {
+      const text = this.exportData({ ...options, format, download: false });
+      const mime = format === "json" ? "application/json" : "text/csv";
+      let blob = null;
+      let url = null;
+      try {
+        blob = new Blob([text], { type: `${mime};charset=utf-8` });
+        if (typeof URL !== "undefined" && URL.createObjectURL) {
+          url = URL.createObjectURL(blob);
+        }
+      } catch {
+        /* non-DOM environment: return the text only */
+      }
+      if (options.download) {
+        this._downloadText(
+          text,
+          options.filename || `apexstock-export.${format}`,
+          mime
+        );
+      }
+      return Promise.resolve({ format, text, blob, url });
+    }
+
+    if (format === "png" || format === "svg") {
+      return this.exportImage({ ...options, format });
+    }
+
+    if (format === "pdf") {
+      return this._ensureExporter().capturePdf(options);
+    }
+
+    return Promise.reject(
+      new Error(
+        `export: unsupported format "${format}". Use "png", "svg", "pdf", "csv", or "json".`
+      )
+    );
+  }
+
+  /**
    * Export the OHLC data as CSV or JSON text (for a "download data" button,
    * reporting, or persistence). Columns: `time, open, high, low, close[,
    * volume]`; `time` is ISO-8601 for numeric timestamps (pass `{ raw: true }`
@@ -2692,15 +2768,7 @@ export default class ApexStock {
    * @returns {Promise<{format:"png"|"svg", blob: Blob, url: string, fallback?: boolean}>}
    */
   exportImage(options = {}) {
-    if (!this.exporter) {
-      // render() creates the button-bearing exporter; make a headless one so
-      // programmatic export works even before/without render().
-      this.exporter = new Export(this, {
-        filename: "my-stock-chart.png",
-        button: false,
-      });
-    }
-    return this.exporter.capture(options);
+    return this._ensureExporter().capture(options);
   }
 
   /** Trigger a browser download of text content. @private */
