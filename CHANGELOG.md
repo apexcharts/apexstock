@@ -11,6 +11,17 @@ those are called out explicitly below.
 
 ### Added
 
+- **Event markers / timeline: `addEventMarker` / `updateEventMarker` /
+  `removeEventMarker` / `clearEventMarkers` / `getEventMarker` /
+  `getEventMarkers`.** Time-anchored flags (`earnings` / `dividend` / `split` /
+  `news` / `custom`, each with a default glyph + color) that float along the
+  x-axis with a hover card. Drawn on a lightweight HTML overlay that reprojects
+  through zoom/pan and hides markers scrolled off the visible range. Configurable
+  `label`, `color`, `glyph`, `position` (`"top"` / `"bottom"`), and `meta`. Emits
+  `eventMarkerAdded` / `eventMarkerUpdated` / `eventMarkerRemoved` /
+  `eventMarkersCleared`, plus `eventMarkerHover` / `eventMarkerClick`. Markers are
+  captured by `getState()` and restored by `setState()` (state schema v2 gains an
+  `eventMarkers` field). See `examples/event-markers.html`.
 - **Cross-chart synchronization: `ApexStock.sync(instances, { zoom?, crosshair? })`.**
   Links independent ApexStock instances so panning/zooming one mirrors the
   visible range to the others, and a crosshair on one draws a vertical guide at

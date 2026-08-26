@@ -7,11 +7,12 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Multiple Chart Types**: Candlestick, line, area, heikinashi, ohlc, etc
 - **Technical Indicators**: 20+ built-in indicators including RSI, MACD, Bollinger Bands, and more
 - **Real-time Streaming**: Incremental `appendData()` updates price, indicators, and panes without a full rebuild
-- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, `indicatorToggle`, and drawing lifecycle events via `on()` / `off()` / `once()`
-- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, zoom, and drawings to portable JSON
+- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, `indicatorToggle`, and drawing/marker lifecycle events via `on()` / `off()` / `once()`
+- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, zoom, drawings, and event markers to portable JSON
 - **Custom Indicators**: Register your own indicators (overlay or oscillator, with optional live streaming) via `ApexStock.registerIndicator()`
 - **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
 - **Drawing Tools**: Interactive mouse toolbar plus a programmatic, price/time-anchored `addDrawing()` API (trend lines, rays, levels, zones)
+- **Event Markers**: Time-anchored earnings/dividend/split/news flags on the x-axis with hover cards via `addEventMarker()`
 - **Theme Support**: Light and dark theme modes with seamless switching
 - **Zoom Controls**: Interactive zoom and pan functionality
 - **Export Capabilities**: Export charts as images
@@ -599,6 +600,9 @@ off(); // stop listening
 | `click` | same as `crosshairMove` | The price chart is clicked. |
 | `rangeChange` | `{ min, max, source }` | The visible x-range changes. `source` is `"zoom"`, `"pan"`, or `"reset"`. |
 | `indicatorToggle` | `{ key, active }` | An indicator is added (`active: true`) or removed (`active: false`). |
+| `drawingAdded` / `drawingUpdated` | `{ id, drawing }` | A programmatic drawing is added or patched. `drawingRemoved` fires `{ id }`; `drawingsCleared` fires `{}`. |
+| `eventMarkerAdded` / `eventMarkerUpdated` | `{ id, marker }` | An event marker is added or patched. `eventMarkerRemoved` fires `{ id }`; `eventMarkersCleared` fires `{}`. |
+| `eventMarkerHover` / `eventMarkerClick` | `{ id, marker, nativeEvent }` | The pointer enters or clicks a marker badge. |
 
 `emit(name, payload)` is also exposed so you can bridge your own events through
 the same bus. All subscriptions are dropped automatically on `destroy()`.
@@ -622,12 +626,18 @@ apexStock.setState(saved);
 
 ```javascript
 {
-  version: 1,
+  version: 2,
   theme: { mode: "light" },      // or "dark"
   chartType: "candlestick",       // active type (candlestick, heikinashi, renko, line, area, ohlc, ...)
   indicators: [                   // active indicators, in application order
     { key: "moving average", params: {} },
     { key: "rsi", params: { period: 14 } }
+  ],
+  drawings: [                     // data-space drawings (trend/ray/level lines, zones, ...)
+    { type: "line", x1: 1577836800000, y1: 130, x2: 1580515200000, y2: 145, /* ... */ }
+  ],
+  eventMarkers: [                 // time-anchored event markers
+    { x: 1577836800000, type: "earnings", label: "Q1 earnings" }
   ],
   zoom: { minX: 1577836800000, maxX: 1580515200000 } // visible x-range, or null
 }
@@ -635,13 +645,14 @@ apexStock.setState(saved);
 
 `setState(state)` reconciles the live chart to that snapshot: it switches theme
 and chart type, adds/removes indicators (restoring their params), keeps the
-toolbar selection in sync, and restores the zoom. It accepts any supported
-version (older states are migrated automatically; `ApexStock.migrateState(state)`
-does the same up-front). Call `setState` after `render()`.
+toolbar selection in sync, restores the drawings and event markers, and restores
+the zoom. It accepts any supported version (older states are migrated
+automatically; `ApexStock.migrateState(state)` does the same up-front). Call
+`setState` after `render()`.
 
-Not captured in v1: drawings and trading price lines (they carry
-non-serializable callbacks and land in a later version). Persist those
-separately via `getPriceLines()` if you need them today.
+Not yet captured: trading price lines and annotations (they carry
+non-serializable callbacks/renderers and land in a later schema version).
+Persist those separately via `getPriceLines()` if you need them today.
 
 ## Real-time Streaming (`appendData`)
 
@@ -809,6 +820,42 @@ apexStock.clearAnnotations(); // removes only annotations added this way
 Common fields: `label`/`text`, `color`, `fillColor`, `opacity`, `textColor`,
 `strokeDashArray`, `width`, `labelPosition`, `marker`, `meta`, and a stable
 `id` (auto-generated when omitted).
+
+## Event markers (timeline)
+
+Event markers are time-anchored flags (earnings, dividends, splits, news, or
+custom) that float along the x-axis with a hover card. Unlike annotations (which
+render through native ApexCharts annotations), markers are drawn on a lightweight
+HTML overlay, so they carry a rich card and fire hover/click events. They
+reproject as you zoom and pan, hide when their `x` scrolls off the visible range,
+and persist across `update()`, theme changes, and chart-type switches.
+
+```js
+chart.addEventMarker({ x: Date.UTC(2024, 1, 1), type: "earnings", label: "Q1 earnings" });
+chart.addEventMarker({ x: Date.UTC(2024, 2, 15), type: "dividend", label: "Dividend $0.24" });
+chart.addEventMarker({ x: Date.UTC(2024, 3, 10), type: "news", label: "Product launch", position: "top" });
+
+chart.on("eventMarkerClick", ({ marker }) => console.log("clicked", marker.label));
+```
+
+`addEventMarker(config)` returns the marker id; `updateEventMarker(id, patch)`,
+`removeEventMarker(id)`, `clearEventMarkers()`, `getEventMarker(id)`, and
+`getEventMarkers()` round out the API.
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `x` | (required) | Anchor time: timestamp, `Date`, or category. |
+| `type` | `"custom"` | `"earnings"` / `"dividend"` / `"split"` / `"news"` / `"custom"`; sets the default glyph + color. |
+| `label` | type name | Hover-card title. |
+| `color` | from `type` | Badge color. |
+| `glyph` | from `type` | Badge text (1 to 3 chars). |
+| `position` | `"bottom"` | `"bottom"` (near the x-axis) or `"top"`. |
+| `meta` | | Arbitrary payload, returned by `getEventMarker(s)`. |
+
+Markers emit `eventMarkerAdded` / `eventMarkerUpdated` / `eventMarkerRemoved` /
+`eventMarkersCleared`, plus `eventMarkerHover` / `eventMarkerClick`
+(`{ id, marker, nativeEvent }`), and are captured by `getState()` /
+`setState()`. See [examples/event-markers.html](examples/event-markers.html).
 
 ## Drawings (programmatic, price/time-anchored)
 

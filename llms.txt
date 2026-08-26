@@ -1,6 +1,6 @@
 # ApexStock
 
-> ApexStock is a commercial financial charting library built on ApexCharts. It renders OHLC/candlestick, heikin-ashi, renko, line, area, and column stock charts with technical indicators, drawing tools, trading price lines, data-space annotations, multi-symbol comparison, real-time streaming, theming, and image/data export. It is designed for embedding charts into web apps (SaaS, FinTech, dashboards), not as a standalone trading terminal.
+> ApexStock is a commercial financial charting library built on ApexCharts. It renders OHLC/candlestick, heikin-ashi, renko, line, area, and column stock charts with technical indicators, drawing tools, trading price lines, data-space annotations, event markers, multi-symbol comparison, real-time streaming, theming, and image/data export. It is designed for embedding charts into web apps (SaaS, FinTech, dashboards), not as a standalone trading terminal.
 
 Key facts an integrator (or agent) needs:
 
@@ -64,6 +64,10 @@ Drawings (price/time-anchored shapes that reproject through zoom/pan; drawn with
 - `addDrawing(config)` where `type` is `"trendline" | "ray" | "horizontalLine" | "verticalLine" | "rectangle" | "fibRetracement" | "fibExtension" | "measure"` (aliases: `line`, `hline`, `vline`, `zone`) and `points` is an array of `{x, y}` in data space (trendline/ray/rectangle/fib/measure need two points; horizontalLine uses the first point's `y`; verticalLine uses its `x`). Optional `color`, `width`, `fill`, `fillOpacity`, `dashArray`, `locked`, `visible`, `meta`; `snap` (`true` or `"open"|"high"|"low"|"close"`) snaps points to bar OHLC values; `levels`/`showLabels` tune the fib types; `upColor`/`downColor`/`showLabel` tune measure (which labels the price change, percent change, and bar count). Returns the drawing id.
 - `updateDrawing(id, patch)`, `removeDrawing(id)`, `clearDrawings()`, `getDrawing(id)`, `getDrawings()`. `getDrawings()` also reports shapes drawn with the mouse toolbar (brush/highlighter/circle/ellipse/text). Drawings are captured by `getState()` and restored by `setState()`.
 
+Event markers (time-anchored flags on the x-axis, distinct from annotations and drawings):
+- `addEventMarker(config)` where `config` is `{ x, type?, label?, color?, glyph?, position?, meta? }`. `x` is a timestamp/date/category; `type` is `"earnings" | "dividend" | "split" | "news" | "custom"` (default `"custom"`, each with a default glyph + color); `label` is the hover-card title; `glyph` overrides the badge text (1 to 3 chars); `position` is `"bottom"` (default) or `"top"`. Rendered on an HTML overlay that reprojects through zoom/pan and hides markers scrolled off the visible range. Returns the marker id.
+- `updateEventMarker(id, patch)`, `removeEventMarker(id)`, `clearEventMarkers()`, `getEventMarker(id)`, `getEventMarkers()`. Hovering a marker shows a card and fires `eventMarkerHover`; clicking fires `eventMarkerClick`. Markers are captured by `getState()` and restored by `setState()`.
+
 Comparison mode (multi-symbol on a secondary y-axis):
 - `addComparison({ name, data, color? })` (data is `[{x,y}]` closes or full OHLC), `removeComparison(name)`, `clearComparisons()`, `getComparisons()`. `setComparisonMode("percent" | "absolute")` / `getComparisonMode()`. `"percent"` (default) indexes each series to its first point.
 
@@ -98,6 +102,7 @@ Subscribe with `chart.on(name, handler)`:
 - `rangeChange`: visible x-range changed. Payload `{ min, max, source }` where `source` is `"zoom" | "pan" | "reset"`.
 - `indicatorToggle`: an indicator was added or removed. Payload `{ key, active }`.
 - `drawingAdded` / `drawingUpdated`: a drawing was added or patched. Payload `{ id, drawing }`. `drawingRemoved`: payload `{ id }`. `drawingsCleared`: payload `{}`.
+- `eventMarkerAdded` / `eventMarkerUpdated`: an event marker was added or patched. Payload `{ id, marker }`. `eventMarkerRemoved`: payload `{ id }`. `eventMarkersCleared`: payload `{}`. `eventMarkerHover` / `eventMarkerClick`: pointer interaction with a marker. Payload `{ id, marker, nativeEvent }`.
 
 ## Indicators (keys, case-insensitive)
 
@@ -122,5 +127,5 @@ React (`react-apexstock`), Vue 3 (`vue-apexstock`), Angular (`ngx-apexstock`). E
 ## Notes
 
 - Comparison mode uses a secondary y-axis; ApexStock rebuilds the multi-axis binding safely around any series mutation.
-- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, and drawings (schema v2). Annotation and trading-price-line persistence is planned.
+- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, drawings, and event markers (schema v2). Annotation and trading-price-line persistence is planned.
 - Percent comparison and indexed baselines use each series' first data point as the baseline.
