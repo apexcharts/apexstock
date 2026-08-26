@@ -80,6 +80,7 @@ Theme:
 - `ApexStock.setApexCharts(ctor)`: register the ApexCharts constructor app-wide (bundler-friendly).
 - `ApexStock.registerIndicator(name, def)`: register a custom indicator.
 - `ApexStock.registerDrawingTool(name, def)`: register a custom data-space drawing type (`def.render(data, helpers) -> SVGElement`, optional `defaults`). Afterwards `addDrawing({ type: name, points, ... })` creates it; it reprojects, drags, and serializes like a built-in. Register again after reload for serialized custom drawings to re-render.
+- `ApexStock.sync(instances, { zoom?, crosshair? })`: link independent ApexStock instances so pan/zoom mirrors across them and a crosshair on one draws a guide at the same x on the others. Returns a handle with `disconnect()`. Built on the event bus + `setVisibleRange` (not ApexCharts' native `group`).
 - `ApexStock.aggregateOHLC(series, interval)` and `ApexStock.INTERVALS`: roll fine candles up to a coarser time frame.
 - Data adapters (produce the `{ x, y:[o,h,l,c], v? }` shape):
   - `ApexStock.normalize(rows, mapping?)`: array of objects or `[x,o,h,l,c,v]` tuples.

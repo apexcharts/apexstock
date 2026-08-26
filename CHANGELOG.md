@@ -9,6 +9,16 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Added
+
+- **Cross-chart synchronization: `ApexStock.sync(instances, { zoom?, crosshair? })`.**
+  Links independent ApexStock instances so panning/zooming one mirrors the
+  visible range to the others, and a crosshair on one draws a vertical guide at
+  the same x on the others. Returns a handle with `disconnect()`. Built on the
+  public event bus + `setVisibleRange` (not ApexCharts' native `group`), with
+  echo suppression so there is no feedback loop; the crosshair guide is a
+  lightweight per-chart DOM overlay positioned from each chart's own axis.
+
 ## [0.4.0] - 2026-08-10
 
 ### Changed

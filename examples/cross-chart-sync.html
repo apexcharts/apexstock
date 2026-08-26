@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Cross-chart Sync</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 { text-align: center; margin: 0 0 4px; }
+      p.lead { text-align: center; color: #667085; margin: 0 auto 16px; max-width: 760px; }
+      .wrap { max-width: 1040px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(16,24,40,0.08); padding: 12px; margin-bottom: 14px; }
+      .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+      button { padding: 7px 12px; border: 1px solid #d0d5dd; border-radius: 7px; background: #fff; cursor: pointer; font-size: 13px; }
+      button:hover { background: #f8fafc; }
+    </style>
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <h1>ApexStock &mdash; Cross-chart Sync</h1>
+    <p class="lead">
+      Two independent charts linked with <code>ApexStock.sync([a, b])</code>.
+      Zoom or pan either one and the other follows; hover one and a guide tracks
+      the same time on the other. Toggle the link to feel the difference.
+    </p>
+
+    <div class="wrap">
+      <div class="row">
+        <button id="toggle">Unlink</button>
+        <button id="reset">Reset zoom</button>
+        <span id="status" style="color:#667085;font-size:13px">linked (zoom + crosshair)</span>
+      </div>
+      <div class="card"><div id="chart-a"></div></div>
+      <div class="card"><div id="chart-b"></div></div>
+    </div>
+
+    <script>
+      function generateData(count, shift) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let last = 100 + (shift || 0);
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 4).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      const common = { chart: { height: 280, animations: { enabled: false } }, theme: { mode: "light" } };
+      const a = new ApexStock(document.querySelector("#chart-a"), {
+        ...common, series: [{ name: "AAPL", data: generateData(160, 0) }],
+      });
+      const b = new ApexStock(document.querySelector("#chart-b"), {
+        ...common, series: [{ name: "MSFT", data: generateData(160, 40) }],
+      });
+      a.render();
+      b.render();
+
+      let link = ApexStock.sync([a, b], { zoom: true, crosshair: true });
+      const status = document.getElementById("status");
+      const toggle = document.getElementById("toggle");
+
+      toggle.addEventListener("click", () => {
+        if (link) {
+          link.disconnect();
+          link = null;
+          toggle.textContent = "Link";
+          status.textContent = "unlinked (independent)";
+        } else {
+          link = ApexStock.sync([a, b], { zoom: true, crosshair: true });
+          toggle.textContent = "Unlink";
+          status.textContent = "linked (zoom + crosshair)";
+        }
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        const s = a.series;
+        if (s && s.length) a.setVisibleRange(s[0].x, s[s.length - 1].x);
+      });
+    </script>
+  </body>
+</html>

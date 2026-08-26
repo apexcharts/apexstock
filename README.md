@@ -919,6 +919,31 @@ built-in type name; pass `overwrite: true` to replace a previous registration.
 A serialized custom drawing re-renders after reload only if the tool has been
 registered again first.
 
+## Cross-chart synchronization
+
+Link independent ApexStock instances (e.g. a price chart above a separate
+indicator chart in a dashboard) so panning/zooming one mirrors to the others,
+and a crosshair on one draws a vertical guide at the same time on the others.
+
+```javascript
+const price = new ApexStock(document.querySelector("#price"), priceOptions);
+const rsi = new ApexStock(document.querySelector("#rsi"), rsiOptions);
+price.render();
+rsi.render();
+
+const link = ApexStock.sync([price, rsi], { zoom: true, crosshair: true });
+
+// later, to unlink:
+link.disconnect();
+```
+
+`ApexStock.sync(instances, options)` takes two or more rendered instances and
+returns a handle with `disconnect()`. Options: `zoom` (default true) mirrors the
+visible x-range, `crosshair` (default true) draws the guide, and `crosshairColor`
+overrides the guide color. It is built entirely on the public event bus and
+`setVisibleRange` (not ApexCharts' native `group`), so the charts remain
+independently constructed and the link can be added or removed at any time.
+
 ## Data adapters
 
 Your data rarely arrives in the `{ x, y: [open, high, low, close], v? }` shape.
