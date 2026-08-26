@@ -113,6 +113,36 @@
   align-items: center;
 }
 
+/* Custom toolbar items injected via addToolbarItem / toolbar.custom. Buttons
+ * also carry .apexstock-toolbar-button, which the theme layer recolors for
+ * light/dark; this rule is the shared layout/sizing. */
+.apexstock-toolbar-custom-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--apexstock-gap-sm);
+  min-height: var(--apexstock-button-size);
+  padding: 0 var(--apexstock-gap-md);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
+  background: transparent;
+  color: var(--apexstock-light-text);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background-color var(--apexstock-as-ease);
+}
+
+.apexstock-toolbar-custom-item svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.apexstock-toolbar-custom-item:hover {
+  background-color: var(--apexstock-light-hover);
+}
+
 /* ==============================
  * 3. Chart Type Dropdown
  * ============================== */

@@ -21,6 +21,7 @@ import StateSerializer from "./core/StateSerializer";
 import PriceScale from "./core/PriceScale";
 import ThemeManager from "./core/ThemeManager";
 import ThemePresets from "./core/ThemePresets";
+import Toolbar from "./core/Toolbar";
 import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
@@ -198,6 +199,9 @@ export default class ApexStock {
     // Re-asserted after comparison in every reapply chain so it patches the
     // right primary axis when a comparison secondary axis is present.
     this.priceScale = new PriceScale(this);
+    // Primary-toolbar customization: hide built-in sections + inject custom
+    // controls. Applied after render() populates the toolbar.
+    this.toolbar = new Toolbar(this);
     // Programmatic, data-space drawings (trend/ray/level lines, zones). A facade
     // over the drawing layer; buffered before render(), flushed by reapply().
     this.drawings = new Drawings(this);
@@ -373,9 +377,11 @@ export default class ApexStock {
     // ApexCharts rejects) never leaks through the merge above.
     this.mainChartOptions.legend = { show: false };
 
-    // `priceScale` is an ApexStock option (consumed by PriceScale), not an
-    // ApexCharts one; drop it so it never reaches the ApexCharts config.
+    // `priceScale` and `toolbar` are ApexStock options (consumed by PriceScale
+    // and Toolbar), not ApexCharts ones; drop them so they never reach the
+    // ApexCharts config.
     delete this.mainChartOptions.priceScale;
+    delete this.mainChartOptions.toolbar;
 
     // Bake the active theme's chart colors (candles/grid/axis/background) into
     // mainChartOptions so the initial render and every later theme change paint
@@ -1008,6 +1014,8 @@ export default class ApexStock {
     this.eventMarkers.reapply();
     // Show the data legend if enabled via options.legend.
     this.legend.reapply();
+    // Apply toolbar customization now that every built-in control exists.
+    this.toolbar.reapply();
   }
 
   /**
@@ -1318,6 +1326,7 @@ export default class ApexStock {
     if (this.annotations) safe(() => this.annotations.destroy());
     if (this.comparison) safe(() => this.comparison.destroy());
     if (this.priceScale) safe(() => this.priceScale.destroy());
+    if (this.toolbar) safe(() => this.toolbar.destroy());
     if (this.drawings) safe(() => this.drawings.destroy());
     if (this.eventMarkers) safe(() => this.eventMarkers.destroy());
     if (this.legend) safe(() => this.legend.destroy());
@@ -2915,6 +2924,32 @@ export default class ApexStock {
   /** @returns {string|null} the active theme preset name, or null for a plain mode. */
   getThemePreset() {
     return this.themeManager.getPreset();
+  }
+
+  /**
+   * Add (or replace, by `id`) a custom control in the primary toolbar. A button
+   * is created from `title`/`icon`/`html` with an `onClick(chart, event)`
+   * handler, or pass a ready-made `element`. `position` is `"left"` /
+   * `"left-start"` / `"right"` (default `"right"`); `order` sorts within a side.
+   * @param {import("./core/Toolbar.js").ToolbarItem} def
+   * @returns {string|null} the item id, or null on invalid input.
+   */
+  addToolbarItem(def) {
+    return this.toolbar.addItem(def);
+  }
+
+  /**
+   * Remove a custom toolbar item.
+   * @param {string} id
+   * @returns {boolean} false if no such item.
+   */
+  removeToolbarItem(id) {
+    return this.toolbar.removeItem(id);
+  }
+
+  /** @returns {Array<{id:string, title:string|undefined, position:string}>} custom toolbar items. */
+  getToolbarItems() {
+    return this.toolbar.getItems();
   }
 
   /**
