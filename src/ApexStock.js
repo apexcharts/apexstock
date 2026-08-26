@@ -12,6 +12,7 @@ import Annotations from "./overlays/Annotations";
 import Comparison from "./overlays/Comparison";
 import Drawings from "./overlays/Drawings";
 import { registerDrawingTool as _registerDrawingTool } from "./tools/drawing/DrawingToolRegistry";
+import ChartSync from "./core/ChartSync";
 import XAxis from "./components/XAxis";
 import EventEmitter from "./core/EventEmitter";
 import StateSerializer from "./core/StateSerializer";
@@ -463,6 +464,19 @@ export default class ApexStock {
    */
   static registerDrawingTool(name, def) {
     return _registerDrawingTool(name, def);
+  }
+
+  /**
+   * Link independent ApexStock instances so pan/zoom mirrors across them and a
+   * crosshair on one draws a guide at the same x on the others. Built on the
+   * event bus and `setVisibleRange` (not ApexCharts' native `group`), so the
+   * charts stay independent and can be unlinked.
+   * @param {ApexStock[]} instances - Two or more rendered instances.
+   * @param {import("./core/ChartSync.js").SyncOptions} [options]
+   * @returns {ChartSync} a handle with `disconnect()`.
+   */
+  static sync(instances, options) {
+    return new ChartSync(instances, options);
   }
 
   /**
