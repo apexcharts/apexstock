@@ -11,6 +11,13 @@ those are called out explicitly below.
 
 ### Added
 
+- **`getState()` / `setState()` now persist annotations and trading price lines**
+  (schema v2 gains `annotations` and `priceLines`). Combined with the drawings
+  and event markers already captured, a saved state now round-trips the full set
+  of on-chart overlays. Price lines are captured as declarative config only:
+  their interactive callbacks (`onCross` / `onMove` / `onRemove`) are not
+  serializable and are re-bound by the consumer after `setState` (e.g.
+  `updatePriceLine(id, { onCross })`). Older states migrate automatically.
 - **Event markers / timeline: `addEventMarker` / `updateEventMarker` /
   `removeEventMarker` / `clearEventMarkers` / `getEventMarker` /
   `getEventMarkers`.** Time-anchored flags (`earnings` / `dividend` / `split` /

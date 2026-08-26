@@ -639,20 +639,26 @@ apexStock.setState(saved);
   eventMarkers: [                 // time-anchored event markers
     { x: 1577836800000, type: "earnings", label: "Q1 earnings" }
   ],
+  annotations: [                  // data-space annotations (y/x lines, bands, points, text)
+    { type: "yLine", y: 130, label: "resistance" }
+  ],
+  priceLines: [                   // trading price lines (declarative config; no callbacks)
+    { type: "stop-loss", price: 96, draggable: true }
+  ],
   zoom: { minX: 1577836800000, maxX: 1580515200000 } // visible x-range, or null
 }
 ```
 
 `setState(state)` reconciles the live chart to that snapshot: it switches theme
 and chart type, adds/removes indicators (restoring their params), keeps the
-toolbar selection in sync, restores the drawings and event markers, and restores
-the zoom. It accepts any supported version (older states are migrated
-automatically; `ApexStock.migrateState(state)` does the same up-front). Call
-`setState` after `render()`.
+toolbar selection in sync, restores the drawings, event markers, annotations, and
+price lines, and restores the zoom. It accepts any supported version (older
+states are migrated automatically; `ApexStock.migrateState(state)` does the same
+up-front). Call `setState` after `render()`.
 
-Not yet captured: trading price lines and annotations (they carry
-non-serializable callbacks/renderers and land in a later schema version).
-Persist those separately via `getPriceLines()` if you need them today.
+Price lines are captured as declarative config only: their interactive callbacks
+(`onCross` / `onMove` / `onRemove`) are not serializable, so re-bind them after
+`setState` if you use them, e.g. `updatePriceLine(id, { onCross })`.
 
 ## Real-time Streaming (`appendData`)
 

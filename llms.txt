@@ -49,7 +49,7 @@ Events:
 - `on(name, handler)` / `off(name, handler)` / `once(name, handler)` / `emit(name, payload)`. `on` returns an unsubscribe function. Event names below.
 
 State (serialization / layout persistence):
-- `getState()`: returns a versioned plain-JSON snapshot (theme, chart type, indicators+params, zoom, drawings). `setState(state)`: restore it. `ApexStock.STATE_VERSION`, `ApexStock.migrateState(old)` (static).
+- `getState()`: returns a versioned plain-JSON snapshot (theme, chart type, indicators+params, zoom, drawings, event markers, annotations, trading price lines). `setState(state)`: restore it. `ApexStock.STATE_VERSION`, `ApexStock.migrateState(old)` (static).
 
 Visible range:
 - `getVisibleRange()` -> `{ min, max } | null`. `setVisibleRange(min, max)`: zoom/pan to a window (fires `rangeChange`).
@@ -127,5 +127,5 @@ React (`react-apexstock`), Vue 3 (`vue-apexstock`), Angular (`ngx-apexstock`). E
 ## Notes
 
 - Comparison mode uses a secondary y-axis; ApexStock rebuilds the multi-axis binding safely around any series mutation.
-- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, drawings, and event markers (schema v2). Annotation and trading-price-line persistence is planned.
+- `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, drawings, event markers, annotations, and trading price lines (schema v2). Price lines are captured as declarative config only; their callbacks (`onCross`/`onMove`/`onRemove`) are not serializable and are re-bound by the consumer after `setState`.
 - Percent comparison and indexed baselines use each series' first data point as the baseline.
