@@ -183,6 +183,10 @@
  *   geometry+style record; restored verbatim by `setState`.
  * @property {object[]} eventMarkers - Time-anchored event markers (v2+), each a
  *   plain-JSON `{ x, type, label?, color?, glyph?, position?, meta? }` record.
+ * @property {object[]} annotations - Data-space annotations (v2+): y/x lines,
+ *   bands, points, and text records.
+ * @property {object[]} priceLines - Trading price lines (v2+), declarative config
+ *   only; interactive callbacks (`onCross`/`onMove`/`onRemove`) are not captured.
  * @property {{minX: number, maxX: number}|null} zoom - Visible x-range, or null for full/auto.
  */
 

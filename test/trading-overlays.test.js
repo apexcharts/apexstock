@@ -390,3 +390,52 @@ describe("trading overlays — interactivity", () => {
     ).toBeCloseTo(137.5, 9);
   });
 });
+
+describe("trading overlays — serialization (_serialize / _restore)", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("_serialize drops callbacks and omits auto-generated labels", () => {
+    const inst = makeInstance();
+    inst.addStopLoss({ price: 95, onCross: () => {}, onMove: () => {}, draggable: true });
+    inst.addPriceLine({ price: 120, label: "my target" });
+
+    const snap = inst.tradingOverlays._serialize();
+    expect(snap).toHaveLength(2);
+
+    const sl = snap.find((l) => l.type === "stop-loss");
+    expect(sl.price).toBe(95);
+    expect(sl.draggable).toBe(true);
+    expect("label" in sl).toBe(false); // auto label omitted so it regenerates
+    expect(JSON.stringify(snap)).not.toContain("onCross");
+    expect(JSON.stringify(snap)).not.toContain("onMove");
+
+    const custom = snap.find((l) => l.label === "my target");
+    expect(custom).toBeTruthy(); // custom label preserved
+  });
+
+  it("_restore replaces the set, regenerates auto labels, and drops callbacks", () => {
+    const inst = makeInstance();
+    let crossed = false;
+    inst.addStopLoss({ price: 95, onCross: () => (crossed = true) });
+
+    const snap = JSON.parse(JSON.stringify(inst.tradingOverlays._serialize()));
+
+    // A pre-existing line should be cleared by _restore.
+    inst.addPriceLine({ price: 200, id: "stale" });
+    inst.tradingOverlays._restore(snap);
+
+    const lines = inst.getPriceLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ type: "stop-loss", price: 95 });
+    // Auto label regenerated from the type + price.
+    expect(lines[0].label).toBe("SL 95");
+
+    // The restored line carries no onCross: a crossing must not fire it.
+    inst.tradingOverlays.checkCrossings(null, { y: [0, 0, 0, 1000] });
+    expect(crossed).toBe(false);
+  });
+});

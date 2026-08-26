@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock State Persistence Fixture</title>
+    <style>
+      body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #fff; }
+      .chart { width: 900px; }
+    </style>
+    <script src="/apexcharts-js/dist/apexcharts.js"></script>
+    <script src="/apexstock/dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div class="chart"><div id="chart-a"></div></div>
+    <div class="chart"><div id="chart-b"></div></div>
+
+    <script>
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let last = 100;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 4).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      const BASE = Date.UTC(2024, 0, 1);
+      const DAY = 86400000;
+
+      window.__ready = false;
+      document.addEventListener("DOMContentLoaded", function () {
+        const common = {
+          chart: { height: 300, animations: { enabled: false }, redrawOnParentResize: false },
+          theme: { mode: "light" },
+        };
+        const data = generateData(120);
+        const a = new ApexStock(document.querySelector("#chart-a"), {
+          ...common,
+          series: [{ name: "AAA", data }],
+        });
+        const b = new ApexStock(document.querySelector("#chart-b"), {
+          ...common,
+          series: [{ name: "BBB", data }],
+        });
+        a.render();
+        b.render();
+
+        // Chart A gets content to persist: a horizontal annotation, a vertical
+        // (time-anchored) annotation, and a stop-loss price line.
+        a.addAnnotation({ type: "yLine", y: 108, label: "resistance" });
+        a.addAnnotation({ type: "xLine", x: BASE + 60 * DAY, label: "event" });
+        a.addStopLoss({ price: 96, onCross: function () {} });
+
+        window.__a = a;
+        window.__b = b;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            window.__ready = true;
+          })
+        );
+      });
+    </script>
+  </body>
+</html>

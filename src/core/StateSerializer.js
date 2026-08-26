@@ -6,16 +6,18 @@
  * schema and the `migrate` step below rather than adding parallel save paths.
  *
  * v1 captured theme mode, active chart type, active indicators + their params,
- * and the visible x-range. v2 adds `drawings` (the full data-space drawing set:
- * trend/ray/level lines, zones, and any mouse-drawn shapes) and `eventMarkers`
- * (time-anchored earnings/dividend/split/news/custom flags), both of which
- * round-trip losslessly because they store plain-JSON geometry in data
- * coordinates. The result is plain JSON (no functions), safe to `JSON.stringify`
- * and persist per user/workspace.
+ * and the visible x-range. v2 adds, all round-tripping as plain JSON:
+ * `drawings` (the full data-space drawing set: trend/ray/level lines, zones, and
+ * any mouse-drawn shapes), `eventMarkers` (time-anchored earnings/dividend/split/
+ * news/custom flags), `annotations` (data-space y/x lines, bands, points, text),
+ * and `priceLines` (trading order/stop/take-profit/alert lines). The result is
+ * plain JSON (no functions), safe to `JSON.stringify` and persist per
+ * user/workspace.
  *
- * Not yet captured (by design): trading price lines carry non-serializable
- * callbacks (`onMove`/`onCross`/custom renderers) and land in a later version
- * with a dedicated representation. A "timeframe"/interval is not captured
+ * Price lines carry non-serializable interactive callbacks (`onCross`/`onMove`/
+ * `onRemove`); only their declarative config is captured, so a consumer that
+ * relies on those callbacks re-binds them after `setState` (e.g. via
+ * `updatePriceLine(id, { onCross })`). A "timeframe"/interval is not captured
  * because ApexStock does not own one — interval aggregation is consumer-driven
  * via `ApexStock.aggregateOHLC`.
  */
@@ -59,6 +61,16 @@ export default class StateSerializer {
         ? ctx.eventMarkers._serialize()
         : [];
 
+    const annotations =
+      ctx.annotations && typeof ctx.annotations._serialize === "function"
+        ? ctx.annotations._serialize()
+        : [];
+
+    const priceLines =
+      ctx.tradingOverlays && typeof ctx.tradingOverlays._serialize === "function"
+        ? ctx.tradingOverlays._serialize()
+        : [];
+
     return {
       version: VERSION,
       theme: {
@@ -69,6 +81,8 @@ export default class StateSerializer {
       indicators,
       drawings,
       eventMarkers,
+      annotations,
+      priceLines,
       zoom:
         zoom && Number.isFinite(zoom.minX) && Number.isFinite(zoom.maxX)
           ? { minX: zoom.minX, maxX: zoom.maxX }
@@ -157,6 +171,22 @@ export default class StateSerializer {
         Array.isArray(s.eventMarkers) ? s.eventMarkers : []
       );
     }
+
+    // Data-space annotations.
+    if (ctx.annotations && typeof ctx.annotations._restore === "function") {
+      ctx.annotations._restore(Array.isArray(s.annotations) ? s.annotations : []);
+    }
+
+    // Trading price lines (declarative config only; callbacks are re-bound by
+    // the consumer after restore, see TradingOverlays._serialize).
+    if (
+      ctx.tradingOverlays &&
+      typeof ctx.tradingOverlays._restore === "function"
+    ) {
+      ctx.tradingOverlays._restore(
+        Array.isArray(s.priceLines) ? s.priceLines : []
+      );
+    }
   }
 
   /**
@@ -175,6 +205,8 @@ export default class StateSerializer {
         indicators: [],
         drawings: [],
         eventMarkers: [],
+        annotations: [],
+        priceLines: [],
         zoom: null,
       };
     }
@@ -185,9 +217,12 @@ export default class StateSerializer {
       s.drawings = [];
     }
     if (!Array.isArray(s.drawings)) s.drawings = [];
-    // `eventMarkers` also arrived in the v2 line; default it when absent so
-    // states captured before markers existed restore cleanly.
+    // `eventMarkers`, `annotations`, and `priceLines` also arrived in the v2
+    // line; default them when absent so states captured before they existed
+    // restore cleanly.
     if (!Array.isArray(s.eventMarkers)) s.eventMarkers = [];
+    if (!Array.isArray(s.annotations)) s.annotations = [];
+    if (!Array.isArray(s.priceLines)) s.priceLines = [];
     // Newer-than-known versions pass through best-effort.
     s.version = VERSION;
     return s;

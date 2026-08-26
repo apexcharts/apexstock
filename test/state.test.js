@@ -38,6 +38,8 @@ function installApexChartsMock() {
       updateOptions: vi.fn(),
       removeAnnotation: vi.fn(),
       addYaxisAnnotation: vi.fn(),
+      addXaxisAnnotation: vi.fn(),
+      addPointAnnotation: vi.fn(),
       zoomX: vi.fn(),
     };
     return inst;
@@ -66,6 +68,8 @@ describe("StateSerializer.migrate", () => {
       indicators: [],
       drawings: [],
       eventMarkers: [],
+      annotations: [],
+      priceLines: [],
       zoom: null,
     });
     expect(StateSerializer.migrate(42).version).toBe(2);
@@ -83,6 +87,8 @@ describe("StateSerializer.migrate", () => {
     expect(s.indicators[0]).toEqual({ key: "rsi", params: { period: 9 } });
     expect(s.drawings).toEqual([]); // v1 -> v2 backfill
     expect(s.eventMarkers).toEqual([]); // v1 -> v2 backfill
+    expect(s.annotations).toEqual([]); // v1 -> v2 backfill
+    expect(s.priceLines).toEqual([]); // v1 -> v2 backfill
   });
 });
 
@@ -105,6 +111,8 @@ describe("ApexStock#getState", () => {
     expect(s.indicators).toEqual([]);
     expect(s.drawings).toEqual([]);
     expect(s.eventMarkers).toEqual([]);
+    expect(s.annotations).toEqual([]);
+    expect(s.priceLines).toEqual([]);
     expect(s.zoom).toEqual({ minX: 0, maxX: 59 });
   });
 
@@ -174,6 +182,52 @@ describe("ApexStock#setState (integration)", () => {
     });
     expect(restored.find((m) => m.type === "dividend").meta).toEqual({
       amount: 0.24,
+    });
+  });
+
+  it("round-trips annotations into a fresh instance", () => {
+    inst.addAnnotation({ type: "yLine", y: 42, label: "support" });
+    inst.addAnnotation({ type: "xLine", x: ohlcData()[5].x, label: "event" });
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+    expect(state.annotations).toHaveLength(2);
+
+    const inst2 = makeInstance();
+    inst2.render();
+    inst2.setState(state);
+
+    const restored = inst2.getAnnotations();
+    expect(restored).toHaveLength(2);
+    expect(restored.find((a) => a.type === "yLine")).toMatchObject({
+      y: 42,
+      label: "support",
+    });
+    expect(restored.find((a) => a.type === "xLine").label).toBe("event");
+  });
+
+  it("round-trips price lines (declarative config; callbacks dropped)", () => {
+    inst.addPriceLine({
+      price: 100,
+      type: "stop-loss",
+      draggable: true,
+      onCross: () => {},
+    });
+    inst.addPriceLine({ price: 120, type: "take-profit", label: "target" });
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+    expect(state.priceLines).toHaveLength(2);
+    // Callbacks are not serialized.
+    expect(JSON.stringify(state.priceLines)).not.toContain("onCross");
+
+    const inst2 = makeInstance();
+    inst2.render();
+    inst2.setState(state);
+
+    const lines = inst2.getPriceLines();
+    expect(lines).toHaveLength(2);
+    const sl = lines.find((l) => l.type === "stop-loss");
+    expect(sl).toMatchObject({ price: 100, draggable: true });
+    expect(lines.find((l) => l.type === "take-profit")).toMatchObject({
+      price: 120,
+      label: "target",
     });
   });
 

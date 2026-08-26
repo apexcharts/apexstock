@@ -165,3 +165,34 @@ describe("annotation API", () => {
     expect(inst.chart.addPointAnnotation).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("annotation serialization (_serialize / _restore)", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("_serialize returns plain JSON and _restore replaces the set", () => {
+    const inst = makeInstance();
+    inst.addAnnotation({ type: "yLine", y: 42, label: "support", color: "#f00" });
+    inst.addAnnotation({ type: "point", x: ohlcData()[3].x, y: 15, label: "mark" });
+
+    const snap = JSON.parse(JSON.stringify(inst.annotations._serialize()));
+    expect(snap).toHaveLength(2);
+    expect(snap.find((a) => a.type === "yLine")).toMatchObject({
+      y: 42,
+      label: "support",
+      color: "#f00",
+    });
+
+    // A stale annotation should be cleared by _restore.
+    inst.addAnnotation({ type: "yLine", y: 99, id: "stale" });
+    inst.annotations._restore(snap);
+
+    const back = inst.getAnnotations();
+    expect(back).toHaveLength(2);
+    expect(back.some((a) => a.id === "stale")).toBe(false);
+    expect(back.find((a) => a.type === "point")).toMatchObject({ y: 15, label: "mark" });
+  });
+});
