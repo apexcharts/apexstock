@@ -16,6 +16,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Data Legend**: On-chart OHLC + change + volume + indicator readout that tracks the crosshair via `showLegend()`
 - **Price Scale Modes**: Linear, logarithmic, percent, and indexed primary-axis scaling via `setPriceScale()`
 - **Theme Support**: Light and dark modes plus a curated preset pack (`setThemePreset()`) and `registerTheme()` for custom looks
+- **Toolbar Customization**: Hide built-in toolbar sections and inject custom controls via the `toolbar` option or `addToolbarItem()`
 - **Zoom Controls**: Interactive zoom and pan functionality
 - **Export Capabilities**: One `export({ format })` API for PNG, SVG, PDF, CSV, and JSON
 - **Responsive Design**: Adaptive layout for different screen sizes
@@ -869,6 +870,44 @@ The mode persists across theme changes, chart-type switches, and `appendData`
 (the percent/indexed baseline is recomputed from the current first bar), is
 captured by `getState()`, and fires a `priceScaleChange` event. This is distinct
 from comparison mode's `percent`, which normalizes *overlaid instruments*.
+
+## Toolbar customization
+
+Hide built-in toolbar sections and inject your own controls, either up front via
+the `toolbar` option or at runtime.
+
+```javascript
+new ApexStock(el, {
+  series: [{ name: "AAPL", data }],
+  toolbar: {
+    // show: false,               // hide the entire primary toolbar
+    items: { download: false },   // hide a built-in section:
+    //   chartType | indicators | drawing | download   (all shown by default)
+    custom: [
+      {
+        id: "refresh",
+        title: "Refresh",             // tooltip + aria-label (and label if no icon)
+        icon: "<svg>...</svg>",       // inline SVG/HTML (or `html`, or a ready-made `element`)
+        position: "right",            // "left" | "left-start" | "right" (default "right")
+        order: 0,                     // sort within the side
+        onClick: (chart, e) => chart.appendData(nextBar()),
+      },
+    ],
+  },
+});
+```
+
+Runtime API:
+
+```javascript
+apexStock.addToolbarItem({ id: "snap", title: "Snapshot", onClick: (c) => c.export({ format: "png", download: true }) });
+apexStock.getToolbarItems();       // -> [{ id, title, position }]
+apexStock.removeToolbarItem("snap");
+```
+
+Custom buttons pick up the active theme automatically. (`items.drawing`
+shows/hides the whole drawing toolbar; toggling its individual tools is a
+separate drawing-tools option.)
 
 ## Annotations (data-space)
 

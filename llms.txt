@@ -74,6 +74,9 @@ Data legend (on-chart OHLC readout, opt-in):
 Comparison mode (multi-symbol on a secondary y-axis):
 - `addComparison({ name, data, color? })` (data is `[{x,y}]` closes or full OHLC), `removeComparison(name)`, `clearComparisons()`, `getComparisons()`. `setComparisonMode("percent" | "absolute")` / `getComparisonMode()`. `"percent"` (default) indexes each series to its first point.
 
+Toolbar customization (primary toolbar):
+- `addToolbarItem({ id, title?, icon?, html?, element?, position?, order?, className?, onClick? })` / `removeToolbarItem(id)` / `getToolbarItems()`. Construction via `toolbar: { show?, items?: { chartType?, indicators?, drawing?, download? }, custom?: [item] }`. `show:false` hides the whole bar; a false `items` key hides that built-in section (all shown by default); `custom` injects buttons (or a ready-made `element`) into `position` `"left"|"left-start"|"right"` (default right), ordered by `order`. `onClick(chart, event)`. Custom buttons carry `.apexstock-toolbar-button` so they follow the theme.
+
 Price scale (primary y-axis):
 - `setPriceScale(mode, opts?)` / `getPriceScale()` -> `{ mode, base, logBase, indexBase }`. `mode`: `"linear"` (default), `"logarithmic"` (opts `logBase`, default 10), `"percent"` (% change from `opts.base` or the first bar's close), `"indexed"` (index where the baseline = `opts.indexBase`, default 100). Also settable at construction via `priceScale: { mode, base?, logBase?, indexBase? }`. `percent`/`indexed` only relabel the axis (affine), so indicators, drawings, annotations, and price lines stay in true price space. Fires `priceScaleChange`; captured by `getState()`.
 

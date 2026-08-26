@@ -11,6 +11,15 @@ those are called out explicitly below.
 
 ### Added
 
+- **Toolbar customization: a `toolbar` construction option plus `addToolbarItem`
+  / `removeToolbarItem` / `getToolbarItems`.** Hide the whole primary toolbar
+  (`toolbar: { show: false }`) or individual built-in sections
+  (`toolbar: { items: { chartType, indicators, drawing, download } }`, each
+  shown by default), and inject custom controls: a button from
+  `{ id, title, icon | html, onClick(chart, event) }` or a ready-made `element`,
+  placed `left` / `left-start` / `right` and sorted by `order`. Custom items can
+  also be added/removed at runtime and carry `.apexstock-toolbar-button` so they
+  follow the active theme. See `examples/toolbar.html`.
 - **Theme preset pack + `registerTheme`: `setThemePreset(name)` /
   `getThemePreset()`, a `theme: { preset }` construction option, and the statics
   `ApexStock.registerTheme(name, def)` / `ApexStock.getThemePresets()`.** A
