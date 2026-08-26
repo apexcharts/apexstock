@@ -84,6 +84,7 @@ Export:
 
 Theme:
 - `updateTheme("light" | "dark")`, `getTheme()`. Colors are also customizable via `--apexstock-*` CSS tokens on the container.
+- Presets (curated, light-first pack layered on light/dark): `setThemePreset(name)` / `getThemePreset()` (-> name or null), construction via `theme: { preset: name }`. Built-ins: `paper`, `arctic`, `mint`, `linen`, `rose`, `graphite`. A preset re-tints candles/grid/background/accent (price lines follow the accent; indicator palette stays the base mode's) and sets `--apx-*` chrome tokens on the container. `updateTheme(mode)` clears a preset. Captured by `getState()` as `theme.preset`. Static: `ApexStock.registerTheme(name, { mode, up, down, grid, axis, background, accent })` (missing colors backfilled), `ApexStock.getThemePresets()` -> names.
 
 ## Static helpers
 
@@ -138,3 +139,4 @@ React (`react-apexstock`), Vue 3 (`vue-apexstock`), Angular (`ngx-apexstock`). E
 - `getState()`/`setState()` persist theme, chart type, indicators+params, zoom, drawings, event markers, annotations, trading price lines, and the price-scale mode (schema v2). Price lines are captured as declarative config only; their callbacks (`onCross`/`onMove`/`onRemove`) are not serializable and are re-bound by the consumer after `setState`.
 - Percent comparison and indexed baselines use each series' first data point as the baseline.
 - Price scale `percent`/`indexed` modes are affine relabelings of the price axis (no data-space transform), so indicators, drawings, annotations, and price lines are unaffected; only `logarithmic` changes the gridline distribution.
+- Theme presets are affine layers on light/dark: `getState().theme` carries both `mode` and `preset` (null for a plain mode); a preset unknown to the restoring app falls back to its base mode.

@@ -32,6 +32,50 @@ shows the override recipe.
 
 ---
 
+## Theme presets
+
+For a one-line, curated look, use a **preset** instead of hand-tuning tokens. A
+preset is a named theme layered on a base mode that retints both surfaces at
+once: the *chart* (candles, grid, axis labels, background) and the *chrome*
+(toolbar/dropdowns/legend, via the `--apx-*` family tokens it sets on the
+container). The built-in pack is **light-first** (fintech/SaaS dashboards):
+`paper`, `arctic`, `mint`, `linen`, `rose`, `graphite`.
+
+```javascript
+// At construction:
+new ApexStock(el, { series, theme: { preset: "mint" } });
+
+// Or at runtime:
+apexStock.setThemePreset("arctic");
+apexStock.getThemePreset();     // "arctic", or null for a plain mode
+apexStock.updateTheme("dark");  // clears the preset back to a plain mode
+```
+
+Register your own (usable anywhere a built-in name is). A preset declares a base
+`mode` and the colors that give it character; any omitted color is backfilled
+from that mode:
+
+```javascript
+ApexStock.registerTheme("corp", {
+  mode: "light",      // base mode (drives dark/light behavior)
+  up: "#2ecc71",      // candlestick up
+  down: "#e74c3c",    // candlestick down
+  grid: "#eef0f3",    // grid + border
+  axis: "#334155",    // axis label text
+  background: "#ffffff", // plot background
+  accent: "#0a3d62",  // brand accent (focus, order line, active tool)
+});
+ApexStock.getThemePresets(); // -> all names, built-in + registered
+```
+
+A preset drives the container's `--apx-accent` / `--apx-surface` / `--apx-fore`
+/ `--apx-grid` family tokens, so the token overrides below still apply *on top*
+of a preset if you want to fine-tune. The price lines follow the accent; the
+technical-indicator palette stays the base mode's. The active preset is captured
+by `getState()` (as `theme.preset`) and restored by `setState()`.
+
+---
+
 ## Override recipe (no fork)
 
 Custom properties only override when your selector **matches the same elements

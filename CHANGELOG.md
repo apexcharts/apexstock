@@ -11,6 +11,20 @@ those are called out explicitly below.
 
 ### Added
 
+- **Theme preset pack + `registerTheme`: `setThemePreset(name)` /
+  `getThemePreset()`, a `theme: { preset }` construction option, and the statics
+  `ApexStock.registerTheme(name, def)` / `ApexStock.getThemePresets()`.** A
+  curated, light-first pack of named themes (`paper`, `arctic`, `mint`, `linen`,
+  `rose`, `graphite`) layered on the base light/dark modes. Each preset retints
+  both surfaces at once: the chart (candles, grid, axis labels, plot background)
+  and the chrome (toolbar/dropdowns/legend, via the `--apx-*` family tokens it
+  sets on the container); the price lines follow the accent, and the indicator
+  palette stays the base mode's. A preset carries its own base mode, survives
+  theme/chart-type switches and data updates, is captured by `getState()` (as
+  `theme.preset`), and is cleared by `updateTheme()`. Register custom presets
+  with any subset of `{ mode, up, down, grid, axis, background, accent }` (the
+  rest backfilled from the mode). See `examples/theme-presets.html` and
+  THEMING.md.
 - **Primary price-scale modes: `setPriceScale(mode, opts?)` / `getPriceScale()`,
   plus a `priceScale` construction option.** Four modes for the price y-axis:
   `linear` (default), `logarithmic` (native log axis, optional `logBase`),

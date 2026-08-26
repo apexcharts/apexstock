@@ -15,7 +15,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Event Markers**: Time-anchored earnings/dividend/split/news flags on the x-axis with hover cards via `addEventMarker()`
 - **Data Legend**: On-chart OHLC + change + volume + indicator readout that tracks the crosshair via `showLegend()`
 - **Price Scale Modes**: Linear, logarithmic, percent, and indexed primary-axis scaling via `setPriceScale()`
-- **Theme Support**: Light and dark theme modes with seamless switching
+- **Theme Support**: Light and dark modes plus a curated preset pack (`setThemePreset()`) and `registerTheme()` for custom looks
 - **Zoom Controls**: Interactive zoom and pan functionality
 - **Export Capabilities**: One `export({ format })` API for PNG, SVG, PDF, CSV, and JSON
 - **Responsive Design**: Adaptive layout for different screen sizes
@@ -206,6 +206,14 @@ const chartOptions = {
   theme: {
     mode: "dark"; // 'light' or 'dark'
   }
+}
+```
+
+Or start from a **named preset** (a curated look layered on light/dark):
+
+```javascript
+{
+  theme: { preset: "mint" } // paper | arctic | mint | linen | rose | graphite
 }
 ```
 
@@ -463,6 +471,36 @@ Returns the current theme.
 ```javascript
 const currentTheme = apexStock.getTheme(); // 'light' or 'dark'
 ```
+
+#### Theme presets
+
+A curated, **light-first** pack of named themes layered on light/dark. Each
+preset re-tints the candlesticks, grid, background, and accent (and the price
+lines follow the accent); the indicator palette stays the base mode's.
+
+```javascript
+apexStock.setThemePreset("mint"); // paper | arctic | mint | linen | rose | graphite
+apexStock.getThemePreset();       // -> "mint", or null for a plain mode
+apexStock.updateTheme("dark");    // clears any preset back to a plain mode
+
+ApexStock.getThemePresets();      // -> all preset names (built-in + registered)
+
+// Register your own (static; usable via theme:{preset} or setThemePreset).
+// Missing colors are backfilled from the base mode.
+ApexStock.registerTheme("corp", {
+  mode: "light",
+  up: "#2ecc71",
+  down: "#e74c3c",
+  grid: "#eef0f3",
+  axis: "#334155",
+  background: "#ffffff",
+  accent: "#0a3d62",
+});
+```
+
+Presets survive theme/chart-type switches and data updates, and the active
+preset is captured by `getState()` (as `theme.preset`) and restored by
+`setState()`.
 
 ### Indicator Methods
 
