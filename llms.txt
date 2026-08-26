@@ -1,6 +1,6 @@
 # ApexStock
 
-> ApexStock is a commercial financial charting library built on ApexCharts. It renders OHLC/candlestick, heikin-ashi, renko, line, area, and column stock charts with technical indicators, drawing tools, trading price lines, data-space annotations, event markers, an on-chart data legend, multi-symbol comparison, real-time streaming, theming, and image/data export. It is designed for embedding charts into web apps (SaaS, FinTech, dashboards), not as a standalone trading terminal.
+> ApexStock is a commercial financial charting library built on ApexCharts. It renders OHLC/candlestick, heikin-ashi, renko, line, area, and column stock charts with technical indicators, drawing tools, trading price lines, data-space annotations, event markers, an on-chart data legend, multi-symbol comparison, real-time streaming, theming, and image/PDF/data export. It is designed for embedding charts into web apps (SaaS, FinTech, dashboards), not as a standalone trading terminal.
 
 Key facts an integrator (or agent) needs:
 
@@ -75,8 +75,9 @@ Comparison mode (multi-symbol on a secondary y-axis):
 - `addComparison({ name, data, color? })` (data is `[{x,y}]` closes or full OHLC), `removeComparison(name)`, `clearComparisons()`, `getComparisons()`. `setComparisonMode("percent" | "absolute")` / `getComparisonMode()`. `"percent"` (default) indexes each series to its first point.
 
 Export:
-- `exportImage({ format: "png" | "svg", scale?, download?, filename? })` -> `Promise<{ format, blob, url, fallback? }>`. PNG composites the chart + oscillator panes into a real raster; falls back to SVG (`fallback: true`) on browsers that block it.
-- `exportData({ format: "csv" | "json", range: "all" | "visible", includeVolume?, raw?, pretty?, download?, filename? })` -> string. Columns `time,open,high,low,close[,volume]`, ISO-8601 time by default. CSV round-trips through `ApexStock.fromCSV`.
+- `export({ format: "png" | "svg" | "pdf" | "csv" | "json", scale?, range?, includeVolume?, raw?, pretty?, download?, filename? })` -> `Promise<{ format, blob, url, text?, fallback? }>`. The unified entry point: image/pdf honor `scale`; data formats honor `range`/`includeVolume`/`raw`/`pretty` and also return `text`. `pdf` is a single-page document embedding the chart raster (no external PDF library). `png` falls back to `svg` (`fallback: true`) on browsers that block raster capture.
+- `exportImage({ format: "png" | "svg", scale?, download?, filename? })` -> `Promise<{ format, blob, url, fallback? }>` (lower-level image path). PNG composites the chart + oscillator panes into a real raster.
+- `exportData({ format: "csv" | "json", range: "all" | "visible", includeVolume?, raw?, pretty?, download?, filename? })` -> string (lower-level, synchronous). Columns `time,open,high,low,close[,volume]`, ISO-8601 time by default. CSV round-trips through `ApexStock.fromCSV`.
 
 Theme:
 - `updateTheme("light" | "dark")`, `getTheme()`. Colors are also customizable via `--apexstock-*` CSS tokens on the container.

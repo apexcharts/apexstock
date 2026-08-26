@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Export</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 { text-align: center; margin: 0 0 4px; }
+      p.lead { text-align: center; color: #667085; margin: 0 auto 16px; max-width: 780px; }
+      .wrap { max-width: 1040px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(16,24,40,0.08); padding: 12px; margin-bottom: 14px; }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+      button { padding: 7px 12px; border: 1px solid #d0d5dd; border-radius: 7px; background: #fff; cursor: pointer; font-size: 13px; }
+      button:hover { background: #f8fafc; }
+      #status { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #344054; }
+    </style>
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <h1>ApexStock &bull; Export</h1>
+    <p class="lead">
+      One <code>export({ format })</code> API for PNG, SVG, PDF, CSV, and JSON.
+      Each button downloads a file and reports the resulting Blob below.
+    </p>
+
+    <div class="wrap">
+      <div class="row">
+        <button data-fmt="png">PNG</button>
+        <button data-fmt="svg">SVG</button>
+        <button data-fmt="pdf">PDF</button>
+        <button data-fmt="csv">CSV</button>
+        <button data-fmt="json">JSON</button>
+        <span id="status">Pick a format to export.</span>
+      </div>
+      <div class="card"><div id="chart"></div></div>
+    </div>
+
+    <script>
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        let last = 100;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 4).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      const chart = new ApexStock(document.querySelector("#chart"), {
+        chart: { height: 440, animations: { enabled: false } },
+        theme: { mode: "light" },
+        series: [{ name: "AAPL", data: generateData(160) }],
+      });
+      chart.render();
+      chart.updateIndicator("moving average");
+      chart.updateIndicator("rsi");
+
+      const status = document.getElementById("status");
+      document.querySelectorAll("button[data-fmt]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const format = btn.getAttribute("data-fmt");
+          status.textContent = "exporting " + format + "...";
+          try {
+            const res = await chart.export({ format, download: true });
+            const kb = res.blob ? " (" + Math.round(res.blob.size / 1024) + " KB)" : "";
+            status.textContent =
+              "exported " + res.format + kb + (res.fallback ? " (fell back to SVG)" : "");
+          } catch (e) {
+            status.textContent = "export failed: " + (e && e.message);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -16,7 +16,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Data Legend**: On-chart OHLC + change + volume + indicator readout that tracks the crosshair via `showLegend()`
 - **Theme Support**: Light and dark theme modes with seamless switching
 - **Zoom Controls**: Interactive zoom and pan functionality
-- **Export Capabilities**: Export charts as images
+- **Export Capabilities**: One `export({ format })` API for PNG, SVG, PDF, CSV, and JSON
 - **Responsive Design**: Adaptive layout for different screen sizes
 - **Shadow DOM Support**: Works within Shadow DOM environments
 
@@ -1078,22 +1078,35 @@ ApexStock.fromCSV(csvText, { delimiter: ";", mapping: { close: "Last" } });
 
 ## Export (image + data)
 
-Besides the toolbar download button, export programmatically:
+Besides the toolbar download button, export programmatically. **`export({ format })`**
+is the one entry point for every format, returning a `Promise` of a consistent
+result (`{ format, blob, url }`, plus `text` for data formats):
 
 ```javascript
-// Image. PNG composites the price chart + oscillator panes into one raster;
-// SVG is a full vector snapshot. Both return { format, blob, url }.
-const png = await apexStock.exportImage({ format: "png", scale: 2 });
-await apexStock.exportImage({ format: "svg", download: true }); // triggers a download
+const png = await apexStock.export({ format: "png", scale: 2 });   // { format, blob, url }
+const pdf = await apexStock.export({ format: "pdf", download: true }); // single-page PDF of the chart
+const csv = await apexStock.export({ format: "csv" });             // { format, text, blob, url }
+await apexStock.export({ format: "json", range: "visible", download: true });
+```
 
-// Data. CSV or JSON of the OHLC series; columns time,open,high,low,close[,volume].
-const csv = apexStock.exportData({ format: "csv" });
-apexStock.exportData({ format: "json", range: "visible", download: true });
+- **`export({ format, scale?, range?, includeVolume?, raw?, pretty?, download?, filename? })`**
+  → `Promise<{ format, blob, url, text?, fallback? }>`.
+  `format` is `"png"` (default), `"svg"`, `"pdf"`, `"csv"`, or `"json"`. Image and
+  PDF formats honor `scale`; data formats honor `range` / `includeVolume` / `raw`
+  / `pretty`. Data formats also return the serialized `text`. `png` falls back to
+  `svg` (`fallback: true`) on browsers that block raster capture. `pdf` is a
+  single-page document with the chart (price + oscillator panes) embedded as a
+  raster, sized to the image; no external PDF library is used.
+
+The two lower-level methods remain available:
+
+```javascript
+const img = await apexStock.exportImage({ format: "png", scale: 2 }); // { format, blob, url, fallback? }
+const csvText = apexStock.exportData({ format: "csv" });              // returns the string synchronously
 ```
 
 - **`exportImage({ format, scale?, download?, filename? })`** → `Promise<{ format, blob, url, fallback? }>`.
-  `format` is `"png"` (default) or `"svg"`. A few browsers block rasterizing the
-  vector snapshot; PNG then falls back to SVG and sets `fallback: true`.
+  `format` is `"png"` (default) or `"svg"`.
 - **`exportData({ format, range?, includeVolume?, raw?, pretty?, download?, filename? })`** → the serialized string.
   `format` is `"csv"` (default) or `"json"`; `range` is `"all"` (default) or
   `"visible"` (only the points in the current x-window). Time is ISO-8601 for

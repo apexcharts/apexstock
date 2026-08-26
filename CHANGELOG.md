@@ -11,6 +11,13 @@ those are called out explicitly below.
 
 ### Added
 
+- **Unified `export({ format })` API** over `png` / `svg` / `pdf` / `csv` /
+  `json`, returning a `Promise` of a consistent `{ format, blob, url }` (plus
+  `text` for data formats). Folds the existing `exportImage` (still available) and
+  `exportData` (still available) under one entry point and adds **PDF export**: a
+  single-page document with the chart (price + oscillator panes) embedded as a
+  raster, built without any external PDF library. `png` still falls back to `svg`
+  on browsers that block raster capture. See `examples/export.html`.
 - **On-chart data legend: `showLegend` / `hideLegend` / `toggleLegend` /
   `isLegendVisible`, plus a `legend` construction option.** A corner panel that
   reads out the instrument's OHLC, change (vs the previous close), and volume at
