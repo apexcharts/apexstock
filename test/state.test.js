@@ -65,6 +65,7 @@ describe("StateSerializer.migrate", () => {
       chartType: "candlestick",
       indicators: [],
       drawings: [],
+      eventMarkers: [],
       zoom: null,
     });
     expect(StateSerializer.migrate(42).version).toBe(2);
@@ -81,6 +82,7 @@ describe("StateSerializer.migrate", () => {
     expect(s.theme.mode).toBe("dark");
     expect(s.indicators[0]).toEqual({ key: "rsi", params: { period: 9 } });
     expect(s.drawings).toEqual([]); // v1 -> v2 backfill
+    expect(s.eventMarkers).toEqual([]); // v1 -> v2 backfill
   });
 });
 
@@ -102,6 +104,7 @@ describe("ApexStock#getState", () => {
     expect(s.chartType).toBe("candlestick");
     expect(s.indicators).toEqual([]);
     expect(s.drawings).toEqual([]);
+    expect(s.eventMarkers).toEqual([]);
     expect(s.zoom).toEqual({ minX: 0, maxX: 59 });
   });
 
@@ -151,6 +154,27 @@ describe("ApexStock#setState (integration)", () => {
     expect(!!inst2.indicatorChartMap["rsi"]).toBe(true);
     expect(inst2.oscillatorSettings.indicatorParams.rsi.period).toBe(21);
     expect(inst2.activeOscillator).toBe("rsi");
+  });
+
+  it("round-trips event markers into a fresh instance", () => {
+    inst.addEventMarker({ x: 5, type: "earnings", label: "Q1" });
+    inst.addEventMarker({ x: 40, type: "dividend", meta: { amount: 0.24 } });
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+    expect(state.eventMarkers).toHaveLength(2);
+
+    const inst2 = makeInstance();
+    inst2.render();
+    inst2.setState(state);
+
+    const restored = inst2.getEventMarkers();
+    expect(restored).toHaveLength(2);
+    expect(restored.find((m) => m.type === "earnings")).toMatchObject({
+      x: 5,
+      label: "Q1",
+    });
+    expect(restored.find((m) => m.type === "dividend").meta).toEqual({
+      amount: 0.24,
+    });
   });
 
   it("reconciles to exactly the state's indicator set", () => {

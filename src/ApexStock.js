@@ -11,6 +11,7 @@ import TradingOverlayInteractions from "./overlays/TradingOverlayInteractions";
 import Annotations from "./overlays/Annotations";
 import Comparison from "./overlays/Comparison";
 import Drawings from "./overlays/Drawings";
+import EventMarkers from "./overlays/EventMarkers";
 import { registerDrawingTool as _registerDrawingTool } from "./tools/drawing/DrawingToolRegistry";
 import ChartSync from "./core/ChartSync";
 import XAxis from "./components/XAxis";
@@ -193,6 +194,9 @@ export default class ApexStock {
     // Programmatic, data-space drawings (trend/ray/level lines, zones). A facade
     // over the drawing layer; buffered before render(), flushed by reapply().
     this.drawings = new Drawings(this);
+    // Time-anchored event markers (earnings/dividends/splits/news/custom) drawn
+    // on an HTML overlay; reprojected on zoom/pan and rebuilt on re-render.
+    this.eventMarkers = new EventMarkers(this);
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -945,6 +949,8 @@ export default class ApexStock {
     this.comparison.reapply();
     // Flush any drawings added before the drawing layer existed.
     this.drawings.reapply();
+    // Draw any event markers added before render().
+    this.eventMarkers.reapply();
   }
 
   /**
@@ -1155,6 +1161,8 @@ export default class ApexStock {
     this.tradingOverlays.reapply();
     this.annotations.reapply();
     if (cmpActive) this.comparison.reapply();
+    // Reposition event markers for the new axis geometry.
+    this.eventMarkers.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
@@ -1243,6 +1251,7 @@ export default class ApexStock {
     if (this.annotations) safe(() => this.annotations.destroy());
     if (this.comparison) safe(() => this.comparison.destroy());
     if (this.drawings) safe(() => this.drawings.destroy());
+    if (this.eventMarkers) safe(() => this.eventMarkers.destroy());
     if (this.drawingTools && typeof this.drawingTools.destroy === "function") {
       safe(() => this.drawingTools.destroy());
     }
@@ -2212,6 +2221,58 @@ export default class ApexStock {
   }
 
   /**
+   * Add (or replace, if `id` already exists) an event marker: a time-anchored
+   * flag (earnings, dividend, split, news, or custom) that floats along the
+   * x-axis with a hover card. Markers reproject through zoom/pan and persist
+   * across update/theme/chart-type switches; they are captured by
+   * {@link getState} and restored by {@link setState}.
+   *
+   * @param {import("./overlays/EventMarkers.js").EventMarkerConfig} config
+   *   `{ x, type?, label?, color?, glyph?, position?, meta? }`.
+   * @returns {string|null} the marker id, or null on invalid input.
+   */
+  addEventMarker(config) {
+    return this.eventMarkers.add(config);
+  }
+
+  /**
+   * Patch an existing event marker.
+   * @param {string} id
+   * @param {object} patch
+   * @returns {boolean} false if no such marker.
+   */
+  updateEventMarker(id, patch) {
+    return this.eventMarkers.update(id, patch);
+  }
+
+  /**
+   * Remove an event marker by id.
+   * @param {string} id
+   * @returns {boolean} false if no such marker.
+   */
+  removeEventMarker(id) {
+    return this.eventMarkers.remove(id);
+  }
+
+  /** Remove every event marker added via {@link addEventMarker}. */
+  clearEventMarkers() {
+    this.eventMarkers.clear();
+  }
+
+  /**
+   * @param {string} id
+   * @returns {object|null} a copy of the marker config, or null.
+   */
+  getEventMarker(id) {
+    return this.eventMarkers.get(id);
+  }
+
+  /** @returns {object[]} copies of all event-marker configs. */
+  getEventMarkers() {
+    return this.eventMarkers.getAll();
+  }
+
+  /**
    * Add a programmatic, data-space drawing: a trend line, ray, horizontal price
    * level, vertical time marker, or rectangle/zone, anchored to price/time so it
    * re-projects through zoom/pan/resize like a mouse-drawn shape. Drawings are
@@ -2651,6 +2712,8 @@ export default class ApexStock {
     this.tradingOverlays.reapply();
     this.annotations.reapply();
     if (cmpActive) this.comparison.reapply();
+    // Reposition event markers for the new axis geometry.
+    this.eventMarkers.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;

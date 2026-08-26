@@ -6,9 +6,10 @@
  * schema and the `migrate` step below rather than adding parallel save paths.
  *
  * v1 captured theme mode, active chart type, active indicators + their params,
- * and the visible x-range. v2 adds `drawings`: the full data-space drawing set
- * (trend/ray/level lines, zones, and any mouse-drawn shapes), which round-trips
- * losslessly because every drawing already stores plain-JSON geometry in data
+ * and the visible x-range. v2 adds `drawings` (the full data-space drawing set:
+ * trend/ray/level lines, zones, and any mouse-drawn shapes) and `eventMarkers`
+ * (time-anchored earnings/dividend/split/news/custom flags), both of which
+ * round-trip losslessly because they store plain-JSON geometry in data
  * coordinates. The result is plain JSON (no functions), safe to `JSON.stringify`
  * and persist per user/workspace.
  *
@@ -53,6 +54,11 @@ export default class StateSerializer {
         ? ctx.drawings._serialize()
         : [];
 
+    const eventMarkers =
+      ctx.eventMarkers && typeof ctx.eventMarkers._serialize === "function"
+        ? ctx.eventMarkers._serialize()
+        : [];
+
     return {
       version: VERSION,
       theme: {
@@ -62,6 +68,7 @@ export default class StateSerializer {
         (ctx.chartSwitch && ctx.chartSwitch.currentType) || "candlestick",
       indicators,
       drawings,
+      eventMarkers,
       zoom:
         zoom && Number.isFinite(zoom.minX) && Number.isFinite(zoom.maxX)
           ? { minX: zoom.minX, maxX: zoom.maxX }
@@ -143,6 +150,13 @@ export default class StateSerializer {
     if (ctx.drawings && typeof ctx.drawings._restore === "function") {
       ctx.drawings._restore(Array.isArray(s.drawings) ? s.drawings : []);
     }
+
+    // Event markers: same replace-the-set semantics as drawings.
+    if (ctx.eventMarkers && typeof ctx.eventMarkers._restore === "function") {
+      ctx.eventMarkers._restore(
+        Array.isArray(s.eventMarkers) ? s.eventMarkers : []
+      );
+    }
   }
 
   /**
@@ -160,6 +174,7 @@ export default class StateSerializer {
         chartType: "candlestick",
         indicators: [],
         drawings: [],
+        eventMarkers: [],
         zoom: null,
       };
     }
@@ -170,6 +185,9 @@ export default class StateSerializer {
       s.drawings = [];
     }
     if (!Array.isArray(s.drawings)) s.drawings = [];
+    // `eventMarkers` also arrived in the v2 line; default it when absent so
+    // states captured before markers existed restore cleanly.
+    if (!Array.isArray(s.eventMarkers)) s.eventMarkers = [];
     // Newer-than-known versions pass through best-effort.
     s.version = VERSION;
     return s;

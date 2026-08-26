@@ -78,7 +78,12 @@
  * - `drawingAdded` / `drawingUpdated` fire with `{ id, drawing }` when a
  *   programmatic drawing is added or patched; `drawingRemoved` fires with
  *   `{ id }`; `drawingsCleared` fires with `{}`.
- * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared"} ApexStockEventName
+ * - `eventMarkerAdded` / `eventMarkerUpdated` fire with `{ id, marker }` when an
+ *   event marker is added or patched; `eventMarkerRemoved` fires with `{ id }`;
+ *   `eventMarkersCleared` fires with `{}`. `eventMarkerHover` /
+ *   `eventMarkerClick` fire with `{ id, marker, nativeEvent }` on pointer
+ *   interaction with a marker badge.
+ * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick"} ApexStockEventName
  */
 
 /**
@@ -176,6 +181,8 @@
  * @property {IndicatorState[]} indicators - Active indicators, in application order.
  * @property {object[]} drawings - Data-space drawings (v2+), each a plain-JSON
  *   geometry+style record; restored verbatim by `setState`.
+ * @property {object[]} eventMarkers - Time-anchored event markers (v2+), each a
+ *   plain-JSON `{ x, type, label?, color?, glyph?, position?, meta? }` record.
  * @property {{minX: number, maxX: number}|null} zoom - Visible x-range, or null for full/auto.
  */
 
