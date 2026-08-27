@@ -22,6 +22,7 @@ import PriceScale from "./core/PriceScale";
 import ThemeManager from "./core/ThemeManager";
 import ThemePresets from "./core/ThemePresets";
 import Toolbar from "./core/Toolbar";
+import DataReadout from "./core/DataReadout";
 import LayoutManager from "./core/LayoutManager";
 import ZoomControls from "./components/ZoomControls";
 import OscillatorSettings from "./components/OscillatorSettings";
@@ -2682,6 +2683,20 @@ export default class ApexStock {
         chart.zoomX(zoomState.minX, zoomState.maxX);
       }
     });
+  }
+
+  /**
+   * Read a structured snapshot of the chart at a data-point index: OHLC,
+   * volume, change vs the previous close, and every active indicator's value
+   * (main-chart overlays and oscillator panes). The programmatic complement to
+   * the on-chart legend and the `crosshairMove` event — pass the event's
+   * `dataPointIndex` here to build a custom legend/readout. Values are plain
+   * numbers (unformatted); unavailable ones are `null` or omitted.
+   * @param {number} [index] - Data-point index; defaults to (and clamps to) the latest bar.
+   * @returns {import("./core/DataReadout.js").Readout|null} null if there is no data.
+   */
+  getDataAt(index) {
+    return DataReadout.at(this, index);
   }
 
   /**
