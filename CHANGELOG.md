@@ -11,6 +11,15 @@ those are called out explicitly below.
 
 ### Added
 
+- **Crosshair data-readout API: `getDataAt(index)`.** A read-only, structured
+  snapshot at a data-point index: OHLC, volume, change vs the previous close, and
+  every active indicator's value across both the main-chart overlays and the
+  oscillator panes (`{ name, value, color, pane, key? }`). The programmatic
+  complement to the on-chart legend and the `crosshairMove` event: pass the
+  event's `dataPointIndex` to build a custom legend, side panel, or tooltip.
+  Values are plain numbers (unformatted); unavailable ones are `null` (volume,
+  change) or omitted (warm-up). Defaults to the latest bar when the index is
+  omitted or out of range.
 - **Toolbar customization: a `toolbar` construction option plus `addToolbarItem`
   / `removeToolbarItem` / `getToolbarItems`.** Hide the whole primary toolbar
   (`toolbar: { show: false }`) or individual built-in sections

@@ -54,6 +54,9 @@ State (serialization / layout persistence):
 Visible range:
 - `getVisibleRange()` -> `{ min, max } | null`. `setVisibleRange(min, max)`: zoom/pan to a window (fires `rangeChange`).
 
+Data readout:
+- `getDataAt(index?)` -> `{ index, x, ohlc:{open,high,low,close}, volume|null, change:{absolute,percent}|null, indicators:[{name, value, color, pane, key?}] }` or null. Read-only snapshot at a data-point index (defaults to/clamps to the latest bar); `indicators` covers main-chart overlays (`pane:"main"`) AND oscillator panes (`pane:"<key>"`). Values are raw numbers; warm-up/absent values are omitted. Pair with the `crosshairMove` event's `dataPointIndex` to build custom legends/panels.
+
 Trading price lines (draggable/closable overlays):
 - `addPriceLine(config)`, and helpers `addOrderLine` / `addStopLoss` / `addTakeProfit` / `addAlert`. `updatePriceLine(id, patch)`, `removePriceLine(id)`, `clearPriceLines()`, `getPriceLine(id)`, `getPriceLines()`. Lines can fire `onCross` when a streamed bar crosses them.
 

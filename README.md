@@ -14,6 +14,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Drawing Tools**: Interactive mouse toolbar plus a programmatic, price/time-anchored `addDrawing()` API (trend lines, rays, levels, zones)
 - **Event Markers**: Time-anchored earnings/dividend/split/news flags on the x-axis with hover cards via `addEventMarker()`
 - **Data Legend**: On-chart OHLC + change + volume + indicator readout that tracks the crosshair via `showLegend()`
+- **Data Readout API**: `getDataAt(index)` returns structured OHLC + volume + change + all indicator values (overlays and oscillator panes) for custom legends/panels
 - **Price Scale Modes**: Linear, logarithmic, percent, and indexed primary-axis scaling via `setPriceScale()`
 - **Theme Support**: Light and dark modes plus a curated preset pack (`setThemePreset()`) and `registerTheme()` for custom looks
 - **Toolbar Customization**: Hide built-in toolbar sections and inject custom controls via the `toolbar` option or `addToolbarItem()`
@@ -648,6 +649,37 @@ off(); // stop listening
 
 `emit(name, payload)` is also exposed so you can bridge your own events through
 the same bus. All subscriptions are dropped automatically on `destroy()`.
+
+### Data readout at a point (`getDataAt`)
+
+`getDataAt(index)` returns a structured, read-only snapshot at a data-point
+index: OHLC, volume, change vs the previous close, and **every active indicator's
+value** (main-chart overlays *and* oscillator panes). It's the programmatic
+complement to the on-chart legend: pair it with the `crosshairMove` event's
+`dataPointIndex` to build your own legend, side panel, or tooltip.
+
+```javascript
+apexStock.on("crosshairMove", (e) => {
+  if (e.dataPointIndex < 0) return;
+  const d = apexStock.getDataAt(e.dataPointIndex);
+  // {
+  //   index, x,                                  // bar index + timestamp (ms)
+  //   ohlc: { open, high, low, close },
+  //   volume,                                    // or null
+  //   change: { absolute, percent } | null,      // vs the previous close
+  //   indicators: [                              // overlays + oscillator panes
+  //     { name: "MA 20", value: 128.4, color: "#7D57C2", pane: "main" },
+  //     { key: "rsi", name: "RSI", value: 61.2, color: "#7D57C2", pane: "rsi" }
+  //   ]
+  // }
+});
+
+apexStock.getDataAt();     // no argument -> the latest bar
+```
+
+Values are plain numbers (unformatted); unavailable ones are `null` (volume,
+change) or omitted (an indicator still in its warm-up period). Returns `null`
+when there's no data.
 
 ## State Persistence (`getState` / `setState`)
 
