@@ -42,6 +42,22 @@ class Utils {
     console.error(Utils.logPrefix, ...args);
   }
 
+  /**
+   * Compact human format for large counts (volume, market cap): `1.20B`,
+   * `3.40M`, `5.60K`. Anything under a thousand is returned as-is.
+   * @param {*} val
+   * @returns {string} "" when the value is not a finite number.
+   */
+  static compactNumber(val) {
+    if (val == null || !Number.isFinite(Number(val))) return "";
+    const n = Number(val);
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (abs >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (abs >= 1e3) return (n / 1e3).toFixed(2) + "K";
+    return String(n);
+  }
+
   static truncateNumber(val) {
     if (val === null) return val;
     return Number(val.toFixed(2));

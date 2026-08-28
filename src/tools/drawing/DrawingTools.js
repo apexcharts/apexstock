@@ -840,16 +840,30 @@ export default class DrawingTools {
         }
 
         case "measure": {
-          // A measurement box between two anchor points, labeled with the
-          // price change, percent change, and number of bars spanned. Tinted
-          // green when the move is up, red when down.
+          // A measurement box between two anchor points. The geometry and the
+          // label both come from the analysis layer (analysis/Measurement),
+          // which resolves the spanned bars, computes the region statistics,
+          // feeds the analysis panel, and emits `rangeMeasured`. This render
+          // path is the single funnel every measure change flows through (the
+          // create drag, a move drag, zoom, pan, resize, a state restore), so
+          // it is where the resolution happens; Measurement caches on the
+          // resolved bar pair, so a pan recomputes nothing. Tinted green when
+          // the move is up, red when down.
           element = document.createElementNS(
             "http://www.w3.org/2000/svg",
             "g"
           );
-          const ma = this.coordinateConverter.dataToScreen(data.x1, data.y1);
-          const mb = this.coordinateConverter.dataToScreen(data.x2, data.y2);
-          const up = data.y2 >= data.y1;
+          const resolved =
+            this.ctx.measurement &&
+            typeof this.ctx.measurement.resolve === "function"
+              ? this.ctx.measurement.resolve(data)
+              : null;
+          // `geometry` is the raw anchors unless `analysis.measure.snap` pulls
+          // them onto the bar values.
+          const geo = (resolved && resolved.geometry) || data;
+          const ma = this.coordinateConverter.dataToScreen(geo.x1, geo.y1);
+          const mb = this.coordinateConverter.dataToScreen(geo.x2, geo.y2);
+          const up = geo.y2 >= geo.y1;
           const tint = up ? data.upColor : data.downColor;
           const left = Math.min(ma.x, mb.x);
           const right = Math.max(ma.x, mb.x);
@@ -871,30 +885,29 @@ export default class DrawingTools {
           element.appendChild(rect);
 
           if (data.showLabel !== false) {
-            const dPrice = data.y2 - data.y1;
-            const dPct = data.y1 !== 0 ? (dPrice / data.y1) * 100 : 0;
-            const series = Array.isArray(this.ctx.series) ? this.ctx.series : [];
-            const lo = Math.min(data.x1, data.x2);
-            const hi = Math.max(data.x1, data.x2);
-            const bars = series.filter(
-              (pt) => pt && typeof pt.x === "number" && pt.x >= lo && pt.x <= hi
-            ).length;
-            const sign = dPrice >= 0 ? "+" : "";
-            const parts = [
-              `${sign}${Utils.truncateNumber(dPrice)} (${sign}${Utils.truncateNumber(dPct)}%)`,
-            ];
-            if (bars > 0) parts.push(`${bars} bars`);
-
+            const lines =
+              (resolved && resolved.lines) || this._measureFallbackLines(data);
             const label = document.createElementNS(
               "http://www.w3.org/2000/svg",
               "text"
             );
-            label.setAttribute("x", (left + right) / 2);
-            label.setAttribute("y", top - 4);
+            const cx = (left + right) / 2;
+            const lineHeight = 13;
+            label.setAttribute("x", cx);
+            label.setAttribute("y", top - 4 - (lines.length - 1) * lineHeight);
             label.setAttribute("text-anchor", "middle");
             label.setAttribute("fill", tint);
             label.setAttribute("font-size", "11");
-            label.textContent = parts.join("  ·  ");
+            lines.forEach((text, i) => {
+              const tspan = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "tspan"
+              );
+              tspan.setAttribute("x", cx);
+              if (i > 0) tspan.setAttribute("dy", lineHeight);
+              tspan.textContent = text;
+              label.appendChild(tspan);
+            });
             element.appendChild(label);
           }
           break;
@@ -1179,6 +1192,30 @@ export default class DrawingTools {
       this.elementInteractionManager.createVisualElements();
       this.elementInteractionManager.updateElementEventListeners();
     }
+  }
+
+  /**
+   * The measure label when there is no analysis layer to ask (a bare
+   * DrawingTools built outside an ApexStock instance). Geometry only: the delta
+   * between the two dragged anchors, and the bar count they span.
+   * @param {object} data - The measure element record.
+   * @returns {string[]}
+   */
+  _measureFallbackLines(data) {
+    const dPrice = data.y2 - data.y1;
+    const dPct = data.y1 !== 0 ? (dPrice / data.y1) * 100 : 0;
+    const series = Array.isArray(this.ctx.series) ? this.ctx.series : [];
+    const lo = Math.min(data.x1, data.x2);
+    const hi = Math.max(data.x1, data.x2);
+    const bars = series.filter(
+      (pt) => pt && typeof pt.x === "number" && pt.x >= lo && pt.x <= hi
+    ).length;
+    const sign = dPrice >= 0 ? "+" : "";
+    const lines = [
+      `${sign}${Utils.truncateNumber(dPrice)} (${sign}${Utils.truncateNumber(dPct)}%)`,
+    ];
+    if (bars > 0) lines.push(`${bars} bars`);
+    return lines;
   }
 
   /**

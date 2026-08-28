@@ -85,7 +85,31 @@
  *   interaction with a marker badge.
  * - `priceScaleChange` fires with `{ mode, base, logBase, indexBase }` when the
  *   primary price-axis scale mode changes.
- * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange"} ApexStockEventName
+ * - `rangeMeasured` fires when a measurement settles (created, or its anchors
+ *   moved) with {@link RangeMeasuredEvent}. One event per change, not one per
+ *   drag frame, and never on a plain zoom or pan.
+ * - `measurementRemoved` fires with `{ id }` when a measurement is cleared.
+ * - `comparisonChange` fires when the comparison set, mode, benchmark, or
+ *   baseline changes, with {@link ComparisonChangeEvent} (the recomputed
+ *   leaderboard included).
+ * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange" | "rangeMeasured" | "measurementRemoved" | "comparisonChange"} ApexStockEventName
+ */
+
+/**
+ * Payload for the `rangeMeasured` event.
+ *
+ * `change` (inside `stats`) is the instrument's close-to-close move over the
+ * spanned bars; `selection` is the delta between the two anchors the user
+ * dragged. They differ whenever the anchors are not on the closes, which is why
+ * both are reported.
+ * @typedef {Object} RangeMeasuredEvent
+ * @property {string|null} id - The measurement's id, or null for a reading that
+ *   came from ApexCharts' own measure ruler.
+ * @property {RangeAnchor} from
+ * @property {RangeAnchor} to
+ * @property {{from: number|null, to: number|null, absolute: number|null, percent: number|null}} selection
+ * @property {RangeStats} stats
+ * @property {"drag"|"api"|"coreRuler"} source
  */
 
 /**
@@ -170,6 +194,152 @@
  * @property {Function} [build] - Advanced: raw registry `build(context, params[, common])`.
  * @property {Function} [apply] - Advanced: raw registry `apply(context, params)` (kind "custom").
  * @property {Function} [remove] - Advanced: raw registry `remove(context)` (kind "custom").
+ */
+
+/**
+ * Options for the analysis engine, given as `analysis` on the constructor
+ * options and overridable per call on `getRangeStats` / `getDrawdown`.
+ *
+ * `periodsPerYear` is the bars-per-year convention used to annualize
+ * volatility (252 for daily equities, 52 weekly, 12 monthly). It is inferred
+ * from the bar spacing when it can be, and left out with a warning when it
+ * cannot (intraday, where the answer depends on session length), so set it
+ * explicitly for intraday data.
+ * @typedef {Object} AnalysisOptions
+ * @property {"close"|"open"|"high"|"low"} [source="close"] - Which OHLC field
+ *   the anchors, the change, and the averages read.
+ * @property {"close"|"intrabar"} [drawdownBasis="close"] - `"intrabar"` measures
+ *   each bar's low against the running high (the conservative figure).
+ * @property {number} [periodsPerYear] - Annualization convention.
+ * @property {number} [minAnnualizeDays=30] - Below this span an annualized
+ *   return is omitted rather than extrapolated.
+ * @property {"auto"|"index"|"x"} [by="auto"] - How a bare number endpoint is read.
+ * @property {{snap?: boolean|"open"|"high"|"low"|"close", label?: Function}} [measure]
+ *   Measurement tool config. `snap` pulls the box's anchors onto the bar values
+ *   (`true` means the close); `label(stats, { selection, drawing })` replaces the
+ *   on-chart readout lines.
+ * @property {boolean|import("./components/AnalysisPanel.js").AnalysisPanelOptions} [panel]
+ *   The on-chart analysis panel. Automatic by default (it appears while a
+ *   measurement exists); `false` opts out entirely for headless use.
+ * @property {ComparisonOptions & {mode?: ComparisonMode, benchmark?: string}} [comparison]
+ *   Multi-instrument comparison: alignment, baseline, mode, and the benchmark
+ *   role. See {@link ComparisonOptions}.
+ */
+
+/**
+ * One end of a measured range, resolved to a bar that actually exists.
+ * @typedef {Object} RangeAnchor
+ * @property {number} index
+ * @property {number|string|Date} x
+ * @property {number} value
+ */
+
+/**
+ * Every statistic for a selected region, returned by `ApexStock#getRangeStats`.
+ * Values are unrounded, every percent-like figure is in percent units
+ * (`20.42` means +20.42%), and anything the data cannot support is `null` with
+ * the reason in `warnings`. See `src/analysis/Statistics.js` for the per-field
+ * documentation.
+ * @typedef {Object} RangeStats
+ * @property {RangeAnchor} from
+ * @property {RangeAnchor} to
+ * @property {{absolute: number, percent: number|null}} change
+ * @property {number} bars - Inclusive bar count. Bars, not trading sessions.
+ * @property {number} upBars
+ * @property {number} downBars
+ * @property {number} flatBars
+ * @property {number|null} spanMs
+ * @property {number|null} calendarDays
+ * @property {{return: number, basis: "calendar"}|null} annualized
+ * @property {{value: number, index: number, x: *}|null} high
+ * @property {{value: number, index: number, x: *}|null} low
+ * @property {{close: number|null, volume: number|null}} average
+ * @property {{volume: number|null}} total
+ * @property {import("./analysis/Statistics.js").VolatilityResult|null} volatility
+ * @property {import("./analysis/Statistics.js").RangeDrawdown} drawdown
+ * @property {{source: string, drawdown: string}} basis
+ * @property {string[]} warnings
+ */
+
+/**
+ * How comparison lines are normalized.
+ * - `"absolute"`: raw values.
+ * - `"percent"`: percent change from the baseline (the default).
+ * - `"indexed"`: the baseline reads `indexBase` (the "100 = starting value" view).
+ * - `"relative"`: `percentChange(asset) - percentChange(benchmark)`, in
+ *   percentage points; zero means "kept pace".
+ * - `"ratio"`: `asset / benchmark`, rebased so the baseline reads `indexBase`.
+ * @typedef {"absolute"|"percent"|"indexed"|"relative"|"ratio"} ComparisonMode
+ */
+
+/**
+ * How instruments with different calendars are put on one grid, and what "0%"
+ * means. See `src/overlays/Comparison.js` for the reasoning behind the defaults.
+ * @typedef {Object} ComparisonOptions
+ * @property {"union"|"primary"|"intersection"} [join="union"] - `"union"` keeps
+ *   every x any instrument has, `"primary"` resamples onto the primary's bars,
+ *   `"intersection"` keeps only x values every instrument has.
+ * @property {"hold"|"gap"|"drop"} [fill="hold"] - How a hole in one instrument
+ *   is handled: carry the last observation, leave it null, or drop the x value
+ *   for everyone.
+ * @property {"common"|"own"|"visible"|number} [baseline="common"] - Where 0%
+ *   sits. `"common"` is the first x where every instrument (primary included)
+ *   has data, the only fair basis for different start dates. `"own"` is each
+ *   instrument's own first point (pre-0.5.0 behavior). `"visible"` follows the
+ *   zoom. A number is an explicit x value.
+ * @property {number} [indexBase=100] - Baseline value for `indexed` and `ratio`.
+ * @property {"close"|"open"|"high"|"low"} [source="close"] - Which OHLC field
+ *   every instrument is compared on.
+ * @property {boolean} [rebaseRatio=true] - `ratio` mode: rebase to `indexBase`
+ *   instead of reporting the raw quotient.
+ * @property {boolean|null} [resample=null] - Plot carried-forward grid points as
+ *   well as real observations. Defaults to `join === "primary"`.
+ */
+
+/**
+ * One row of the comparison leaderboard, from `ApexStock#getComparisonStats`.
+ * The primary symbol is included, flagged with `primary: true`. Values are
+ * unrounded and every percent-like figure is in percent units; anything the
+ * data cannot support is `null`.
+ * @typedef {Object} ComparisonRow
+ * @property {string} name
+ * @property {string|null} color - The line color, or null for the primary.
+ * @property {boolean} primary - True for the chart's own symbol.
+ * @property {boolean} benchmark - True for whichever instrument fills the
+ *   benchmark role.
+ * @property {number|null} from - x of the first observation in the window.
+ * @property {number|null} to - x of the last.
+ * @property {number|null} start - Value at `from`.
+ * @property {number|null} end - Value at `to`.
+ * @property {{absolute: number|null, percent: number|null}} change
+ * @property {number|null} relative - Excess return vs the benchmark, in
+ *   percentage points (0 for the benchmark itself).
+ * @property {{value: number, x: number}|null} high - Highest `source` value in
+ *   the window (not the intrabar high; see `ApexStock#getRangeStats` for that).
+ * @property {{value: number, x: number}|null} low
+ * @property {import("./analysis/Statistics.js").VolatilityResult|null} volatility
+ * @property {{max: number, barsToTrough: number, barsToRecovery: number|null, barsUnderwater: number, recovered: boolean}|null} drawdown
+ *   The worst drawdown in the window, measured on this instrument's own
+ *   observations.
+ * @property {number} bars - Observations in the window. Bars, not sessions.
+ * @property {{bars: number, filled: number, firstX: number|null, lastX: number|null}} coverage
+ *   How much of the shared grid this instrument covers, and how many of those
+ *   points were carried forward rather than observed.
+ * @property {number} rank - 1-based rank by percent change, best first; 0 when
+ *   there is no percent change to rank.
+ */
+
+/**
+ * Payload for the `comparisonChange` event.
+ * @typedef {Object} ComparisonChangeEvent
+ * @property {"add"|"remove"|"clear"|"mode"|"benchmark"|"options"|"visible"} reason
+ * @property {ComparisonMode} mode
+ * @property {string} benchmark - The configured benchmark, or `"__primary__"`.
+ * @property {string} baseline - The baseline policy actually applied (it can
+ *   fall back to `"own"` when no x value has data for every instrument).
+ * @property {string[]} instruments - Added instrument names, in insertion order.
+ * @property {ComparisonRow[]} stats
+ * @property {string[]} warnings
  */
 
 /**

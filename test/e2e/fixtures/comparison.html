@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock Comparison Fixture</title>
+    <style>
+      body {
+        font-family: -apple-system, sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: #fff;
+      }
+      #chart {
+        width: 900px;
+      }
+    </style>
+    <script src="/apexcharts-js/dist/apexcharts.js"></script>
+    <script src="/apexstock/dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div id="chart"></div>
+
+    <script>
+      // Four instruments with different histories, the scenario from the brief:
+      // a primary symbol, two peers with full history, and one that lists later.
+      // Every step is a multiple of 0.25 so the closes are exact in binary and
+      // every asserted percentage is reproducible.
+      var BASE = Date.UTC(2024, 0, 1);
+      var DAY = 86400000;
+      var COUNT = 120;
+      var LISTS_AT = 30; // NVDA's first session
+
+      function ohlc(fn) {
+        var out = [];
+        for (var i = 0; i < COUNT; i++) {
+          var c = fn(i);
+          out.push({
+            x: BASE + i * DAY,
+            y: [c - 0.5, c + 1, c - 1, c],
+            v: 1000000 + i * 1000,
+          });
+        }
+        return out;
+      }
+
+      function scalars(fn, from) {
+        var out = [];
+        for (var i = from || 0; i < COUNT; i++) {
+          out.push({ x: BASE + i * DAY, y: fn(i) });
+        }
+        return out;
+      }
+
+      window.__ready = false;
+      document.addEventListener("DOMContentLoaded", function () {
+        var aapl = ohlc(function (i) {
+          return 100 + i * 0.5;
+        });
+        var msft = scalars(function (i) {
+          return 200 + i * 0.25;
+        });
+        var nvda = scalars(function (i) {
+          return 400 + (i - LISTS_AT) * 4;
+        }, LISTS_AT);
+        var spy = scalars(function (i) {
+          return 450 + i * 0.25;
+        });
+
+        var chart = new ApexStock(document.querySelector("#chart"), {
+          chart: {
+            height: 400,
+            animations: { enabled: false },
+            redrawOnParentResize: false,
+          },
+          theme: { mode: "light" },
+          series: [{ name: "AAPL", data: aapl }],
+        });
+        chart.render();
+
+        window.__chart = chart;
+        window.__data = aapl;
+        window.__peers = { MSFT: msft, NVDA: nvda, SPY: spy };
+        window.__listsAt = LISTS_AT;
+        window.__events = [];
+        chart.on("comparisonChange", function (e) {
+          window.__events.push({
+            reason: e.reason,
+            mode: e.mode,
+            benchmark: e.benchmark,
+            baseline: e.baseline,
+            rows: e.stats.length,
+          });
+        });
+
+        chart.addComparison({ name: "MSFT", data: msft, color: "#2563eb" });
+        chart.addComparison({ name: "NVDA", data: nvda, color: "#16a34a" });
+        chart.addComparison({ name: "SPY", data: spy, color: "#9333ea" });
+
+        // The close-to-close move each instrument really made from the shared
+        // baseline (NVDA's first session) to the last bar, computed from the raw
+        // input arrays so the spec has an independent expectation.
+        window.__expected = (function () {
+          function pct(points) {
+            var a = points.find(function (p) {
+              return p.x === BASE + LISTS_AT * DAY;
+            });
+            var b = points[points.length - 1];
+            var av = Array.isArray(a.y) ? a.y[3] : a.y;
+            var bv = Array.isArray(b.y) ? b.y[3] : b.y;
+            return (bv / av - 1) * 100;
+          }
+          return {
+            AAPL: pct(aapl),
+            MSFT: pct(msft),
+            NVDA: pct(nvda),
+            SPY: pct(spy),
+          };
+        })();
+
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            window.__ready = true;
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

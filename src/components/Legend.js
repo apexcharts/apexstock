@@ -58,13 +58,7 @@ export default class Legend {
 
   /** Compact volume format (1.2M, 3.4K). */
   _fmtVol(v) {
-    if (v == null || !Number.isFinite(Number(v))) return "";
-    const n = Number(v);
-    const abs = Math.abs(n);
-    if (abs >= 1e9) return (n / 1e9).toFixed(2) + "B";
-    if (abs >= 1e6) return (n / 1e6).toFixed(2) + "M";
-    if (abs >= 1e3) return (n / 1e3).toFixed(2) + "K";
-    return String(n);
+    return Utils.compactNumber(v);
   }
 
   _fmt(v) {

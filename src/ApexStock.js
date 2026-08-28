@@ -31,6 +31,11 @@ import { LicenseManager, Watermark } from "apex-commons";
 import { aggregateOHLC, INTERVALS } from "./utils/Aggregation";
 import DataAdapter from "./utils/DataAdapter";
 import DataExport from "./tools/export/DataExport";
+import Statistics from "./analysis/Statistics";
+import Measurement from "./analysis/Measurement";
+import AnalysisPanel from "./components/AnalysisPanel";
+import Drawdown from "./analysis/Drawdown";
+import Align from "./analysis/Align";
 
 /**
  * ApexStock — a financial-charting layer on top of ApexCharts. Renders an OHLC
@@ -136,6 +141,13 @@ export default class ApexStock {
 
     this.chartEl = chartEl;
     this.chartOptions = chartOptions;
+    // Analysis-engine defaults (annualization convention, drawdown basis, the
+    // source field, the measurement and panel config). Assigned BEFORE the
+    // managers below, because AnalysisPanel reads it in its constructor: a later
+    // assignment silently dropped the whole `analysis.panel` config. Kept as
+    // plain options rather than a manager, because the engine is pure and
+    // stateless; only the panel holds state.
+    this.analysisOptions = { ...((chartOptions && chartOptions.analysis) || {}) };
     this.totalHeight = chartOptions.chart.height || 350;
     this.Utils = Utils;
     this.xAxisHeight = 30; // Define xAxisHeight as a constant property
@@ -212,6 +224,12 @@ export default class ApexStock {
     // On-chart data legend (OHLC + change + volume + overlay indicator values at
     // the crosshair). Opt-in via options.legend or showLegend().
     this.legend = new Legend(this);
+    // Analysis layer: Measurement turns each `measure` drawing into a full
+    // region readout and AnalysisPanel renders it. Constructed here (before
+    // render) because the drawing layer asks Measurement for the label the
+    // first time it paints a measure box.
+    this.measurement = new Measurement(this);
+    this.analysisPanel = new AnalysisPanel(this);
     this.FIBLEVELS = [0, 0.236, 0.382, 0.5, 0.618, 1];
     this.activeOscillator = null;
 
@@ -302,6 +320,13 @@ export default class ApexStock {
             mouseMove: (e, ctx, cfg) =>
               this._emitPointerEvent("crosshairMove", e, cfg),
             click: (e, ctx, cfg) => this._emitPointerEvent("click", e, cfg),
+            // ApexCharts' own measure ruler (an opt-in feature bundle) fires
+            // this. Re-emitted on the ApexStock bus with the region statistics
+            // attached, so both gestures produce one consistent result. See
+            // Measurement.labelForCoreRuler for why the core ruler is interop
+            // rather than the foundation.
+            measured: (ctx, payload) =>
+              this.measurement.onCoreMeasured(payload),
           },
           theme: {
             mode: this.theme,
@@ -378,11 +403,21 @@ export default class ApexStock {
     // ApexCharts rejects) never leaks through the merge above.
     this.mainChartOptions.legend = { show: false };
 
-    // `priceScale` and `toolbar` are ApexStock options (consumed by PriceScale
-    // and Toolbar), not ApexCharts ones; drop them so they never reach the
-    // ApexCharts config.
+    // `priceScale`, `toolbar`, and `analysis` are ApexStock options (consumed by
+    // PriceScale, Toolbar, and the analysis engine), not ApexCharts ones; drop
+    // them so they never reach the ApexCharts config.
     delete this.mainChartOptions.priceScale;
     delete this.mainChartOptions.toolbar;
+    delete this.mainChartOptions.analysis;
+
+    // When the consumer has enabled ApexCharts' measure ruler, hand it the same
+    // financial readout ApexStock's own measure drawing shows, so the two never
+    // disagree. Untouched (and free) when the ruler is not enabled.
+    const coreMeasure = this.mainChartOptions.chart.measure;
+    if (coreMeasure && coreMeasure.enabled && coreMeasure.label == null) {
+      coreMeasure.label = (payload) =>
+        this.measurement.labelForCoreRuler(payload);
+    }
 
     // Bake the active theme's chart colors (candles/grid/axis/background) into
     // mainChartOptions so the initial render and every later theme change paint
@@ -454,6 +489,53 @@ export default class ApexStock {
   static fromCSV(text, options) {
     return DataAdapter.fromCSV(text, options);
   }
+
+  /**
+   * The pure analysis engine, exposed so the statistics can be computed with no
+   * chart at all (a server-side report, a test, a worker):
+   *
+   * ```js
+   * ApexStock.stats.rangeStats(series, "2024-01-02", "2024-03-15");
+   * ApexStock.stats.drawdown(series);
+   * ApexStock.stats.align({ AAPL, SPY }, { join: "intersection" });
+   * ```
+   *
+   * Two contracts worth knowing: values come back **unrounded** (the consumer
+   * formats), and every percent-like value is in **percent units** (`20.42`
+   * means +20.42%). Anything the data cannot support is `null`, never `0` or
+   * `NaN`, and the assumptions made land in the result's `warnings`.
+   *
+   * @type {{
+   *   rangeStats: typeof Statistics.rangeStats,
+   *   returns: typeof Statistics.returns,
+   *   volatility: typeof Statistics.volatility,
+   *   annualize: typeof Statistics.annualize,
+   *   inferPeriodsPerYear: typeof Statistics.inferPeriodsPerYear,
+   *   resolveIndex: typeof Statistics.resolveIndex,
+   *   drawdown: typeof Drawdown.compute,
+   *   drawdownRange: typeof Drawdown.range,
+   *   worstDrawdown: typeof Drawdown.worst,
+   *   align: typeof Align.align,
+   *   baseline: typeof Align.baseline,
+   *   rebase: typeof Align.rebase,
+   *   relative: typeof Align.relative
+   * }}
+   */
+  static stats = {
+    rangeStats: Statistics.rangeStats,
+    returns: Statistics.returns,
+    volatility: Statistics.volatility,
+    annualize: Statistics.annualize,
+    inferPeriodsPerYear: Statistics.inferPeriodsPerYear,
+    resolveIndex: Statistics.resolveIndex,
+    drawdown: Drawdown.compute,
+    drawdownRange: Drawdown.range,
+    worstDrawdown: Drawdown.worst,
+    align: Align.align,
+    baseline: Align.baseline,
+    rebase: Align.rebase,
+    relative: Align.relative,
+  };
 
   /**
    * The time-frame intervals accepted by {@link ApexStock.aggregateOHLC}.
@@ -1015,6 +1097,10 @@ export default class ApexStock {
     this.eventMarkers.reapply();
     // Show the data legend if enabled via options.legend.
     this.legend.reapply();
+    // Re-resolve measurements against the (re-)rendered chart, and repaint the
+    // analysis panel. After drawings.reapply(), which flushes buffered ones.
+    this.measurement.reapply();
+    this.analysisPanel.reapply();
     // Apply toolbar customization now that every built-in control exists.
     this.toolbar.reapply();
   }
@@ -1165,6 +1251,10 @@ export default class ApexStock {
       this.volumesData = this.series
         .map((point) => (point.v ? { x: point.x, y: point.v } : null))
         .filter((x) => x !== null);
+
+      // The primary is one of the aligned comparison instruments; a new series
+      // means a new shared grid.
+      if (this.comparison) this.comparison.invalidate();
     }
 
     // Force update yaxis label colors based on theme
@@ -1239,6 +1329,10 @@ export default class ApexStock {
     this.eventMarkers.reapply();
     // Re-establish the data legend for the new geometry/theme.
     this.legend.reapply();
+    // The series may have been replaced, so drop the resolved-measurement cache
+    // and repaint the panel from the new data.
+    this.measurement.reapply();
+    this.analysisPanel.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;
@@ -1331,6 +1425,8 @@ export default class ApexStock {
     if (this.drawings) safe(() => this.drawings.destroy());
     if (this.eventMarkers) safe(() => this.eventMarkers.destroy());
     if (this.legend) safe(() => this.legend.destroy());
+    if (this.measurement) safe(() => this.measurement.destroy());
+    if (this.analysisPanel) safe(() => this.analysisPanel.destroy());
     if (this.drawingTools && typeof this.drawingTools.destroy === "function") {
       safe(() => this.drawingTools.destroy());
     }
@@ -2036,6 +2132,15 @@ export default class ApexStock {
     // compute on this array (ichimoku below, or a theme-driven refresh) must not
     // read a stale, shorter cached result.
     Indicators.invalidate(this.series);
+    // Same for the analysis memo (range statistics, returns, drawdown), which is
+    // keyed on the same series identity.
+    Statistics.invalidate(this.series);
+    // Resolved measurements cache the bar pair they span; a new bar can change
+    // what a range resolves to, so they recompute on the next redraw.
+    if (this.measurement) this.measurement.reapply();
+    // The primary is one of the aligned comparison instruments, so a new bar
+    // moves the shared grid (and, under `baseline: "visible"`, the baseline).
+    if (this.comparison) this.comparison.invalidate();
 
     // Rolling-window trim: drop the oldest bars uniformly from every buffer and
     // shift each indicator's committed length so its invariant still holds.
@@ -2469,9 +2574,18 @@ export default class ApexStock {
   }
 
   /**
-   * Set the comparison normalization mode: `"percent"` (indexed % change from
-   * each instrument's first point, the default) or `"absolute"` (raw prices).
-   * @param {"absolute"|"percent"} mode
+   * Set the comparison normalization mode.
+   *
+   * - `"percent"` (default): percent change from the baseline.
+   * - `"absolute"`: raw prices.
+   * - `"indexed"`: the baseline reads `indexBase` (default 100), the
+   *   "100 = starting value" view.
+   * - `"relative"`: `percentChange(asset) - percentChange(benchmark)`, in
+   *   percentage points. Zero means "kept pace".
+   * - `"ratio"`: `asset / benchmark`, rebased to `indexBase`.
+   *
+   * The last two read {@link ApexStock#setComparisonBenchmark}.
+   * @param {import("./types.js").ComparisonMode} mode
    * @returns {this}
    */
   setComparisonMode(mode) {
@@ -2479,9 +2593,61 @@ export default class ApexStock {
     return this;
   }
 
-  /** @returns {"absolute"|"percent"} the current comparison mode. */
+  /** @returns {import("./types.js").ComparisonMode} the current comparison mode. */
   getComparisonMode() {
     return this.comparison.getMode();
+  }
+
+  /**
+   * Set the benchmark instrument for `relative` and `ratio` mode. The benchmark
+   * is a **role**, not a ticker: pass the name of any added instrument, or
+   * `"__primary__"` (the default) for the chart's own symbol. Removing the
+   * instrument that fills the role hands it back to the primary.
+   * @param {string} name
+   * @returns {this}
+   */
+  setComparisonBenchmark(name) {
+    this.comparison.setBenchmark(name);
+    return this;
+  }
+
+  /** @returns {string} the benchmark instrument's name, or `"__primary__"`. */
+  getComparisonBenchmark() {
+    return this.comparison.getBenchmark();
+  }
+
+  /**
+   * Patch how comparison instruments are aligned and rebased (`join`, `fill`,
+   * `baseline`, `indexBase`, `source`, `rebaseRatio`, `resample`) and re-render.
+   * Unknown values are warned about and ignored, so a typo cannot silently
+   * change what the numbers mean.
+   * @param {import("./types.js").ComparisonOptions} patch
+   * @returns {this}
+   */
+  setComparisonOptions(patch) {
+    this.comparison.setOptions(patch);
+    return this;
+  }
+
+  /** @returns {import("./types.js").ComparisonOptions} the current alignment options. */
+  getComparisonOptions() {
+    return this.comparison.getOptions();
+  }
+
+  /**
+   * The comparison leaderboard: one row per instrument (the primary included),
+   * with change, excess return vs the benchmark, high/low, volatility, worst
+   * drawdown, rank, and grid coverage. Everything a "who's up more" table needs,
+   * already computed.
+   *
+   * The window runs from the baseline to the last observation, so with
+   * `baseline: "visible"` the rows follow the zoom; pass `from`/`to` (x values)
+   * to scope it explicitly.
+   * @param {{from?: number|Date|string, to?: number|Date|string}} [opts]
+   * @returns {import("./types.js").ComparisonRow[]} empty when no instrument is added.
+   */
+  getComparisonStats(opts) {
+    return this.comparison.getStats(opts);
   }
 
   /**
@@ -2697,6 +2863,162 @@ export default class ApexStock {
    */
   getDataAt(index) {
     return DataReadout.at(this, index);
+  }
+
+  /**
+   * Merge the instance's `analysis` options under a per-call override.
+   * @param {object} [opts]
+   * @returns {object}
+   * @private
+   */
+  _analysisOpts(opts) {
+    return { ...(this.analysisOptions || {}), ...(opts || {}) };
+  }
+
+  /**
+   * Every statistic for a selected region of the chart: the change (absolute and
+   * percent), the duration, the true high and low, the averages, the volatility,
+   * and the deepest drawdown *within* the region.
+   *
+   * ```js
+   * chart.getRangeStats(0, 42);                          // by bar index
+   * chart.getRangeStats("2024-01-02", "2024-03-15");     // by date
+   * const { min, max } = chart.getVisibleRange();
+   * chart.getRangeStats(min, max);                       // the visible window
+   * ```
+   *
+   * Endpoints may be given in either order as a bar index, an epoch-ms x value,
+   * a `Date`, or a date string; a bare number is read as a bar index when it is
+   * a valid one and as an x value otherwise (pass `{ by: "index" }` or
+   * `{ by: "x" }` to be explicit). Values are unrounded and every percent-like
+   * figure is in percent units. Anything the data cannot support is `null`, with
+   * the reason in `warnings`. Notably `annualized` is omitted for spans under
+   * `minAnnualizeDays` (default 30) rather than extrapolated.
+   *
+   * @param {number|string|Date} from
+   * @param {number|string|Date} to
+   * @param {Object} [opts] - Overrides the instance's `analysis` options.
+   * @param {"close"|"open"|"high"|"low"} [opts.source="close"]
+   * @param {"close"|"intrabar"} [opts.drawdownBasis="close"]
+   * @param {number} [opts.periodsPerYear] - Annualization convention (e.g. 252).
+   * @param {number} [opts.minAnnualizeDays=30]
+   * @param {"auto"|"index"|"x"} [opts.by="auto"]
+   * @returns {import("./analysis/Statistics.js").RangeStats|null} null when there
+   *   is no data or the endpoints cannot be resolved.
+   */
+  getRangeStats(from, to, opts) {
+    const opt = this._analysisOpts(opts);
+    return Statistics.rangeStats(this.series, from, to, opt);
+  }
+
+  /**
+   * Measure a region of the chart: create a persistent measurement between two
+   * points and return its statistics.
+   *
+   * The measurement is a real `measure` drawing, so it renders on the chart,
+   * can be selected and dragged, reprojects through zoom and pan, and persists
+   * through `getState()` / `setState()` exactly like a hand-drawn one. The
+   * analysis panel picks it up automatically.
+   *
+   * ```js
+   * const { id, stats } = chart.measureRange("2024-01-02", "2024-03-15");
+   * stats.change.percent;      // +20.42
+   * stats.drawdown.max;        // -6.4
+   * chart.clearMeasurement(id);
+   * ```
+   *
+   * Endpoints accept the same forms as {@link ApexStock#getRangeStats}. Fires
+   * `rangeMeasured` with `source: "api"`.
+   *
+   * @param {number|string|Date} from
+   * @param {number|string|Date} to
+   * @param {object} [opts] - Drawing style (`color`, `upColor`, `downColor`,
+   *   `fillOpacity`, `showLabel`, `locked`, `meta`, ...), plus `by` to steer how
+   *   a numeric endpoint is read. Statistics conventions (`periodsPerYear`,
+   *   `minAnnualizeDays`, `drawdownBasis`, `source`) are deliberately NOT
+   *   per-measurement: they come from the chart's `analysis` options, so a
+   *   measurement restored from state cannot disagree with the chart it is on.
+   *   Use {@link ApexStock#getRangeStats} for a one-off with different
+   *   conventions.
+   * @returns {{id: string, stats: import("./analysis/Statistics.js").RangeStats}|null}
+   *   null when there is no data or the endpoints cannot be resolved.
+   */
+  measureRange(from, to, opts) {
+    return this.measurement.measure(from, to, opts);
+  }
+
+  /**
+   * Every measurement currently on the chart, with its statistics, in drawing
+   * order.
+   * @returns {import("./analysis/Measurement.js").MeasurementInfo[]}
+   */
+  getMeasurements() {
+    return this.measurement.getAll();
+  }
+
+  /**
+   * One measurement by id.
+   * @param {string} id
+   * @returns {import("./analysis/Measurement.js").MeasurementInfo|null}
+   */
+  getMeasurement(id) {
+    return this.measurement.get(id);
+  }
+
+  /**
+   * Remove one measurement, or every measurement when `id` is omitted. Other
+   * drawing types are never touched. Fires `measurementRemoved` per removal.
+   * @param {string} [id]
+   * @returns {number} how many measurements were removed.
+   */
+  clearMeasurement(id) {
+    return this.measurement.clear(id);
+  }
+
+  /**
+   * Show the analysis panel: the on-chart readout of the active measurement's
+   * region statistics.
+   *
+   * The panel is automatic by default (it appears when a measurement exists and
+   * disappears when the last one is cleared), so this is only needed to pin it
+   * open, move it, or change which metrics it shows. `analysis: { panel: false }`
+   * at construction opts out entirely, for apps that render their own panel
+   * from {@link ApexStock#getRangeStats}.
+   *
+   * @param {import("./components/AnalysisPanel.js").AnalysisPanelOptions} [opts]
+   * @returns {this}
+   */
+  showAnalysisPanel(opts) {
+    this.analysisPanel.show(opts);
+    return this;
+  }
+
+  /** Hide the analysis panel until `showAnalysisPanel()` is called again. @returns {this} */
+  hideAnalysisPanel() {
+    this.analysisPanel.hide();
+    return this;
+  }
+
+  /** @returns {boolean} whether the analysis panel is currently visible. */
+  isAnalysisPanelVisible() {
+    return this.analysisPanel.isVisible();
+  }
+
+  /**
+   * The chart's drawdown: how far below its own running peak the instrument has
+   * fallen at every bar, plus the deepest drawdown, the current one, and each
+   * drawdown episode with its decline, recovery, and underwater durations kept
+   * separate (`barsToTrough`, `barsToRecovery`, `barsUnderwater`).
+   *
+   * Values are percentages at or below zero. `basis: "intrabar"` measures each
+   * bar's low against the running high instead of close-against-close, which is
+   * the more conservative figure.
+   *
+   * @param {{basis?: "close"|"intrabar"}} [opts]
+   * @returns {import("./analysis/Drawdown.js").DrawdownResult}
+   */
+  getDrawdown(opts) {
+    return Drawdown.compute(this.series, this._analysisOpts(opts));
   }
 
   /**
@@ -3012,6 +3334,9 @@ export default class ApexStock {
     this.eventMarkers.reapply();
     // Re-establish the data legend with the new theme palette.
     this.legend.reapply();
+    // The analysis panel bakes the palette into inline styles, so it is rebuilt.
+    this.measurement.reapply();
+    this.analysisPanel.reapply();
 
     // Restore active oscillator state
     this.activeOscillator = activeOscillator;

@@ -388,6 +388,10 @@ export default class XAxis {
   updatePosition() {
     // Find the chart graphical element to use as reference
     if (!this.context.mainChartId) return;
+    // The retry below reschedules itself until the chart's SVG appears, so it can
+    // outlive the document that owns it (a torn-down test environment, a removed
+    // iframe). Stop instead of throwing.
+    if (typeof document === "undefined") return;
 
     const chartElement = document.getElementById(this.context.mainChartId);
     if (!chartElement) return;

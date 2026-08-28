@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock Analysis Fixture</title>
+    <style>
+      body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #fff; }
+      #chart { width: 900px; }
+    </style>
+    <script src="/apexcharts-js/dist/apexcharts.js"></script>
+    <script src="/apexstock/dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div id="chart"></div>
+
+    <script>
+      // A deterministic series with a designed drawdown: it climbs to bar 60,
+      // falls into a trough at bar 80, and recovers by bar 110. No randomness,
+      // so every asserted statistic is stable.
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        for (let i = 0; i < count; i++) {
+          let c;
+          if (i <= 60) c = 100 + i;                 // 100 -> 160
+          else if (i <= 80) c = 160 - (i - 60) * 2; // 160 -> 120
+          else if (i <= 110) c = 120 + (i - 80) * 1.5; // 120 -> 165
+          else c = 165 + (i - 110) * 0.25;
+          c = +c.toFixed(2);
+          data.push({
+            x: base + i * 86400000,
+            y: [+(c - 0.5).toFixed(2), +(c + 1).toFixed(2), +(c - 1).toFixed(2), c],
+            v: 1000000 + i * 1000,
+          });
+        }
+        return data;
+      }
+
+      window.__ready = false;
+      document.addEventListener("DOMContentLoaded", function () {
+        const data = generateData(140);
+        const chart = new ApexStock(document.querySelector("#chart"), {
+          chart: { height: 400, animations: { enabled: false }, redrawOnParentResize: false },
+          theme: { mode: "light" },
+          series: [{ name: "AAPL", data: data }],
+          analysis: { periodsPerYear: 252 },
+        });
+        chart.render();
+        window.__chart = chart;
+        window.__data = data;
+        window.__events = [];
+        chart.on("rangeMeasured", function (e) {
+          window.__events.push({
+            id: e.id,
+            source: e.source,
+            bars: e.stats.bars,
+            percent: e.stats.change.percent,
+          });
+        });
+
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            window.__ready = true;
+          })
+        );
+      });
+    </script>
+  </body>
+</html>
