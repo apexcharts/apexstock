@@ -1,5 +1,6 @@
 import Utils from "../utils/Utils";
 import IndicatorStep from "./IndicatorStep";
+import Drawdown from "../analysis/Drawdown";
 
 /**
  * Maps a numeric (or null) value array to {x, y} points aligned to the series.
@@ -213,6 +214,13 @@ function lineOscillator(context, common, { id, series, strokeColors }) {
  * - overlay:    build(context, params) -> { series, replaceNames }
  * - oscillator: build(context, params, common) -> chart options (or null to skip)
  * - custom:     apply(context, params) and remove(context) handle the chart directly
+ *
+ * An oscillator entry may also declare:
+ * - group:        dropdown section heading (e.g. "analysis"); ungrouped by default.
+ * - heightRatio:  default share of the indicator area, relative to other panes.
+ * - decorate(context, params, pane):  re-assert pane decorations that describe
+ *   the whole series (annotations, labels). Called when the pane is created and
+ *   again after every live `appendData`, so such a label cannot go stale.
  *
  * Adding a new indicator means adding one entry here — no branching to touch.
  * @type {Object.<string, object>}
@@ -857,7 +865,98 @@ const INDICATOR_REGISTRY = {
       });
     },
   },
+
+  // ---- Analysis panes ----
+  //
+  // Not a technical indicator: a view of the same series, which is why it is
+  // grouped separately in the dropdown. It is an oscillator entry all the same,
+  // so it inherits the whole pane machinery for free: pane creation, the shared
+  // x-axis and zoom, height apportioning, the theme rebuild, getState/setState,
+  // getDataAt, and the appendData path.
+  drawdown: {
+    kind: "oscillator",
+    group: "analysis",
+    // Drawdown is a *cumulative* series (each bar is measured against the
+    // running peak), so it earns a taller pane than a bounded oscillator.
+    heightRatio: 1.4,
+    build(context, params, common) {
+      const basis = params.basis === "intrabar" ? "intrabar" : "close";
+      const result = Drawdown.compute(context.series, { basis });
+      const color = context.colors.indicators.drawdown;
+      const data = result.values.map((v, i) => ({
+        x: context.series[i].x,
+        // Truncated for display, like the rest of the indicator math; the
+        // engine's own numbers stay unrounded (see getDrawdown()).
+        y: v == null ? null : Utils.truncateNumber(v),
+      }));
+
+      return {
+        ...common,
+        chart: {
+          ...common.chart,
+          type: "area",
+          id: "drawdown" + context.groupID,
+        },
+        series: [{ name: "Drawdown", data, color }],
+        // Zero is the high-water mark, so it is the top of the axis by
+        // definition: a drawdown is never positive.
+        yaxis: {
+          ...common.yaxis,
+          max: 0,
+          labels: {
+            ...(common.yaxis && common.yaxis.labels),
+            formatter: (v) => `${Number(v).toFixed(1)}%`,
+          },
+        },
+        stroke: { ...common.stroke, colors: [color] },
+        fill: { type: "solid", opacity: 0.2 },
+      };
+    },
+
+    /**
+     * The deepest point, labelled on the pane itself: the one number a reader
+     * wants from a drawdown chart without hovering for it.
+     *
+     * Added dynamically rather than baked into the pane's options, because it
+     * describes the *whole series* and so has to move when the series grows.
+     * Re-asserted after every live append, and read off the pane's own
+     * (already-updated) series so a new bar costs a scalar scan rather than a
+     * drawdown recompute.
+     */
+    decorate(context, params, pane) {
+      if (!pane || typeof pane.addYaxisAnnotation !== "function") return;
+      const series = pane.w && pane.w.config && pane.w.config.series;
+      const data = (series && series[0] && series[0].data) || [];
+      let max = null;
+      for (let i = 0; i < data.length; i++) {
+        const y = data[i] ? data[i].y : null;
+        if (y == null) continue;
+        if (max === null || y < max) max = y;
+      }
+      if (typeof pane.removeAnnotation === "function") {
+        pane.removeAnnotation(DRAWDOWN_MAX_ID);
+      }
+      // Nothing to label on a series that never fell.
+      if (max === null || max === 0) return;
+      const color = context.colors.indicators.drawdown;
+      pane.addYaxisAnnotation({
+        id: DRAWDOWN_MAX_ID,
+        y: max,
+        borderColor: color,
+        strokeDashArray: 3,
+        label: {
+          text: `max ${max}%`,
+          position: "left",
+          textAnchor: "start",
+          style: { background: color, color: "#fff", fontSize: "10px" },
+        },
+      });
+    },
+  },
 };
+
+/** Annotation id for the drawdown pane's max label, so it can be re-asserted. */
+const DRAWDOWN_MAX_ID = "apexstock-drawdown-max";
 
 /** Keys shipped with the library — protected from accidental overwrite. */
 const BUILTIN_KEYS = new Set(Object.keys(INDICATOR_REGISTRY));
@@ -1152,6 +1251,49 @@ export default class IndicatorHandlers {
   }
 
   /**
+   * Re-assert one pane's whole-series decorations, if its registry entry has
+   * any. No-op for every indicator that does not (which is all but the analysis
+   * panes today).
+   * @param {string} key - Registry indicator key.
+   * @param {import("../ApexStock.js").default} context
+   * @param {object} pane - The pane's ApexCharts instance.
+   * @returns {void}
+   */
+  static decoratePane(key, context, pane) {
+    const def = INDICATOR_REGISTRY[String(key || "").toLowerCase()];
+    if (!def || typeof def.decorate !== "function") return;
+    const params =
+      context.oscillatorSettings &&
+      typeof context.oscillatorSettings.getIndicatorParams === "function"
+        ? context.oscillatorSettings.getIndicatorParams(key)
+        : {};
+    def.decorate(context, params, pane);
+  }
+
+  /**
+   * The dropdown group an indicator belongs to, or null for the default
+   * (ungrouped) list. Only analysis panes declare one today.
+   * @param {string} key
+   * @returns {string|null}
+   */
+  static groupOf(key) {
+    const def = INDICATOR_REGISTRY[String(key || "").toLowerCase()];
+    return (def && def.group) || null;
+  }
+
+  /**
+   * An indicator's default share of the indicator area, relative to the other
+   * panes, or null when it has no preference (which the layout reads as 1).
+   * @param {string} key
+   * @returns {number|null}
+   */
+  static heightRatioOf(key) {
+    const def = INDICATOR_REGISTRY[String(key || "").toLowerCase()];
+    const r = def && def.heightRatio;
+    return Number.isFinite(+r) && +r > 0 ? +r : null;
+  }
+
+  /**
    * Resolve the per-instance indicator config from the registry defaults plus the
    * consumer's `indicators` option, producing the `{ overlays, oscillators,
    * indicators }` maps the chart keeps. Pure (no DOM / chart), so it is unit
@@ -1277,6 +1419,9 @@ export default class IndicatorHandlers {
     const chartInstance = new ApexChartsCtor(indicatorDiv, indicatorChartOptions);
     chartInstance.render();
     context.indicatorChartMap[indicatorKey] = chartInstance;
+
+    // Whole-series pane decorations (see the registry header).
+    IndicatorHandlers.decoratePane(indicatorKey, context, chartInstance);
 
     // Re-apportion heights now that the new pane exists in the map (shrinks the
     // main chart and evenly divides the indicator area across all panes).

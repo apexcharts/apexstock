@@ -188,6 +188,7 @@ describe("IndicatorHandlers.getDefaultConfig (registry-derived)", () => {
         "accelerator oscillator",
         "bollinger bands %b",
         "bollinger bands width",
+        "drawdown",
       ])
     );
     // Each entry defaults to enabled.

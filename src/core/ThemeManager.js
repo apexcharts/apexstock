@@ -189,6 +189,7 @@ export default class ThemeManager {
           ac: "#009900",
           bPercent: "#6600CC",
           bWidth: "#CC0066",
+          drawdown: "#EF403C",
         },
         // Default colors for trading overlays (price lines). Keyed by the
         // semantic role so consumers can re-theme buy/sell/SL/TP/alert lines.
@@ -252,6 +253,7 @@ export default class ThemeManager {
           ac: "#66bb6a",
           bPercent: "#9575cd",
           bWidth: "#ec407a",
+          drawdown: "#EF5350",
         },
         tradingOverlays: {
           buy: "#26A69A",

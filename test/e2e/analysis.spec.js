@@ -150,6 +150,145 @@ test.describe("analysis measurement", () => {
     expect(errors).toEqual([]);
   });
 
+  test("the drawdown pane renders below the price chart and shrinks it", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    const before = await page.evaluate(() => ({
+      panes: document.querySelectorAll("#chart [data-indicator]").length,
+      mainHeight: document.querySelector("#chart .apexcharts-canvas")
+        .clientHeight,
+    }));
+    expect(before.panes).toBe(0);
+
+    await page.evaluate(() => window.__chart.updateIndicator("drawdown"));
+    await page.waitForTimeout(500);
+
+    const pane = page.locator('#chart [data-indicator="drawdown"]');
+    await expect(pane).toBeVisible();
+    // A real second ApexCharts instance, with an area series.
+    await expect(pane.locator(".apexcharts-area-series").first()).toBeVisible();
+
+    const after = await page.evaluate(() => {
+      const p = document.querySelector('#chart [data-indicator="drawdown"]');
+      return {
+        panes: document.querySelectorAll("#chart [data-indicator]").length,
+        mainHeight: document.querySelector("#chart .apexcharts-canvas")
+          .clientHeight,
+        paneHeight: p.clientHeight,
+      };
+    });
+    expect(after.panes).toBe(1);
+    // The price chart gave up room for the pane.
+    expect(after.mainHeight).toBeLessThan(before.mainHeight);
+    expect(after.paneHeight).toBeGreaterThan(0);
+
+    // The deepest drawdown is labelled on the pane itself.
+    await expect(
+      pane.locator(".apexcharts-yaxis-annotation-label").first()
+    ).toContainText("max -25");
+
+    expect(errors).toEqual([]);
+  });
+
+  test("the drawdown pane shares one zoom with the price chart", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+    await page.evaluate(() => window.__chart.updateIndicator("drawdown"));
+    await page.waitForTimeout(400);
+
+    const ranges = await page.evaluate(() => {
+      const d = window.__data;
+      window.__chart.setVisibleRange(d[40].x, d[100].x);
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const pane = window.__chart.indicatorChartMap.drawdown;
+          resolve({
+            main: [
+              window.__chart.chart.w.globals.minX,
+              window.__chart.chart.w.globals.maxX,
+            ],
+            pane: [pane.w.globals.minX, pane.w.globals.maxX],
+            want: [d[40].x, d[100].x],
+          });
+        }, 500);
+      });
+    });
+    // One shared x-window: the pane follows the price chart exactly.
+    expect(ranges.pane).toEqual(ranges.main);
+    expect(ranges.pane).toEqual(ranges.want);
+
+    expect(errors).toEqual([]);
+  });
+
+  test("a taller drawdown pane takes room from the other panes", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    const out = await page.evaluate(async () => {
+      const chart = window.__chart;
+      chart.updateIndicator("rsi");
+      chart.updateIndicator("drawdown");
+      const height = (key) =>
+        document.querySelector(`#chart [data-indicator="${key}"]`).clientHeight;
+      await new Promise((r) => setTimeout(r, 400));
+      const dflt = { rsi: height("rsi"), dd: height("drawdown") };
+      chart.setPaneHeightRatio("drawdown", 3);
+      await new Promise((r) => setTimeout(r, 400));
+      return { dflt, wide: { rsi: height("rsi"), dd: height("drawdown") } };
+    });
+
+    // The pane's own 1.4 default, then a 3:1 split.
+    expect(out.dflt.dd).toBeGreaterThan(out.dflt.rsi);
+    expect(out.wide.dd).toBeGreaterThan(out.dflt.dd);
+    expect(out.wide.rsi).toBeLessThan(out.dflt.rsi);
+    expect(out.wide.dd / out.wide.rsi).toBeGreaterThan(2.5);
+
+    expect(errors).toEqual([]);
+  });
+
+  test("the drawdown pane round-trips through getState/setState", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    const out = await page.evaluate(async () => {
+      const chart = window.__chart;
+      chart.updateIndicator("drawdown");
+      chart.setPaneHeightRatio("drawdown", 2);
+      await new Promise((r) => setTimeout(r, 300));
+      const state = JSON.parse(JSON.stringify(chart.getState()));
+
+      chart.updateIndicator("drawdown"); // toggle it off
+      await new Promise((r) => setTimeout(r, 300));
+      const gone = !document.querySelector(
+        '#chart [data-indicator="drawdown"]'
+      );
+
+      chart.setState(state);
+      await new Promise((r) => setTimeout(r, 500));
+      return {
+        gone,
+        state: { indicators: state.indicators, panes: state.panes },
+        back: !!document.querySelector('#chart [data-indicator="drawdown"]'),
+        ratios: chart.getPaneHeightRatios(),
+      };
+    });
+
+    expect(out.state.indicators).toEqual([
+      { key: "drawdown", params: { basis: "close" } },
+    ]);
+    expect(out.state.panes).toEqual({ drawdown: { heightRatio: 2 } });
+    expect(out.gone).toBe(true);
+    expect(out.back).toBe(true);
+    expect(out.ratios).toEqual({ drawdown: { heightRatio: 2 } });
+
+    expect(errors).toEqual([]);
+  });
+
   test("a measurement survives a state round-trip", async ({ page }) => {
     const errors = await gotoFixture(page);
 

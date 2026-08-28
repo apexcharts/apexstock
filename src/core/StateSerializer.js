@@ -33,6 +33,9 @@
  * Measurements need no key of their own: a measurement *is* a `measure`
  * drawing, so it round-trips inside `drawings`.
  *
+ * `panes` captures only the pane height ratios a consumer actually set (the
+ * layout, not the pane list: which panes exist is derived from `indicators`).
+ *
  * A "timeframe"/interval is not captured because ApexStock does not own one:
  * interval aggregation is consumer-driven via `ApexStock.aggregateOHLC`.
  *
@@ -102,6 +105,12 @@ export default class StateSerializer {
         ? ctx.comparison._serialize()
         : null;
 
+    const paneRatios =
+      typeof ctx.getPaneHeightRatios === "function"
+        ? ctx.getPaneHeightRatios()
+        : {};
+    const panes = Object.keys(paneRatios).length ? paneRatios : null;
+
     return {
       version: VERSION,
       theme: {
@@ -120,6 +129,7 @@ export default class StateSerializer {
       priceLines,
       priceScale,
       comparison,
+      panes,
       zoom:
         zoom && Number.isFinite(zoom.minX) && Number.isFinite(zoom.maxX)
           ? { minX: zoom.minX, maxX: zoom.maxX }
@@ -232,6 +242,24 @@ export default class StateSerializer {
       );
     }
 
+    // Pane layout. After the indicators (which create the panes a ratio applies
+    // to) and before the comparison rebuild, so the heights settle once. A null
+    // snapshot clears any configured ratio back to the pane's default.
+    if (typeof ctx.setPaneHeightRatio === "function") {
+      const wanted = s.panes && typeof s.panes === "object" ? s.panes : {};
+      const current =
+        typeof ctx.getPaneHeightRatios === "function"
+          ? ctx.getPaneHeightRatios()
+          : {};
+      Object.keys(current).forEach((key) => {
+        if (!wanted[key]) ctx.setPaneHeightRatio(key, null);
+      });
+      Object.keys(wanted).forEach((key) => {
+        const r = wanted[key] && wanted[key].heightRatio;
+        if (Number.isFinite(+r) && +r > 0) ctx.setPaneHeightRatio(key, +r);
+      });
+    }
+
     // Comparison: mode, benchmark, and alignment policy, plus whichever
     // instruments still have their data (see the note at the top of this file).
     // Before the price scale, because rebuilding the comparison rewrites the
@@ -267,6 +295,7 @@ export default class StateSerializer {
         priceLines: [],
         priceScale: null,
         comparison: null,
+        panes: null,
         zoom: null,
       };
     }
@@ -286,6 +315,7 @@ export default class StateSerializer {
     // `comparison` is additive like the keys above: a config object or null (no
     // comparison). Normalize anything non-object to null.
     if (typeof s.comparison !== "object") s.comparison = null;
+    if (typeof s.panes !== "object") s.panes = null;
     // `priceScale` arrived in the v2 line too; a scalar object or null (default
     // linear). Normalize anything non-object to null.
     if (typeof s.priceScale !== "object") s.priceScale = null;

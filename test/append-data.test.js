@@ -11,6 +11,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ApexStock from "../src/ApexStock.js";
 import Indicators from "../src/indicators/Indicators.js";
 import IndicatorStep from "../src/indicators/IndicatorStep.js";
+import Drawdown from "../src/analysis/Drawdown.js";
+import Utils from "../src/utils/Utils.js";
 
 function ohlcData(n = 60, withVolume = true) {
   const out = [];
@@ -285,6 +287,39 @@ describe("appendData — oscillator panes", () => {
     expect(seriesData(pane, "Signal")).toHaveLength(61);
     expect(seriesData(pane, "Histogram")).toHaveLength(61);
     expect(m.signal[last]).not.toBeUndefined();
+  });
+
+  it("extends the drawdown pane in O(1) from its running peak", () => {
+    const data = ohlcData(60);
+    const inst = makeInstance(data);
+    inst.updateIndicator("drawdown");
+    const pane = inst.indicatorChartMap["drawdown"];
+    const instanceCountBefore = instances.length;
+
+    // A new high, then a fall: the peak has to move, then the drawdown open.
+    inst.appendData(bar(new Date(2020, 0, 61).getTime(), 400));
+    inst.appendData(bar(new Date(2020, 0, 62).getTime(), 200));
+
+    expect(instances.length).toBe(instanceCountBefore); // no recreate
+    expect(pane.destroy).not.toHaveBeenCalled();
+
+    const dd = seriesData(pane, "Drawdown");
+    expect(dd).toHaveLength(62);
+    const expected = Drawdown.compute(inst.series, { basis: "close" }).values;
+    // The streamed points match a full recompute, at the display truncation the
+    // pane renders.
+    expect(dd[60].y).toBe(Utils.truncateNumber(expected[60]));
+    expect(dd[61].y).toBe(Utils.truncateNumber(expected[61]));
+    expect(dd[60].y).toBe(0); // the new high is a high-water mark
+    expect(dd[61].y).toBeLessThan(0); // and then underwater
+
+    // The pane's "max" label describes the whole series, so the new deeper
+    // trough has to move it rather than leaving a stale line behind.
+    const last = pane.addYaxisAnnotation.mock.calls.at(-1)[0];
+    expect(last.y).toBe(dd[61].y);
+    expect(pane.removeAnnotation).toHaveBeenCalledWith(
+      "apexstock-drawdown-max"
+    );
   });
 
   it("extends a running-state oscillator (ADX) correctly over several appends", () => {

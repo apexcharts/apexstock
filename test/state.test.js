@@ -72,6 +72,7 @@ describe("StateSerializer.migrate", () => {
       priceLines: [],
       priceScale: null,
       comparison: null,
+      panes: null,
       zoom: null,
     });
     expect(StateSerializer.migrate(42).version).toBe(2);

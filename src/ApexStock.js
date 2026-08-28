@@ -148,6 +148,11 @@ export default class ApexStock {
     // plain options rather than a manager, because the engine is pure and
     // stateless; only the panel holds state.
     this.analysisOptions = { ...((chartOptions && chartOptions.analysis) || {}) };
+
+    // Per-pane layout options (currently `heightRatio`), keyed by indicator key.
+    // Assigned here for the same reason as `analysisOptions`: the layout math
+    // below reads it.
+    this.paneOptions = { ...((chartOptions && chartOptions.panes) || {}) };
     this.totalHeight = chartOptions.chart.height || 350;
     this.Utils = Utils;
     this.xAxisHeight = 30; // Define xAxisHeight as a constant property
@@ -409,6 +414,7 @@ export default class ApexStock {
     delete this.mainChartOptions.priceScale;
     delete this.mainChartOptions.toolbar;
     delete this.mainChartOptions.analysis;
+    delete this.mainChartOptions.panes;
 
     // When the consumer has enabled ApexCharts' measure ruler, hand it the same
     // financial readout ApexStock's own measure drawing shows, so the two never
@@ -429,6 +435,16 @@ export default class ApexStock {
     this.chart = new this._ApexCharts(this.mainChartDiv, this.mainChartOptions);
 
     this.oscillatorSettings = new OscillatorSettings(this);
+
+    // The drawdown pane measures on the chart's own drawdown basis, so the pane
+    // and the range statistics can never disagree. Seeded into the live params
+    // (not into OscillatorSettings' `defaultParams`) on purpose: that map drives
+    // the settings UI, which renders every param as a number input, and the
+    // basis is a string. So the pane gets its param, and no broken control.
+    const ddBasis = this.analysisOptions.drawdownBasis;
+    this.oscillatorSettings.indicatorParams.drawdown = {
+      basis: ddBasis === "intrabar" ? "intrabar" : "close",
+    };
   }
 
   /**
@@ -1571,7 +1587,21 @@ export default class ApexStock {
         });
     };
 
+    // Grouped entries (analysis panes) get a heading above the first of their
+    // group, so they read as a separate section without a separate control. An
+    // ungrouped list renders exactly as before: no headings at all.
+    let lastGroup = null;
     Object.keys(indicators).forEach((key) => {
+      const group = IndicatorHandlers.groupOf(key);
+      if (group && group !== lastGroup) {
+        const heading = document.createElement("div");
+        heading.classList.add("apexstock-custom-option-group");
+        heading.setAttribute("role", "presentation");
+        heading.innerText = group.replace(/^./, (c) => c.toUpperCase());
+        optionsContainer.appendChild(heading);
+      }
+      lastGroup = group;
+
       const displayName =
         key === "rsi" || key === "macd"
           ? key.toUpperCase()
@@ -1729,12 +1759,75 @@ export default class ApexStock {
     return wrapper;
   }
 
-  computeHeights(newIndicatorCount) {
+  computeHeights(newIndicatorCount, weights) {
     return LayoutManager.computeHeights({
       totalHeight: this.totalHeight,
       xAxisHeight: this.xAxisHeight,
       indicatorCount: newIndicatorCount,
+      weights,
     });
+  }
+
+  /**
+   * How much of the indicator area one pane should get, relative to the others:
+   * the `panes` option first, then the indicator's registry default, then 1.
+   * @param {string} key - Indicator key (a pane's `data-indicator`).
+   * @returns {number}
+   * @private
+   */
+  _paneWeight(key) {
+    const configured = this.paneOptions && this.paneOptions[key];
+    const fromOption = configured && configured.heightRatio;
+    if (Number.isFinite(+fromOption) && +fromOption > 0) return +fromOption;
+    const fromRegistry = IndicatorHandlers.heightRatioOf(key);
+    return fromRegistry == null ? 1 : fromRegistry;
+  }
+
+  /** The pane weights in DOM order, for {@link computeHeights}. @private */
+  _paneWeights() {
+    return Array.from(this.indicatorContainer.children).map((div) =>
+      this._paneWeight(div.dataset.indicator)
+    );
+  }
+
+  /**
+   * Set one pane's share of the indicator area and re-apportion the heights.
+   * `heightRatio` is relative, not absolute: two panes at 1 and 2 split the area
+   * one-third / two-thirds. Pass null to fall back to the pane's default.
+   * @param {string} key - Indicator key (e.g. "drawdown", "rsi").
+   * @param {number|null} heightRatio
+   * @returns {this}
+   */
+  setPaneHeightRatio(key, heightRatio) {
+    const k = String(key || "").toLowerCase();
+    if (!k) return this;
+    if (heightRatio == null) {
+      delete this.paneOptions[k];
+    } else if (Number.isFinite(+heightRatio) && +heightRatio > 0) {
+      this.paneOptions[k] = {
+        ...(this.paneOptions[k] || {}),
+        heightRatio: +heightRatio,
+      };
+    } else {
+      Utils.warn("setPaneHeightRatio: heightRatio must be a positive number.");
+      return this;
+    }
+    if (this.indicatorContainer) this.updateAllChartHeights();
+    return this;
+  }
+
+  /**
+   * The configured pane height ratios (only the ones that differ from their
+   * defaults), as captured by `getState()`.
+   * @returns {Object.<string, {heightRatio: number}>}
+   */
+  getPaneHeightRatios() {
+    const out = {};
+    Object.keys(this.paneOptions || {}).forEach((k) => {
+      const r = this.paneOptions[k] && this.paneOptions[k].heightRatio;
+      if (Number.isFinite(+r) && +r > 0) out[k] = { heightRatio: +r };
+    });
+    return out;
   }
 
   updateAllChartHeights() {
@@ -1762,9 +1855,9 @@ export default class ApexStock {
       return;
     }
 
-    // Calculate heights with indicators
-    const { newMainHeight, indicatorContainerHeight, indicatorHeight } =
-      this.computeHeights(indicatorCount);
+    // Calculate heights with indicators, in proportion to each pane's weight.
+    const { newMainHeight, indicatorContainerHeight, indicatorHeights } =
+      this.computeHeights(indicatorCount, this._paneWeights());
 
     const INDICATOR_CHART_TOP_OFFSET = LayoutManager.INDICATOR_CHART_TOP_OFFSET;
     // Update main chart height
@@ -1782,6 +1875,7 @@ export default class ApexStock {
     // Update each indicator's height
     for (let i = 0; i < indicatorCount; i++) {
       const indicatorDiv = this.indicatorContainer.children[i];
+      const indicatorHeight = indicatorHeights[i];
       indicatorDiv.style.height = indicatorHeight + "px";
       indicatorDiv.style.top = INDICATOR_CHART_TOP_OFFSET + "px";
       indicatorDiv.style.marginTop = INDICATOR_CHART_TOP_OFFSET * -2 + "px";
@@ -2256,6 +2350,15 @@ export default class ApexStock {
     // ── Fibonacci annotation: re-evaluate its levels against the new range ───────
     const fib = this.indicatorChartMap["fibonacci retracements"];
     if (fib && typeof fib.update === "function") fib.update();
+
+    // ── Pane decorations that describe the whole series ─────────────────────────
+    // e.g. the drawdown pane's "max" label, which a new bar can move. Only the
+    // panes whose registry entry declares a `decorate` do any work.
+    for (const regKey of Object.keys(paneDeltas)) {
+      const pane = this.indicatorChartMap[regKey];
+      if (!pane || typeof pane === "boolean") continue;
+      IndicatorHandlers.decoratePane(regKey, this, pane);
+    }
 
     // ── Custom indicators without a streaming twin ───────────────────────────────
     // Streamable indicators (built-in or custom-with-stream) were patched above.
@@ -3030,13 +3133,21 @@ export default class ApexStock {
    *
    * Values are percentages at or below zero. `basis: "intrabar"` measures each
    * bar's low against the running high instead of close-against-close, which is
-   * the more conservative figure.
+   * the more conservative figure. It defaults to the chart's
+   * `analysis.drawdownBasis`, so this, the range statistics, and the drawdown
+   * pane all report the same thing.
    *
    * @param {{basis?: "close"|"intrabar"}} [opts]
    * @returns {import("./analysis/Drawdown.js").DrawdownResult}
    */
   getDrawdown(opts) {
-    return Drawdown.compute(this.series, this._analysisOpts(opts));
+    const o = this._analysisOpts(opts);
+    // The chart-level convention is spelled `drawdownBasis` (it sits alongside
+    // `source` and `periodsPerYear` in `analysis`), while the engine takes
+    // `basis`. Translate, with an explicit per-call `basis` winning.
+    return Drawdown.compute(this.series, {
+      basis: o.basis || o.drawdownBasis,
+    });
   }
 
   /**

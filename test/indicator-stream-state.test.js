@@ -88,6 +88,12 @@ describe("IndicatorStep.resolve / streamableKeys (registry -> stepper map)", () 
       { key: "bollinger", params: { period: 20, stdDev: 2 } },
     ],
     ["rsi", {}, { key: "rsi", params: { period: 14 } }],
+    ["drawdown", {}, { key: "drawdown", params: { basis: "close" } }],
+    [
+      "drawdown",
+      { basis: "intrabar" },
+      { key: "drawdown", params: { basis: "intrabar" } },
+    ],
     ["macd", {}, { key: "macd", params: { fast: 12, slow: 26, signal: 9 } }],
     [
       "macd",

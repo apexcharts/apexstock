@@ -302,6 +302,20 @@
   background: var(--apexstock-light-hover);
 }
 
+/* Section heading inside the indicators dropdown (e.g. "Analysis"). Not an
+   option: no pointer, not focusable, and skipped by the roving tabindex, which
+   only ever queries .apexstock-custom-option. */
+.apexstock-custom-option-group {
+  padding: 10px 10px 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  cursor: default;
+  user-select: none;
+}
+
 .apexstock-custom-option.selected {
   background: var(--apexstock-accent-soft);
   color: var(--apexstock-blue);

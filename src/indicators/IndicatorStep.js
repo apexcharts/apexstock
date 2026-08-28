@@ -234,7 +234,60 @@ function windowed(windowFn, calc, pick) {
   };
 }
 
+/**
+ * Running state for the drawdown pane: the high-water mark of the basis' peak
+ * field over the whole history. That is all a drawdown needs, which is why this
+ * stepper is O(1) rather than a windowed recompute.
+ * @param {"close"|"intrabar"} basis
+ */
+function drawdownFields(basis) {
+  // Mirrors Drawdown._fields: close-basis measures close against a close peak,
+  // intrabar measures the low against a high peak.
+  return basis === "intrabar" ? { peak: 1, level: 2 } : { peak: 3, level: 3 };
+}
+
+/** The drawdown percent at one bar, given the running peak. Never positive. */
+function drawdownValue(peak, level) {
+  const dd = peak ? ((level - peak) / peak) * 100 : 0;
+  return dd > 0 ? 0 : dd;
+}
+
 const STEPPERS = {
+  // ── Cumulative (running high-water mark) ───────────────────────────────────
+
+  // Drawdown at i is the basis level against the peak of everything before it,
+  // so the state is one number and the step is O(1) with no warm-up at all.
+  drawdown: {
+    seed(series, params) {
+      const f = drawdownFields(params.basis);
+      let peak = null;
+      const s = Array.isArray(series) ? series : [];
+      for (let i = 0; i < s.length; i++) {
+        const y = s[i] && s[i].y;
+        if (!Array.isArray(y)) continue;
+        const candidate = Number(y[f.peak]);
+        const level = Number(y[f.level]);
+        // An unusable bar updates nothing, exactly as the full compute skips it.
+        if (!Number.isFinite(candidate) || !Number.isFinite(level)) continue;
+        if (peak === null || candidate >= peak) peak = candidate;
+      }
+      return { peak };
+    },
+    step(state, series, params) {
+      const f = drawdownFields(params.basis);
+      const bar = lastBar(series);
+      const y = bar && bar.y;
+      const candidate = Array.isArray(y) ? Number(y[f.peak]) : NaN;
+      const level = Array.isArray(y) ? Number(y[f.level]) : NaN;
+      if (!Number.isFinite(candidate) || !Number.isFinite(level)) {
+        return { value: null, state };
+      }
+      const peak =
+        state.peak === null || candidate >= state.peak ? candidate : state.peak;
+      return { value: drawdownValue(peak, level), state: { peak } };
+    },
+  },
+
   // ── Windowed ───────────────────────────────────────────────────────────────
 
   // SMA at i depends on the last `period` closes.
@@ -884,6 +937,16 @@ const STREAM_MAP = {
     kind: "oscillator",
     params: (p) => ({ period: p.period || 20, stdDev: p.stdDev || 2 }),
     render: (v, x) => [pt("Bollinger Width", x, v)],
+  },
+  // ── Analysis panes ─────────────────────────────────────────────────────────
+  drawdown: {
+    key: "drawdown",
+    kind: "oscillator",
+    params: (p) => ({ basis: p.basis === "intrabar" ? "intrabar" : "close" }),
+    // The stepper returns the engine's unrounded percent (so it can be compared
+    // against a full Drawdown.compute); the pane renders it truncated, like the
+    // rest of the indicator math.
+    render: (v, x) => [pt("Drawdown", x, v == null ? null : t(v))],
   },
 };
 

@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import Indicators from "../src/indicators/Indicators.js";
 import IndicatorStep from "../src/indicators/IndicatorStep.js";
+import Drawdown from "../src/analysis/Drawdown.js";
 
 /** Deterministic OHLCV series. */
 function genSeries(n) {
@@ -66,6 +67,20 @@ const CASES = [
     params: { period: 14 },
     splits: [1, 20],
     full: (s, p) => Indicators.calculateRSI(s, p.period),
+  },
+  {
+    // The analysis pane's twin. Its "full" is the analysis engine rather than an
+    // Indicators.calculate*, but the contract is the same one.
+    key: "drawdown",
+    params: { basis: "close" },
+    splits: [1, 5, 40],
+    full: (s, p) => Drawdown.compute(s, { basis: p.basis }).values,
+  },
+  {
+    key: "drawdown",
+    params: { basis: "intrabar" },
+    splits: [1, 40],
+    full: (s, p) => Drawdown.compute(s, { basis: p.basis }).values,
   },
   {
     key: "bollinger",
@@ -266,6 +281,7 @@ describe("IndicatorStep agreement with full calculate*", () => {
         "cci",
         "chaikin",
         "donchian",
+        "drawdown",
         "ema",
         "keltner",
         "linreg",

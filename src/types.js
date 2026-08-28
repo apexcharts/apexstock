@@ -56,6 +56,19 @@
  * @property {Array<{name?: string, data: Series}>} series - The first series holds the OHLC data.
  * @property {{mode?: ThemeMode}} [theme]
  * @property {{stockChart?: StockChartPlotOptions}} [plotOptions]
+ * @property {AnalysisOptions} [analysis] - Analysis engine, measurement, panel,
+ *   and comparison defaults.
+ * @property {Object.<string, PaneOptions>} [panes] - Per-pane layout, keyed by
+ *   indicator key (e.g. `{ drawdown: { heightRatio: 2 } }`).
+ */
+
+/**
+ * Layout options for one oscillator/analysis pane.
+ * @typedef {Object} PaneOptions
+ * @property {number} [heightRatio] - This pane's share of the indicator area,
+ *   relative to the other panes: two panes at 1 and 2 split it one-third /
+ *   two-thirds. Defaults to the indicator's own preference (1 for most, 1.4 for
+ *   the drawdown pane).
  */
 
 /**
@@ -379,6 +392,10 @@
  *   only; interactive callbacks (`onCross`/`onMove`/`onRemove`) are not captured.
  * @property {{mode: "linear"|"logarithmic"|"percent"|"indexed", base: number|null, logBase: number, indexBase: number}|null} priceScale
  *   - Primary price-axis scale mode (v2+), or null for the default linear scale.
+ * @property {Object.<string, {heightRatio: number}>|null} panes - Pane layout
+ *   (v2+): the height ratios a consumer set, keyed by indicator key, or null
+ *   when every pane is at its default. Which panes *exist* is derived from
+ *   `indicators`, so only the layout is captured here.
  * @property {ComparisonState|null} comparison - Multi-instrument comparison
  *   (v2+): mode, benchmark, alignment policy, and instrument identity, or null
  *   for no comparison. Instrument data is not captured; `setState` emits
