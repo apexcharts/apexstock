@@ -71,6 +71,7 @@ describe("StateSerializer.migrate", () => {
       annotations: [],
       priceLines: [],
       priceScale: null,
+      comparison: null,
       zoom: null,
     });
     expect(StateSerializer.migrate(42).version).toBe(2);
@@ -392,5 +393,149 @@ describe("StateSerializer.apply (unit, fake ctx)", () => {
     const ctx = fakeCtx();
     expect(() => StateSerializer.apply(ctx, null)).not.toThrow();
     expect(ctx.calls.add).toEqual([]);
+  });
+});
+
+describe("state: comparison", () => {
+  let inst;
+  beforeEach(() => {
+    installApexChartsMock();
+    inst = makeInstance();
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  /** A peer instrument over the primary's x values. */
+  const peer = (base) => ohlcData().map((p, i) => ({ x: p.x, y: base + i }));
+
+  it("captures nothing for a chart with no comparison", () => {
+    expect(inst.getState().comparison).toBeNull();
+  });
+
+  it("captures the mode, benchmark, policy, and instrument identity", () => {
+    inst.addComparison({ name: "PEER", data: peer(50), color: "#abcdef" });
+    inst.setComparisonBenchmark("PEER");
+    inst.setComparisonMode("relative");
+    inst.setComparisonOptions({ baseline: "own", join: "intersection" });
+
+    const cmp = inst.getState().comparison;
+    expect(cmp.mode).toBe("relative");
+    expect(cmp.benchmark).toBe("PEER");
+    expect(cmp.options.baseline).toBe("own");
+    expect(cmp.options.join).toBe("intersection");
+    expect(cmp.instruments).toEqual([{ name: "PEER", color: "#abcdef" }]);
+    // The data is the consumer's: state carries identity, not bars.
+    expect(Object.keys(cmp.instruments[0])).toEqual(["name", "color"]);
+    expect(JSON.stringify(cmp)).not.toContain('"data"');
+  });
+
+  it("captures a configured mode even with no instruments added", () => {
+    inst.setComparisonMode("indexed");
+    const cmp = inst.getState().comparison;
+    expect(cmp.mode).toBe("indexed");
+    expect(cmp.instruments).toEqual([]);
+  });
+
+  it("round-trips through JSON and keeps instruments whose data is loaded", () => {
+    inst.addComparison({ name: "PEER", data: peer(50) });
+    inst.setComparisonMode("indexed");
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+
+    const needed = [];
+    inst.on("comparisonRestoreNeeded", (p) => needed.push(p));
+    inst.setComparisonMode("percent"); // drift away from the saved state
+    inst.setState(state);
+
+    expect(inst.getComparisonMode()).toBe("indexed");
+    expect(inst.getComparisons().map((i) => i.name)).toEqual(["PEER"]);
+    // The data never left, so nothing has to be re-supplied.
+    expect(needed).toEqual([]);
+  });
+
+  it("asks for the data of instruments it cannot keep", () => {
+    inst.addComparison({ name: "PEER", data: peer(50), color: "#abcdef" });
+    inst.addComparison({ name: "PEER2", data: peer(200) });
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+
+    // A fresh chart: same saved state, none of the data.
+    const other = makeInstance();
+    const needed = [];
+    other.on("comparisonRestoreNeeded", (p) => needed.push(p));
+    other.setState(state);
+
+    expect(needed).toHaveLength(1);
+    expect(needed[0].names).toEqual(["PEER", "PEER2"]);
+    expect(other.getComparisons()).toEqual([]);
+    // The setup survived even though the data did not.
+    expect(other.getComparisonMode()).toBe(inst.getComparisonMode());
+  });
+
+  it("brings a re-supplied instrument back in its remembered color", () => {
+    inst.addComparison({ name: "PEER", data: peer(50), color: "#abcdef" });
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+
+    const other = makeInstance();
+    other.on("comparisonRestoreNeeded", ({ names }) => {
+      names.forEach((name) => other.addComparison({ name, data: peer(50) }));
+    });
+    other.setState(state);
+
+    expect(other.getComparisons()).toEqual([
+      { name: "PEER", color: "#abcdef", points: 60 },
+    ]);
+  });
+
+  it("keeps a benchmark whose instrument has not come back yet", () => {
+    inst.addComparison({ name: "PEER", data: peer(50) });
+    inst.setComparisonBenchmark("PEER");
+    inst.setComparisonMode("relative");
+    const state = JSON.parse(JSON.stringify(inst.getState()));
+
+    const other = makeInstance();
+    other.setState(state);
+    // The role is remembered by name; the primary fills in until the data lands.
+    expect(other.getComparisonBenchmark()).toBe("PEER");
+    other.addComparison({ name: "PEER", data: peer(50) });
+    expect(other.comparison._derive().benchmark).toBe("PEER");
+  });
+
+  it("a null comparison in state clears a live comparison", () => {
+    const empty = JSON.parse(JSON.stringify(inst.getState()));
+    expect(empty.comparison).toBeNull();
+
+    inst.addComparison({ name: "PEER", data: peer(50) });
+    inst.setComparisonMode("indexed");
+    inst.setState(empty);
+
+    expect(inst.getComparisons()).toEqual([]);
+    expect(inst.getComparisonMode()).toBe("percent"); // back to the default
+    expect(inst.getComparisonBenchmark()).toBe("__primary__");
+  });
+
+  it("migrates a v1/v2 state with no comparison key", () => {
+    const v1 = {
+      version: 1,
+      theme: { mode: "light" },
+      chartType: "candlestick",
+      indicators: [],
+      zoom: null,
+    };
+    expect(StateSerializer.migrate(v1).comparison).toBeNull();
+    inst.addComparison({ name: "PEER", data: peer(50) });
+    inst.setState(v1);
+    expect(inst.getComparisons()).toEqual([]);
+  });
+
+  it("ignores a garbage comparison key", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = inst.getState();
+    inst.setState({ ...state, comparison: { mode: "sideways", options: 7 } });
+    expect(inst.getComparisonMode()).toBe("percent");
+    expect(inst.getComparisonOptions().join).toBe("union");
+    inst.setState({ ...state, comparison: "nonsense" });
+    expect(inst.getComparisons()).toEqual([]);
+    warn.mockRestore();
   });
 });

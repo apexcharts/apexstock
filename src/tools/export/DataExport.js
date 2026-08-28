@@ -10,6 +10,13 @@
  * The `volume` column is included when any point carries a `v` (suppress with
  * `{ includeVolume: false }`). CSV output round-trips through
  * {@link DataAdapter.fromCSV}.
+ *
+ * Extra columns (indicator values, per-bar analysis) can be appended with
+ * `{ columns: [{ name, values }] }`, where `values[i]` belongs to `series[i]`.
+ * They are appended *after* the OHLC spine so the round-trip above keeps
+ * working, and a name that collides with a spine column (or with another extra)
+ * is suffixed rather than silently overwriting it. The caller builds them; this
+ * module stays pure.
  */
 const COLUMNS = ["time", "open", "high", "low", "close", "volume"];
 
@@ -40,6 +47,31 @@ export default class DataExport {
     });
   }
 
+  /**
+   * Validate and de-duplicate caller-supplied extra columns.
+   * @param {{columns?: Array<{name?:string, values?:Array<*>}>}} options
+   * @param {string[]} spine - The column names already in use.
+   * @returns {Array<{name:string, values:Array<*>}>}
+   */
+  static _extraColumns(options, spine) {
+    const cols =
+      options && Array.isArray(options.columns) ? options.columns : [];
+    const taken = new Set(spine);
+    const out = [];
+    cols.forEach((c) => {
+      if (!c || !Array.isArray(c.values)) return;
+      let name = String(c.name == null ? "" : c.name).trim() || "column";
+      if (taken.has(name)) {
+        let n = 2;
+        while (taken.has(`${name} (${n})`)) n++;
+        name = `${name} (${n})`;
+      }
+      taken.add(name);
+      out.push({ name, values: c.values });
+    });
+    return out;
+  }
+
   /** Whether a volume column should be emitted for these rows. */
   static _wantsVolume(rows, options) {
     if (options && options.includeVolume === false) return false;
@@ -49,7 +81,7 @@ export default class DataExport {
 
   /**
    * @param {import("../../types.js").Series} series
-   * @param {{includeVolume?:boolean, raw?:boolean}} [options]
+   * @param {{includeVolume?:boolean, raw?:boolean, columns?:Array<{name:string, values:Array<*>}>}} [options]
    * @returns {string} CSV text (header + one row per point).
    */
   static toCSV(series, options = {}) {
@@ -57,25 +89,33 @@ export default class DataExport {
     const cols = DataExport._wantsVolume(rows, options)
       ? COLUMNS
       : COLUMNS.slice(0, 5);
+    const extra = DataExport._extraColumns(options, cols);
     const esc = (v) => {
       if (v == null) return "";
       const s = String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = cols.join(",");
-    const lines = rows.map((r) => cols.map((c) => esc(r[c])).join(","));
+    const header = [...cols, ...extra.map((c) => c.name)].join(",");
+    const lines = rows.map((r, i) =>
+      [
+        ...cols.map((c) => esc(r[c])),
+        ...extra.map((c) => esc(c.values[i])),
+      ].join(",")
+    );
     return [header, ...lines].join("\n");
   }
 
   /**
    * @param {import("../../types.js").Series} series
-   * @param {{includeVolume?:boolean, raw?:boolean, pretty?:boolean}} [options]
-   * @returns {string} JSON text: an array of `{time,open,high,low,close[,volume]}`.
+   * @param {{includeVolume?:boolean, raw?:boolean, pretty?:boolean, columns?:Array<{name:string, values:Array<*>}>}} [options]
+   * @returns {string} JSON text: an array of `{time,open,high,low,close[,volume][,...columns]}`.
    */
   static toJSON(series, options = {}) {
     const rows = DataExport._rows(series, options);
     const withVolume = DataExport._wantsVolume(rows, options);
-    const clean = rows.map((r) => {
+    const spine = withVolume ? COLUMNS : COLUMNS.slice(0, 5);
+    const extra = DataExport._extraColumns(options, spine);
+    const clean = rows.map((r, i) => {
       const o = {
         time: r.time,
         open: r.open,
@@ -84,6 +124,9 @@ export default class DataExport {
         close: r.close,
       };
       if (withVolume) o.volume = r.volume == null ? null : r.volume;
+      extra.forEach((c) => {
+        o[c.name] = c.values[i] == null ? null : c.values[i];
+      });
       return o;
     });
     return JSON.stringify(clean, null, options.pretty === false ? 0 : 2);

@@ -92,7 +92,10 @@
  * - `comparisonChange` fires when the comparison set, mode, benchmark, or
  *   baseline changes, with {@link ComparisonChangeEvent} (the recomputed
  *   leaderboard included).
- * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange" | "rangeMeasured" | "measurementRemoved" | "comparisonChange"} ApexStockEventName
+ * - `comparisonRestoreNeeded` fires with `{ names }` after `setState` restored a
+ *   comparison whose instrument data is not loaded: the consumer re-supplies it
+ *   with `addComparison`. See {@link ApexStockState}.
+ * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange" | "rangeMeasured" | "measurementRemoved" | "comparisonChange" | "comparisonRestoreNeeded"} ApexStockEventName
  */
 
 /**
@@ -332,7 +335,7 @@
 /**
  * Payload for the `comparisonChange` event.
  * @typedef {Object} ComparisonChangeEvent
- * @property {"add"|"remove"|"clear"|"mode"|"benchmark"|"options"|"visible"} reason
+ * @property {"add"|"remove"|"clear"|"mode"|"benchmark"|"options"|"visible"|"restore"} reason
  * @property {ComparisonMode} mode
  * @property {string} benchmark - The configured benchmark, or `"__primary__"`.
  * @property {string} baseline - The baseline policy actually applied (it can
@@ -340,6 +343,20 @@
  * @property {string[]} instruments - Added instrument names, in insertion order.
  * @property {ComparisonRow[]} stats
  * @property {string[]} warnings
+ */
+
+/**
+ * The comparison slice of {@link ApexStockState}. Instrument *data* is not
+ * captured (the consumer owns it, and it would bloat state unboundedly): only
+ * each instrument's identity and color, plus the mode, benchmark, and alignment
+ * policy. On restore, instruments whose data is still loaded are kept and the
+ * rest are reported through `comparisonRestoreNeeded`.
+ * @typedef {Object} ComparisonState
+ * @property {ComparisonMode} mode
+ * @property {string} benchmark - An instrument name, or `"__primary__"`.
+ * @property {ComparisonOptions} options
+ * @property {Array<{name: string, color: string}>} instruments - Identity and
+ *   styling, in display order. No data.
  */
 
 /**
@@ -362,6 +379,12 @@
  *   only; interactive callbacks (`onCross`/`onMove`/`onRemove`) are not captured.
  * @property {{mode: "linear"|"logarithmic"|"percent"|"indexed", base: number|null, logBase: number, indexBase: number}|null} priceScale
  *   - Primary price-axis scale mode (v2+), or null for the default linear scale.
+ * @property {ComparisonState|null} comparison - Multi-instrument comparison
+ *   (v2+): mode, benchmark, alignment policy, and instrument identity, or null
+ *   for no comparison. Instrument data is not captured; `setState` emits
+ *   `comparisonRestoreNeeded` with the names whose data must be re-supplied.
+ *   Measurements need no key of their own: a measurement is a `measure` drawing,
+ *   so it round-trips inside `drawings`.
  * @property {{minX: number, maxX: number}|null} zoom - Visible x-range, or null for full/auto.
  */
 

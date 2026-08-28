@@ -43,7 +43,8 @@ describe("buildPdfFromJpeg", () => {
     expect(s).toContain("/Height 480");
     expect(s).toContain("/Length " + jpeg.length);
     expect(s).toContain("640 0 0 480 0 0 cm"); // draw matrix fills the page
-    expect(s).toContain("/Size 6");
+    expect(s).toContain("/BaseFont /Helvetica");
+    expect(s).toContain("/Size 7");
     expect(s).toContain("startxref");
     expect(s.trimEnd().endsWith("%%EOF")).toBe(true);
   });
@@ -65,7 +66,7 @@ describe("buildPdfFromJpeg", () => {
     const entries = [...xrefText.matchAll(/(\d{10}) 00000 n /g)].map((m) =>
       Number(m[1])
     );
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(6);
     entries.forEach((off, i) => {
       expect(s.slice(off).startsWith(`${i + 1} 0 obj`)).toBe(true);
     });
@@ -74,5 +75,67 @@ describe("buildPdfFromJpeg", () => {
   it("rounds fractional dimensions and guards against zero", () => {
     const s = latin1(buildPdfFromJpeg(fakeJpeg(), 100.6, 0));
     expect(s).toContain("/MediaBox [0 0 101 1]");
+  });
+
+  it("grows the page for a text band below the image", () => {
+    const lines = ["AAPL 2024-01-01 to 2024-03-01", "Change +12.00 (+8.00%)"];
+    const s = latin1(
+      buildPdfFromJpeg(fakeJpeg(), 600, 400, {
+        lines,
+        fontSize: 10,
+        lineHeight: 14,
+        padding: 20,
+      })
+    );
+    // band = 2*20 + 2*14 = 68, so the page is 400 + 68 tall...
+    expect(s).toContain("/MediaBox [0 0 600 468]");
+    // ...the image keeps its own height and is lifted above the band...
+    expect(s).toContain("/Height 400");
+    expect(s).toContain("600 0 0 400 0 68 cm");
+    // ...and the text starts one line below the band's top edge.
+    expect(s).toContain("/F1 10 Tf");
+    expect(s).toContain("20 38 Td");
+    expect(s).toContain("(AAPL 2024-01-01 to 2024-03-01) Tj");
+    expect(s).toContain("0 -14 Td");
+    // The parentheses inside the line are escaped, so the reader sees them as
+    // text rather than as the end of the string.
+    expect(s).toContain("(Change +12.00 \\(+8.00%\\)) Tj");
+  });
+
+  it("leaves the page image-sized when there are no lines", () => {
+    const s = latin1(buildPdfFromJpeg(fakeJpeg(), 600, 400, { lines: [] }));
+    expect(s).toContain("/MediaBox [0 0 600 400]");
+    expect(s).toContain("600 0 0 400 0 0 cm");
+    expect(s).not.toContain(" Tj");
+  });
+
+  it("escapes parentheses and backslashes in the text", () => {
+    const s = latin1(
+      buildPdfFromJpeg(fakeJpeg(), 10, 10, { lines: ["a(b)c\\d"] })
+    );
+    expect(s).toContain("(a\\(b\\)c\\\\d) Tj");
+  });
+
+  it("replaces characters the base-14 font cannot show", () => {
+    // A Greek delta is not in WinAnsi; drawing its low byte would be garbage.
+    const s = latin1(buildPdfFromJpeg(fakeJpeg(), 10, 10, { lines: ["\u0394 %"] }));
+    expect(s).toContain("(? %) Tj");
+  });
+
+  it("keeps the xref valid with a text band", () => {
+    const pdf = buildPdfFromJpeg(fakeJpeg(), 10, 10, { lines: ["one", "two"] });
+    const s = latin1(pdf);
+    const startxref = Number(s.match(/startxref\s+(\d+)/)[1]);
+    const entries = [...s.slice(startxref).matchAll(/(\d{10}) 00000 n /g)].map(
+      (m) => Number(m[1])
+    );
+    expect(entries).toHaveLength(6);
+    entries.forEach((off, i) => {
+      expect(s.slice(off).startsWith(`${i + 1} 0 obj`)).toBe(true);
+    });
+    // The content stream's declared /Length has to match what follows it.
+    const m = s.match(/5 0 obj\n<< \/Length (\d+) >>\nstream\n/);
+    const body = s.slice(m.index + m[0].length);
+    expect(body.slice(Number(m[1])).startsWith("endstream")).toBe(true);
   });
 });

@@ -197,6 +197,77 @@ test.describe("comparison mode", () => {
     expect(errors).toEqual([]);
   });
 
+  test("the setup survives a state round-trip, and asks for the data back", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    const out = await page.evaluate(async () => {
+      const chart = window.__chart;
+      chart.setComparisonBenchmark("SPY");
+      chart.setComparisonMode("indexed");
+      chart.setComparisonOptions({ baseline: "own" });
+      const state = JSON.parse(JSON.stringify(chart.getState()));
+      window.__saved = state;
+
+      // A restore on the same chart keeps the loaded data: nothing to re-supply.
+      const askedSame = [];
+      const off = chart.on("comparisonRestoreNeeded", (p) =>
+        askedSame.push(p.names)
+      );
+      chart.setComparisonMode("percent");
+      chart.clearComparisons();
+      chart.setState(state);
+      off();
+
+      return {
+        state: state.comparison,
+        askedSame,
+        mode: chart.getComparisonMode(),
+        benchmark: chart.getComparisonBenchmark(),
+        baseline: chart.getComparisonOptions().baseline,
+        instruments: chart.getComparisons().map((i) => i.name),
+      };
+    });
+
+    // The state carries identity and setup, never the bars.
+    expect(out.state.instruments).toEqual([
+      { name: "MSFT", color: "#2563eb" },
+      { name: "NVDA", color: "#16a34a" },
+      { name: "SPY", color: "#9333ea" },
+    ]);
+    expect(JSON.stringify(out.state).length).toBeLessThan(600);
+
+    // The setup came back...
+    expect(out.mode).toBe("indexed");
+    expect(out.benchmark).toBe("SPY");
+    expect(out.baseline).toBe("own");
+    // ...and since the data was cleared, it was asked for by name.
+    expect(out.askedSame).toEqual([[["MSFT", "NVDA", "SPY"]][0]]);
+    expect(out.instruments).toEqual([]);
+
+    // Re-supplying it puts the lines back, in their remembered colors.
+    const restored = await page.evaluate(() => {
+      const chart = window.__chart;
+      chart.on("comparisonRestoreNeeded", ({ names }) => {
+        names.forEach((name) =>
+          chart.addComparison({ name, data: window.__peers[name] })
+        );
+      });
+      // The saved state, not the current (emptied) one: this is the real
+      // reload path, where the data has to come from the app.
+      chart.setState(window.__saved);
+      return chart.getComparisons();
+    });
+    expect(restored).toEqual([
+      { name: "MSFT", color: "#2563eb", points: 120 },
+      { name: "NVDA", color: "#16a34a", points: 90 },
+      { name: "SPY", color: "#9333ea", points: 120 },
+    ]);
+
+    expect(errors).toEqual([]);
+  });
+
   test("comparisonChange reports each mutation with the leaderboard", async ({
     page,
   }) => {

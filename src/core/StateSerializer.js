@@ -12,15 +12,35 @@
  * news/custom flags), `annotations` (data-space y/x lines, bands, points, text),
  * `priceLines` (trading order/stop/take-profit/alert lines), and `priceScale`
  * (the primary-axis mode: linear/logarithmic/percent/indexed, or null for the
- * default linear scale). The result is plain JSON (no functions), safe to
- * `JSON.stringify` and persist per user/workspace.
+ * default linear scale), and `comparison` (multi-instrument comparison: mode,
+ * benchmark, alignment policy, and instrument identity). The result is plain
+ * JSON (no functions), safe to `JSON.stringify` and persist per user/workspace.
  *
- * Price lines carry non-serializable interactive callbacks (`onCross`/`onMove`/
- * `onRemove`); only their declarative config is captured, so a consumer that
- * relies on those callbacks re-binds them after `setState` (e.g. via
- * `updatePriceLine(id, { onCross })`). A "timeframe"/interval is not captured
- * because ApexStock does not own one — interval aggregation is consumer-driven
- * via `ApexStock.aggregateOHLC`.
+ * Two things are captured by *reference* rather than by value, because the
+ * consumer owns them:
+ *
+ * - Price lines carry non-serializable interactive callbacks (`onCross`/
+ *   `onMove`/`onRemove`); only their declarative config is captured, so a
+ *   consumer that relies on those callbacks re-binds them after `setState`
+ *   (e.g. via `updatePriceLine(id, { onCross })`).
+ * - Comparison instruments carry their price *data*, which the consumer fetches
+ *   and which would bloat state unboundedly (and go stale immediately). State
+ *   holds each instrument's name and color; `setState` restores the mode,
+ *   benchmark, and policy, keeps any instrument whose data is still loaded, and
+ *   emits `comparisonRestoreNeeded` with the names whose data must be supplied
+ *   again (via `addComparison`).
+ *
+ * Measurements need no key of their own: a measurement *is* a `measure`
+ * drawing, so it round-trips inside `drawings`.
+ *
+ * A "timeframe"/interval is not captured because ApexStock does not own one:
+ * interval aggregation is consumer-driven via `ApexStock.aggregateOHLC`.
+ *
+ * Adding a key does not bump the schema version. `comparison`, like
+ * `eventMarkers`, `annotations`, `priceLines`, and `priceScale` before it, is
+ * additive and defaulted by {@link migrate}, so an older state restores cleanly
+ * and an older reader ignores what it does not know. The version is for changes
+ * that need a real transformation.
  */
 
 const VERSION = 2;
@@ -77,6 +97,11 @@ export default class StateSerializer {
         ? ctx.priceScale._serialize()
         : null;
 
+    const comparison =
+      ctx.comparison && typeof ctx.comparison._serialize === "function"
+        ? ctx.comparison._serialize()
+        : null;
+
     return {
       version: VERSION,
       theme: {
@@ -94,6 +119,7 @@ export default class StateSerializer {
       annotations,
       priceLines,
       priceScale,
+      comparison,
       zoom:
         zoom && Number.isFinite(zoom.minX) && Number.isFinite(zoom.maxX)
           ? { minX: zoom.minX, maxX: zoom.maxX }
@@ -206,6 +232,14 @@ export default class StateSerializer {
       );
     }
 
+    // Comparison: mode, benchmark, and alignment policy, plus whichever
+    // instruments still have their data (see the note at the top of this file).
+    // Before the price scale, because rebuilding the comparison rewrites the
+    // y-axes and PriceScale has to patch the primary axis afterwards.
+    if (ctx.comparison && typeof ctx.comparison._restore === "function") {
+      ctx.comparison._restore(s.comparison || null);
+    }
+
     // Primary price-axis scale mode. A null snapshot resets to linear. Restored
     // last so the theme/chart-type rebuilds above cannot clobber it.
     if (ctx.priceScale && typeof ctx.priceScale._restore === "function") {
@@ -232,6 +266,7 @@ export default class StateSerializer {
         annotations: [],
         priceLines: [],
         priceScale: null,
+        comparison: null,
         zoom: null,
       };
     }
@@ -248,6 +283,9 @@ export default class StateSerializer {
     if (!Array.isArray(s.eventMarkers)) s.eventMarkers = [];
     if (!Array.isArray(s.annotations)) s.annotations = [];
     if (!Array.isArray(s.priceLines)) s.priceLines = [];
+    // `comparison` is additive like the keys above: a config object or null (no
+    // comparison). Normalize anything non-object to null.
+    if (typeof s.comparison !== "object") s.comparison = null;
     // `priceScale` arrived in the v2 line too; a scalar object or null (default
     // linear). Normalize anything non-object to null.
     if (typeof s.priceScale !== "object") s.priceScale = null;

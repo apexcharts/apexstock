@@ -116,3 +116,60 @@ describe("DataReadout.at", () => {
     expect(r.indicators).toEqual([]);
   });
 });
+
+describe("DataReadout.columns", () => {
+  it("returns one null-padded column per indicator series", () => {
+    const cols = DataReadout.columns(fakeCtx());
+    expect(cols.map((c) => c.name)).toEqual(["MA 20", "EMA 50"]);
+    expect(cols[0]).toEqual({
+      name: "MA 20",
+      pane: "main",
+      values: [10.5, 11.5, 12.0],
+    });
+    // Unlike the per-index readout, a warm-up hole is a null rather than an
+    // omission, so the column stays aligned to the bars.
+    expect(cols[1].values).toEqual([9.9, null, 11.1]);
+  });
+
+  it("includes oscillator panes, tagged with their key", () => {
+    const cols = DataReadout.columns(
+      fakeCtx({
+        indicatorChartMap: {
+          "moving average": true, // an overlay entry: not a chart, skipped
+          rsi: {
+            w: {
+              globals: {
+                seriesNames: ["RSI"],
+                series: [[null, 55.5, 60.25]],
+                colors: ["#00E396"],
+              },
+            },
+          },
+        },
+      })
+    );
+    const rsi = cols.find((c) => c.name === "RSI");
+    expect(rsi).toEqual({
+      name: "RSI",
+      pane: "rsi",
+      key: "rsi",
+      values: [null, 55.5, 60.25],
+    });
+  });
+
+  it("drops a series that has no usable value at all", () => {
+    const ctx = fakeCtx();
+    ctx.chart.w.globals.series[1] = [null, null, null];
+    expect(DataReadout.columns(ctx).map((c) => c.name)).toEqual(["EMA 50"]);
+  });
+
+  it("covers exactly `length` bars when asked", () => {
+    const cols = DataReadout.columns(fakeCtx(), 2);
+    expect(cols[0].values).toEqual([10.5, 11.5]);
+  });
+
+  it("survives a chart with no globals at all", () => {
+    expect(DataReadout.columns({ series: [] })).toEqual([]);
+    expect(DataReadout.columns({})).toEqual([]);
+  });
+});

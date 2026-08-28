@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import DataExport from "../src/tools/export/DataExport.js";
 import ApexStock from "../src/ApexStock.js";
+import Statistics from "../src/analysis/Statistics.js";
 
 function ohlcData(n = 5, start = 100, withVolume = true) {
   return Array.from({ length: n }, (_, i) => {
@@ -145,6 +146,154 @@ describe("ApexStock#exportData", () => {
     expect(captured).not.toBeNull();
     expect(captured.download).toBe("apexstock-data.json");
     expect(global.URL.createObjectURL).toHaveBeenCalled();
+  });
+});
+
+describe("DataExport extra columns", () => {
+  it("appends caller-supplied columns after the OHLC spine", () => {
+    const csv = DataExport.toCSV(ohlcData(2), {
+      columns: [{ name: "RSI", values: [null, 55.5] }],
+    });
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("time,open,high,low,close,volume,RSI");
+    expect(lines[1].endsWith(",1000,")).toBe(true); // null -> empty cell
+    expect(lines[2].endsWith(",1001,55.5")).toBe(true);
+  });
+
+  it("adds the columns as JSON keys, nulls included", () => {
+    const json = JSON.parse(
+      DataExport.toJSON(ohlcData(2), {
+        columns: [{ name: "RSI", values: [null, 55.5] }],
+      })
+    );
+    expect(json[0].RSI).toBeNull();
+    expect(json[1].RSI).toBe(55.5);
+    // The spine keys stay first, so the shape is stable for a consumer.
+    expect(Object.keys(json[0])).toEqual([
+      "time",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "RSI",
+    ]);
+  });
+
+  it("suffixes a name that collides with a spine column or another extra", () => {
+    const csv = DataExport.toCSV(ohlcData(1), {
+      columns: [
+        { name: "close", values: [1] },
+        { name: "close", values: [2] },
+      ],
+    });
+    expect(csv.split("\n")[0]).toBe(
+      "time,open,high,low,close,volume,close (2),close (3)"
+    );
+  });
+
+  it("ignores malformed column entries", () => {
+    const csv = DataExport.toCSV(ohlcData(1), {
+      columns: [null, { name: "x" }, { values: [7] }],
+    });
+    // Only the one with values survives, and an empty name gets a placeholder.
+    expect(csv.split("\n")[0]).toBe("time,open,high,low,close,volume,column");
+  });
+});
+
+describe("ApexStock#exportData include", () => {
+  let inst;
+  beforeEach(() => {
+    installApexChartsMock();
+    inst = makeInstance();
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+    vi.restoreAllMocks();
+  });
+
+  /** Stub the live chart state an active indicator would produce. */
+  function withIndicators() {
+    inst.chart.w.globals.seriesNames = ["Price", "MA 3"];
+    inst.chart.w.globals.series = [
+      [101, 102, 103, 104, 105, 106],
+      [null, null, 102, 103, 104, 105],
+    ];
+    inst.indicatorChartMap = {
+      rsi: {
+        w: {
+          globals: {
+            seriesNames: ["RSI"],
+            series: [[null, 50, 55, 60, 65, 70]],
+          },
+        },
+      },
+    };
+  }
+
+  it("exports the OHLC spine only by default", () => {
+    expect(inst.exportData().split("\n")[0]).toBe(
+      "time,open,high,low,close,volume"
+    );
+  });
+
+  it('include:"indicators" adds a column per overlay and pane series', () => {
+    withIndicators();
+    const lines = inst.exportData({ include: ["indicators"] }).split("\n");
+    expect(lines[0]).toBe("time,open,high,low,close,volume,MA 3,RSI");
+    expect(lines[1].endsWith(",,")).toBe(true); // both still warming up
+    expect(lines[3].endsWith(",102,55")).toBe(true);
+  });
+
+  it('include:"analysis" adds per-bar return and drawdown columns', () => {
+    const json = JSON.parse(
+      inst.exportData({ format: "json", include: ["ohlc", "analysis"] })
+    );
+    expect(Object.keys(json[0])).toContain("return");
+    expect(Object.keys(json[0])).toContain("drawdown");
+    // Closes run 101..106: every bar is a new high, so nothing is underwater
+    // and the first bar has no previous close to compare against.
+    expect(json[0].return).toBeNull();
+    expect(json[1].return).toBeCloseTo((102 / 101 - 1) * 100, 10);
+    expect(json[5].drawdown).toBe(0);
+  });
+
+  it("reports a drawdown once the series falls from its peak", () => {
+    inst.series[4].y = [100, 100, 90, 95]; // close 95, below the running peak
+    Statistics.invalidate(inst.series);
+    const json = JSON.parse(
+      inst.exportData({ format: "json", include: ["analysis"] })
+    );
+    // 95 against a peak of 104: -8.65%.
+    expect(json[4].drawdown).toBeCloseTo((95 / 104 - 1) * 100, 10);
+  });
+
+  it("slices the extra columns to the visible window, aligned to the bars", () => {
+    withIndicators();
+    const data = inst.series;
+    inst.xaxisRange = { min: data[2].x, max: data[4].x };
+    const lines = inst
+      .exportData({ range: "visible", include: ["indicators"] })
+      .split("\n");
+    expect(lines).toHaveLength(4); // header + bars 2..4
+    // The first exported row is bar 2, so it carries bar 2's indicator values.
+    expect(lines[1].endsWith(",102,55")).toBe(true);
+  });
+
+  it("warns about an unknown include and exports the spine", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const csv = inst.exportData({ include: ["nonsense"] });
+    expect(csv.split("\n")[0]).toBe("time,open,high,low,close,volume");
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("accepts a bare string include", () => {
+    const csv = inst.exportData({ include: "analysis" });
+    expect(csv.split("\n")[0]).toBe(
+      "time,open,high,low,close,volume,return,drawdown"
+    );
   });
 });
 

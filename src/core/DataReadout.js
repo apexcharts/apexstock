@@ -27,6 +27,13 @@
  * @property {number|null} volume
  * @property {{absolute:number, percent:number}|null} change - vs the previous close.
  * @property {ReadoutIndicator[]} indicators
+ *
+ * @typedef {Object} ReadoutColumn
+ * @property {string} name - Series name, used as the export column header.
+ * @property {"main"|string} pane - "main" for overlays, else the oscillator key.
+ * @property {string} [key] - The oscillator's indicator key (pane columns only).
+ * @property {Array<number|null>} values - One entry per bar, null where the
+ *   indicator has no value (its warm-up period).
  */
 
 const num = (v) => {
@@ -80,6 +87,70 @@ export default class DataReadout {
       change,
       indicators: DataReadout._indicators(ctx, idx),
     };
+  }
+
+  /**
+   * Every active indicator as a whole column, for a data export: one entry per
+   * bar, null through the warm-up period.
+   *
+   * Deliberately a separate traversal from {@link _indicators}, which answers a
+   * different question with a different contract: that one is called per pointer
+   * move and *omits* an indicator with no value at the index, this one is called
+   * once per export and *null-pads* so the columns stay aligned to the bars.
+   *
+   * @param {import("../ApexStock.js").default} ctx
+   * @param {number} [length] - Bars to cover; defaults to the series length.
+   * @returns {ReadoutColumn[]}
+   */
+  static columns(ctx, length) {
+    const s = Array.isArray(ctx && ctx.series) ? ctx.series : [];
+    const len = Number.isInteger(length) && length >= 0 ? length : s.length;
+    const out = [];
+
+    const push = (g, i, pane, key) => {
+      const arr = g.series[i];
+      if (!Array.isArray(arr)) return;
+      const values = new Array(len).fill(null);
+      let any = false;
+      for (let j = 0; j < len; j++) {
+        if (arr[j] == null) continue;
+        const v = num(arr[j]);
+        if (!Number.isFinite(v)) continue;
+        values[j] = v;
+        any = true;
+      }
+      if (!any) return;
+      const col = { name: String(g.seriesNames[i] || key || ""), pane, values };
+      if (key) col.key = key;
+      out.push(col);
+    };
+
+    // Main-chart overlays: extra line series at index >= 1.
+    try {
+      const g = ctx.chart && ctx.chart.w && ctx.chart.w.globals;
+      if (g && Array.isArray(g.seriesNames) && Array.isArray(g.series)) {
+        for (let i = 1; i < g.seriesNames.length; i++) push(g, i, "main");
+      }
+    } catch {
+      /* main globals shifted; the OHLC columns still export */
+    }
+
+    // Oscillator panes: one ApexCharts instance each in indicatorChartMap.
+    try {
+      const map = ctx.indicatorChartMap || {};
+      Object.keys(map).forEach((key) => {
+        const pane = map[key];
+        const g = pane && pane.w && pane.w.globals;
+        if (!g || !Array.isArray(g.series) || !Array.isArray(g.seriesNames)) {
+          return;
+        }
+        for (let i = 0; i < g.seriesNames.length; i++) push(g, i, key, key);
+      });
+    } catch {
+      /* pane internals shifted; overlays still returned */
+    }
+
+    return out;
   }
 
   /** Overlay (main-chart) + oscillator-pane indicator values at `idx`. */

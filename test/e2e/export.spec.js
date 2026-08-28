@@ -52,4 +52,99 @@ test.describe("unified export", () => {
 
     expect(errors).toEqual([]);
   });
+
+  test("include adds indicator and analysis columns to the data export", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    // A real indicator, so the columns come from real ApexCharts state rather
+    // than a stub: this is the part jsdom cannot prove.
+    await page.evaluate(() => {
+      window.__chart.updateIndicator("moving average"); // main-chart overlay
+      window.__chart.updateIndicator("rsi"); // oscillator pane
+    });
+    await page.waitForTimeout(500);
+
+    const out = await page.evaluate(() =>
+      window.__chart.exportData({
+        format: "json",
+        include: ["ohlc", "indicators", "analysis"],
+      })
+    );
+    const rows = JSON.parse(out);
+    const keys = Object.keys(rows[0]);
+
+    // The OHLC spine comes first, then the indicators, then the analysis.
+    expect(keys.slice(0, 6)).toEqual([
+      "time",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+    ]);
+    expect(keys).toContain("return");
+    expect(keys).toContain("drawdown");
+    expect(keys.some((k) => /MA|moving/i.test(k))).toBe(true);
+    expect(keys.some((k) => /RSI/i.test(k))).toBe(true);
+
+    // Warm-up periods are nulls, not zeros, and the columns stay bar-aligned.
+    const rsiKey = keys.find((k) => /RSI/i.test(k));
+    expect(rows[0][rsiKey]).toBeNull();
+    expect(rows[0].return).toBeNull();
+    expect(rows.at(-1)[rsiKey]).toBeGreaterThan(0);
+    expect(rows.every((r) => r.drawdown == null || r.drawdown <= 0)).toBe(true);
+
+    const csv = await page.evaluate(() =>
+      window.__chart.exportData({ include: "analysis" })
+    );
+    expect(csv.split("\n")[0]).toBe(
+      "time,open,high,low,close,volume,return,drawdown"
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  test('pdf include:"analysis" sets a summary below the chart', async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    const out = await page.evaluate(async () => {
+      const plain = await window.__chart.export({ format: "pdf" });
+      const withSummary = await window.__chart.export({
+        format: "pdf",
+        include: ["analysis"],
+      });
+      // The header carries the page box; the content stream and the font object
+      // come after the embedded JPEG, so the text lives at the tail.
+      return {
+        plain: plain.blob.size,
+        plainHead: await plain.blob.slice(0, 512).text(),
+        summary: withSummary.blob.size,
+        head: await withSummary.blob.slice(0, 512).text(),
+        tail: await withSummary.blob.slice(-4096).text(),
+      };
+    });
+
+    // The summary grows the page and the document.
+    expect(out.summary).toBeGreaterThan(out.plain);
+    const box = (s) =>
+      s
+        .match(/MediaBox \[0 0 (\d+) (\d+)\]/)
+        .slice(1)
+        .map(Number);
+    const [plainW, plainH] = box(out.plainHead);
+    const [wideW, wideH] = box(out.head);
+    expect(wideW).toBe(plainW); // same width...
+    expect(wideH).toBeGreaterThan(plainH); // ...taller page for the band
+
+    expect(out.tail).toContain("/BaseFont /Helvetica");
+    // The chart's own series name leads the block, followed by the numbers.
+    expect(out.tail).toMatch(/\(Price[^)]*bars\) Tj/);
+    expect(out.tail).toContain("Change");
+
+    expect(errors).toEqual([]);
+  });
 });

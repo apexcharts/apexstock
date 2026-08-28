@@ -1,5 +1,6 @@
 import Utils from "../../utils/Utils";
 import { buildPdfFromJpeg } from "./PdfExport";
+import AnalysisSummary from "./AnalysisSummary";
 /**
  * ApexStock Chart Export Functionality
  * This module adds a screenshot/export capability to ApexStock charts
@@ -450,8 +451,19 @@ export default class Export {
    * JPEG, and embed that in a minimal PDF sized to the image (see
    * {@link buildPdfFromJpeg}). Browser-only (needs canvas + `atob`).
    *
+   * With `include: ["analysis"]` a text summary is set below the chart, so the
+   * export carries the numbers a screenshot cannot: the window's change, high,
+   * low, averages, volatility, drawdown, and the comparison leaderboard when one
+   * is active. Pass `summary` to write that block yourself.
+   *
    * @param {Object} [options]
    * @param {number} [options.scale] - Output scale (resolution multiplier).
+   * @param {Array<"analysis">|string} [options.include] - `"analysis"` adds the
+   *   summary block below the chart.
+   * @param {string[]} [options.summary] - Explicit summary lines, used instead of
+   *   the generated ones (implies `include: ["analysis"]`).
+   * @param {"all"|"visible"} [options.range="visible"] - Which window the
+   *   generated summary describes.
    * @param {boolean} [options.download] - Also trigger a file download.
    * @param {string} [options.filename] - Download filename (extension added).
    * @returns {Promise<{format:"pdf", blob: Blob, url: string}>}
@@ -460,18 +472,87 @@ export default class Export {
     const scale = options.scale || this.options.scale || 1;
     const download = !!options.download;
     const baseName = options.filename || this.options.filename;
+    const lines = this._summaryLines(options);
     return this.rasterizeToCanvas(scale).then((canvas) => {
       const jpegUrl = canvas.toDataURL("image/jpeg", this.options.quality || 0.92);
       const base64 = jpegUrl.split(",")[1] || "";
       const bin = atob(base64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const pdf = buildPdfFromJpeg(bytes, canvas.width, canvas.height);
+      const pdf = buildPdfFromJpeg(bytes, canvas.width, canvas.height, {
+        lines,
+      });
       const blob = new Blob([pdf], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       if (download) this._triggerDownload(url, this._withExt(baseName, "pdf"));
       return { format: "pdf", blob, url };
     });
+  }
+
+  /**
+   * The PDF's summary block: the consumer's own lines, or the analysis ones when
+   * `include` asks for them. Gathers from the public API so an exported number is
+   * the same number the chart shows.
+   * @param {Object} options
+   * @returns {string[]}
+   * @private
+   */
+  _summaryLines(options) {
+    if (Array.isArray(options.summary)) return options.summary;
+    const include = Array.isArray(options.include)
+      ? options.include
+      : options.include
+        ? [options.include]
+        : [];
+    if (!include.map((v) => String(v).toLowerCase()).includes("analysis")) {
+      return [];
+    }
+
+    const ctx = this.ctx;
+    let stats = null;
+    try {
+      const series = Array.isArray(ctx.series) ? ctx.series : [];
+      if (series.length && typeof ctx.getRangeStats === "function") {
+        const visible =
+          options.range !== "all" && typeof ctx.getVisibleRange === "function"
+            ? ctx.getVisibleRange()
+            : null;
+        stats = visible
+          ? ctx.getRangeStats(visible.min, visible.max)
+          : ctx.getRangeStats(0, series.length - 1);
+      }
+    } catch {
+      /* an unusable series should not fail the export */
+    }
+
+    let comparison = [];
+    try {
+      if (typeof ctx.getComparisonStats === "function") {
+        comparison = ctx.getComparisonStats();
+      }
+    } catch {
+      /* same */
+    }
+
+    return AnalysisSummary.build({
+      title: this._seriesName(),
+      stats,
+      comparison,
+    });
+  }
+
+  /** The primary series' name, by position. @private */
+  _seriesName() {
+    const live =
+      this.ctx &&
+      this.ctx.chart &&
+      this.ctx.chart.w &&
+      this.ctx.chart.w.config &&
+      this.ctx.chart.w.config.series;
+    if (live && live.length && live[0] && live[0].name) {
+      return String(live[0].name);
+    }
+    return "";
   }
 
   /** Opaque background color for rasterized PNGs. */

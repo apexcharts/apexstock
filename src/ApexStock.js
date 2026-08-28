@@ -724,10 +724,18 @@ export default class ApexStock {
 
   /**
    * Capture the chart's current state as a portable, schema-versioned JSON
-   * object: theme mode, active chart type, active indicators (with their
-   * params), and the visible x-range. The result is plain JSON (no functions),
-   * safe to `JSON.stringify` and persist per user/workspace. Restore it with
+   * object: the theme (mode and preset), the active chart type, the active
+   * indicators with their params, the drawings (measurements included, since a
+   * measurement is a drawing), the event markers, the data-space annotations,
+   * the trading price lines, the price-scale mode, the comparison setup, and the
+   * visible x-range. The result is plain JSON (no functions), safe to
+   * `JSON.stringify` and persist per user/workspace. Restore it with
    * {@link ApexStock#setState}.
+   *
+   * Two things belong to the consumer and are captured by reference rather than
+   * by value: a price line's interactive callbacks (`onCross`/`onMove`/
+   * `onRemove`), and a comparison instrument's price data. Both are re-supplied
+   * after a restore, the second in response to `comparisonRestoreNeeded`.
    * @returns {import("./types.js").ApexStockState}
    */
   getState() {
@@ -736,9 +744,19 @@ export default class ApexStock {
 
   /**
    * Restore a state previously produced by {@link ApexStock#getState} (any
-   * supported version — it is migrated internally). Reconciles theme, chart
-   * type, indicators (+params), the toolbar selection, and zoom. Call after
-   * {@link ApexStock#render}.
+   * supported version, migrated internally). Reconciles everything
+   * {@link ApexStock#getState} captures. Call after {@link ApexStock#render}.
+   *
+   * A restored comparison keeps any instrument whose data is still loaded and
+   * emits `comparisonRestoreNeeded` with the names whose data is not, so
+   * subscribe before calling this if you need to re-supply it:
+   *
+   * ```js
+   * chart.on("comparisonRestoreNeeded", ({ names }) => {
+   *   names.forEach((name) => chart.addComparison({ name, data: myCache[name] }));
+   * });
+   * chart.setState(saved);
+   * ```
    * @param {import("./types.js").ApexStockState} state
    * @returns {this}
    */
@@ -3081,10 +3099,20 @@ export default class ApexStock {
    * raster capture (flagged `fallback: true`). Pass `download: true` to also save
    * a file.
    *
+   * `include` carries the analysis into the export, meaning something slightly
+   * different in each medium because a spreadsheet and a report need different
+   * things: for `csv`/`json` it adds per-bar columns (`"indicators"`,
+   * `"analysis"`), and for `pdf` it sets a text summary below the chart
+   * (`"analysis"`).
+   *
    * @param {Object} [options]
    * @param {"png"|"svg"|"pdf"|"csv"|"json"} [options.format="png"]
    * @param {number} [options.scale] - Image/PDF resolution multiplier.
-   * @param {"all"|"visible"} [options.range] - Data range (csv/json).
+   * @param {"all"|"visible"} [options.range] - Data range (csv/json), and which
+   *   window the PDF summary describes (defaults to the visible one there).
+   * @param {Array<"ohlc"|"indicators"|"analysis">|string} [options.include] -
+   *   Extra content: per-bar columns for csv/json, the summary block for pdf.
+   * @param {string[]} [options.summary] - PDF only: your own summary lines.
    * @param {boolean} [options.includeVolume] - Volume column (csv/json).
    * @param {boolean} [options.raw] - Raw `x` instead of ISO time (csv/json).
    * @param {boolean} [options.pretty] - Pretty-print JSON.
@@ -3147,6 +3175,15 @@ export default class ApexStock {
    *   range isn't known yet).
    * @param {boolean} [options.includeVolume] - Force the volume column on/off
    *   (defaults to on when any point has a `v`).
+   * @param {Array<"ohlc"|"indicators"|"analysis">|string} [options.include=["ohlc"]]
+   *   Extra column groups appended after the OHLC spine (which is always
+   *   present, so the CSV keeps round-tripping through `fromCSV`):
+   *   `"indicators"` adds one column per active indicator series (main-chart
+   *   overlays *and* oscillator panes), null through each one's warm-up;
+   *   `"analysis"` adds `return` (percent change from the previous bar) and
+   *   `drawdown` (percent below the running peak, per `analysis.drawdownBasis`).
+   *   Range statistics are a summary, not a per-bar value, so they are not
+   *   columns: read them from {@link ApexStock#getRangeStats}.
    * @param {boolean} [options.raw] - Emit raw `x` instead of ISO time.
    * @param {boolean} [options.pretty] - Pretty-print JSON (default true).
    * @param {boolean} [options.download] - Also trigger a file download.
@@ -3155,24 +3192,35 @@ export default class ApexStock {
    */
   exportData(options = {}) {
     const format = String(options.format || "csv").toLowerCase();
-    let series = Array.isArray(this.series) ? this.series : [];
+    const all = Array.isArray(this.series) ? this.series : [];
 
+    // Resolve the exported bars as INDICES into the full series, so the extra
+    // columns (which are indexed by bar) can be sliced the same way.
+    let indices = all.map((_, i) => i);
     if (options.range === "visible") {
       const r = this.getVisibleRange();
       if (r) {
-        const toTs = (x) =>
-          typeof x === "number" ? x : new Date(x).getTime();
-        series = series.filter((p) => {
-          const t = toTs(p.x);
+        const toTs = (x) => (typeof x === "number" ? x : new Date(x).getTime());
+        indices = indices.filter((i) => {
+          const t = toTs(all[i].x);
           return t >= r.min && t <= r.max;
         });
       }
     }
 
+    const series = indices.map((i) => all[i]);
+    const columns = this._exportColumns(options.include, all.length).map(
+      (c) => ({
+        name: c.name,
+        values: indices.map((i) => c.values[i]),
+      })
+    );
+    const opts = columns.length ? { ...options, columns } : options;
+
     const text =
       format === "json"
-        ? DataExport.toJSON(series, options)
-        : DataExport.toCSV(series, options);
+        ? DataExport.toJSON(series, opts)
+        : DataExport.toCSV(series, opts);
 
     if (options.download) {
       const ext = format === "json" ? "json" : "csv";
@@ -3184,6 +3232,49 @@ export default class ApexStock {
       );
     }
     return text;
+  }
+
+  /**
+   * Build the extra export columns for an `include` selection. Indicator columns
+   * come from the live chart state; analysis columns from the same engine
+   * `getRangeStats` uses, so an exported number matches an on-chart one.
+   * @param {Array<string>|string|undefined} include
+   * @param {number} length - Full series length (columns are bar-indexed).
+   * @returns {Array<{name:string, values:Array<number|null>}>}
+   * @private
+   */
+  _exportColumns(include, length) {
+    const want = new Set(
+      (Array.isArray(include) ? include : include ? [include] : []).map((v) =>
+        String(v).toLowerCase()
+      )
+    );
+    if (!want.size) return [];
+
+    const unknown = [...want].filter(
+      (v) => v !== "ohlc" && v !== "indicators" && v !== "analysis"
+    );
+    if (unknown.length) {
+      Utils.warn(
+        `exportData: unknown include ${unknown.map((u) => `"${u}"`).join(", ")}. Expected "ohlc", "indicators", or "analysis".`
+      );
+    }
+
+    const columns = [];
+    if (want.has("indicators")) {
+      columns.push(...DataReadout.columns(this, length));
+    }
+    if (want.has("analysis")) {
+      const opt = this._analysisOpts();
+      const { values: returns } = Statistics.returns(this.series, {
+        mode: "simple",
+        source: opt.source,
+      });
+      const dd = Drawdown.compute(this.series, opt);
+      columns.push({ name: "return", values: returns });
+      columns.push({ name: "drawdown", values: dd.values });
+    }
+    return columns;
   }
 
   /**

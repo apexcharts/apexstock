@@ -81,6 +81,8 @@ const PALETTE = [
 /** @type {import("../types.js").ComparisonMode[]} */
 const MODES = ["absolute", "percent", "indexed", "relative", "ratio"];
 
+const DEFAULT_MODE = "percent";
+
 /** Benchmark sentinel: the chart's own symbol, whatever it is named. */
 const PRIMARY = "__primary__";
 
@@ -110,7 +112,7 @@ export default class Comparison {
       (ctx && ctx.analysisOptions && ctx.analysisOptions.comparison) || {};
 
     /** @type {import("../types.js").ComparisonMode} */
-    this.mode = MODES.indexOf(cfg.mode) !== -1 ? cfg.mode : "percent";
+    this.mode = MODES.indexOf(cfg.mode) !== -1 ? cfg.mode : DEFAULT_MODE;
     /** Benchmark instrument name, or the {@link PRIMARY} sentinel. */
     this.benchmark = cfg.benchmark != null ? String(cfg.benchmark) : PRIMARY;
     /** @type {import("../types.js").ComparisonOptions} */
@@ -129,6 +131,8 @@ export default class Comparison {
     /** Re-entrancy guard for the visible-baseline rebase. */
     this._rebasing = false;
     this._rangeUnsub = null;
+    /** name -> color remembered from a restored state, see {@link _restore}. */
+    this._restoredColors = {};
   }
 
   /** @returns {boolean} true if any comparison instrument is present. */
@@ -295,7 +299,13 @@ export default class Comparison {
       Utils.warn(`addComparison: "${name}" has no valid points.`);
       return null;
     }
-    const color = config.color || PALETTE[this._counter++ % PALETTE.length];
+    // An explicit color wins, then one remembered from a restored state (so
+    // re-supplying an instrument's data brings its line back in its own color),
+    // then the palette.
+    const color =
+      config.color ||
+      this._restoredColors[name] ||
+      PALETTE[this._counter++ % PALETTE.length];
     this.items[name] = { name, data, color };
     this._invalidate();
     this._bindRange();
@@ -330,6 +340,7 @@ export default class Comparison {
     if (!this.isActive()) return;
     this.items = {};
     this.benchmark = PRIMARY;
+    this._restoredColors = {};
     this._invalidate();
     this.reapply();
     this._unbindRange();
@@ -858,8 +869,115 @@ export default class Comparison {
   }
 
   /* ------------------------------------------------------------------ *
+   * State
+   * ------------------------------------------------------------------ */
+
+  /**
+   * JSON snapshot for state serialization, or null when comparison was never
+   * configured (a null in state means "no comparison").
+   *
+   * **Instrument data is deliberately not captured.** It is supplied by the
+   * consumer, runs to thousands of bars per instrument, and would be stale the
+   * moment it was written. What state carries is each instrument's *identity*
+   * and styling, plus the mode, benchmark, and alignment policy;
+   * {@link _restore} then reports which instruments need their data supplied
+   * again. Same division of labour as the price lines' interactive callbacks,
+   * which are also re-bound by the consumer after a restore.
+   *
+   * @returns {import("../types.js").ComparisonState|null}
+   */
+  _serialize() {
+    const names = Object.keys(this.items);
+    const configured =
+      names.length > 0 ||
+      this.mode !== DEFAULT_MODE ||
+      this.benchmark !== PRIMARY ||
+      JSON.stringify(this.options) !== JSON.stringify(DEFAULTS);
+    if (!configured) return null;
+    return {
+      mode: this.mode,
+      benchmark: this.benchmark,
+      options: { ...this.options },
+      instruments: names.map((n) => ({ name: n, color: this.items[n].color })),
+    };
+  }
+
+  /**
+   * Restore from a snapshot. Replace-the-set semantics, with one concession to
+   * the data contract: an instrument whose data is **already loaded** is kept
+   * (re-ordered and re-colored to match the state) rather than dropped and
+   * demanded back, so an in-app save/restore costs no round trip. Whatever is
+   * left over is reported through `comparisonRestoreNeeded` with the names the
+   * consumer has to re-supply, and remembered by color for when they do.
+   *
+   * A null snapshot means "no comparison": everything is dropped and the
+   * options return to their defaults.
+   *
+   * @param {import("../types.js").ComparisonState|null} state
+   * @returns {void}
+   */
+  _restore(state) {
+    const wasActive = this.isActive();
+    this._visibleFrom = null;
+
+    if (!state || typeof state !== "object") {
+      this.mode = DEFAULT_MODE;
+      this.benchmark = PRIMARY;
+      this.options = { ...DEFAULTS };
+      this._restoredColors = {};
+      this.items = {};
+      this._invalidate();
+      this._unbindRange();
+      // Only repaint if something was actually live; a null-to-null restore is
+      // a no-op, not a re-render.
+      if (wasActive) this.reapply();
+      return;
+    }
+
+    if (MODES.indexOf(state.mode) !== -1) this.mode = state.mode;
+    if (state.benchmark != null) this.benchmark = String(state.benchmark);
+    this.options = Comparison._normalizeOptions(DEFAULTS, state.options || {});
+
+    const wanted = Array.isArray(state.instruments) ? state.instruments : [];
+    const kept = {};
+    const missing = [];
+    this._restoredColors = {};
+    wanted.forEach((entry) => {
+      const name = entry && entry.name != null ? String(entry.name) : "";
+      if (!name) return;
+      const color = entry.color || null;
+      if (color) this._restoredColors[name] = color;
+      const live = this.items[name];
+      if (live) {
+        kept[name] = { ...live, color: color || live.color };
+      } else {
+        missing.push(name);
+      }
+    });
+    this.items = kept;
+
+    this._invalidate();
+    this._bindRange();
+    if (wasActive || this.isActive()) this.reapply();
+    this._emitChange("restore");
+    if (missing.length) {
+      this._emit("comparisonRestoreNeeded", { names: missing });
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
    * Events
    * ------------------------------------------------------------------ */
+
+  /**
+   * Emit on the ApexStock bus, if there is one.
+   * @param {string} name
+   * @param {*} payload
+   * @private
+   */
+  _emit(name, payload) {
+    if (this.ctx && this.ctx._emitter) this.ctx._emitter.emit(name, payload);
+  }
 
   /**
    * Emit `comparisonChange` with the fresh leaderboard attached. Skipped
@@ -887,6 +1005,7 @@ export default class Comparison {
   destroy() {
     this._unbindRange();
     this.items = {};
+    this._restoredColors = {};
     this._invalidate();
     if (this._rendered.size && this.ctx.chart) {
       // Leave series cleanup to the chart teardown; just drop our state.
