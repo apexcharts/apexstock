@@ -298,6 +298,13 @@ those are called out explicitly below.
   echo suppression so there is no feedback loop; the crosshair guide is a
   lightweight per-chart DOM overlay positioned from each chart's own axis.
 
+- **`rangeChanging`, a per-frame companion to `rangeChange`.** `rangeChange`
+  keeps its once-per-gesture semantics (the right rhythm for fetching data or
+  writing the range to a URL); `rangeChanging` fires on every animation frame of
+  an in-progress zoom or pan, with the same payload and `source: "live"`, for
+  overlays that have to stay glued to the axis while the gesture runs. See
+  [Tracking a gesture](README.md#tracking-a-gesture).
+
 ### Changed
 
 - **The default comparison baseline is now `"common"`, not each instrument's own
@@ -312,6 +319,28 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **The chart's chrome lagged a mouse-wheel zoom by ~135ms.** ApexCharts
+  re-renders the plot on every animation frame of a wheel or pinch zoom, but its
+  `zoomed` callback is deliberately once-per-gesture and arrives ~150ms after the
+  last wheel notch. Everything ApexStock draws *around* the plot hung off
+  `zoomed`/`scrolled` alone, so during a scroll the candles moved while the
+  custom x-axis, the event markers, the draggable price-line handles and any
+  linked chart stood still, then all snapped into place once the gesture ended.
+  Measured over a 12-notch gesture: the plot redrew 12/12 frames and the x-axis
+  repainted 0 of them, once, 135ms late.
+
+  The chrome now also tracks ApexCharts' per-frame `updated` signal, guarded on
+  the x-window having actually moved, so it follows the gesture frame by frame
+  (12/12, ~1.3ms of work for the whole gesture) and the settled callback no
+  longer repeats work the live path already did. `rangeChange` still fires once
+  per gesture; the per-frame signal is the new `rangeChanging`. Drag-panning was
+  never affected, because ApexCharts' pan path does report `scrolled` per move.
+
+  Two related wastes went with it: a linked chart was re-zoomed to the window it
+  was already showing when a gesture settled, and drawing overlays repositioned
+  on a 300ms timer scheduled once per frame, so they queued one redraw per frame
+  and each landed 300ms after the geometry it measured. The reposition is now
+  coalesced into a single animation frame.
 - **`getDrawdown()` ignored `analysis.drawdownBasis`.** The chart-level
   convention is spelled `drawdownBasis` (alongside `source` and
   `periodsPerYear`) while the engine takes `basis`, and the method passed the

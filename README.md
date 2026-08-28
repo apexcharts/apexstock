@@ -7,7 +7,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Multiple Chart Types**: Candlestick, line, area, heikinashi, ohlc, etc
 - **Technical Indicators**: 20+ built-in indicators including RSI, MACD, Bollinger Bands, and more
 - **Real-time Streaming**: Incremental `appendData()` updates price, indicators, and panes without a full rebuild
-- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, `indicatorToggle`, and drawing/marker lifecycle events via `on()` / `off()` / `once()`
+- **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange` / `rangeChanging`, `indicatorToggle`, and drawing/marker lifecycle events via `on()` / `off()` / `once()`
 - **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, zoom, drawings, event markers, and the comparison setup to portable JSON
 - **Custom Indicators**: Register your own indicators (overlay or oscillator, with optional live streaming) via `ApexStock.registerIndicator()`
 - **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
@@ -632,8 +632,16 @@ const off = apexStock.on("crosshairMove", (e) => {
 });
 
 apexStock.on("rangeChange", ({ min, max, source }) => {
-  // source: "zoom" | "pan" | "reset"
+  // source: "zoom" | "pan" | "reset". Once per gesture: a wheel or pinch zoom
+  // reports it when the gesture settles, so this is the place for work that
+  // should happen once, such as fetching data for the new window.
   loadDataForRange(min, max);
+});
+
+apexStock.on("rangeChanging", ({ min, max }) => {
+  // Every frame of an in-progress zoom/pan. Use it to keep your own overlay
+  // glued to the axis while the gesture is still running.
+  repositionMyOverlay(min, max);
 });
 
 apexStock.on("indicatorToggle", ({ key, active }) => {
@@ -647,7 +655,8 @@ off(); // stop listening
 | --- | --- | --- |
 | `crosshairMove` | `{ dataPointIndex, seriesIndex, x, ohlc, volume, nativeEvent }` | The pointer moves over the price chart. `dataPointIndex` is `-1` (and `x`/`ohlc`/`volume` are `null`) when not over a candle. |
 | `click` | same as `crosshairMove` | The price chart is clicked. |
-| `rangeChange` | `{ min, max, source }` | The visible x-range changes. `source` is `"zoom"`, `"pan"`, or `"reset"`. |
+| `rangeChange` | `{ min, max, source }` | The visible x-range changes, once per gesture. `source` is `"zoom"`, `"pan"`, or `"reset"`. |
+| `rangeChanging` | `{ min, max, source: "live" }` | Every frame of an in-progress zoom/pan. See [tracking a gesture](#tracking-a-gesture). |
 | `indicatorToggle` | `{ key, active }` | An indicator is added (`active: true`) or removed (`active: false`). |
 | `drawingAdded` / `drawingUpdated` | `{ id, drawing }` | A programmatic drawing is added or patched. `drawingRemoved` fires `{ id }`; `drawingsCleared` fires `{}`. |
 | `eventMarkerAdded` / `eventMarkerUpdated` | `{ id, marker }` | An event marker is added or patched. `eventMarkerRemoved` fires `{ id }`; `eventMarkersCleared` fires `{}`. |
@@ -659,6 +668,28 @@ off(); // stop listening
 
 `emit(name, payload)` is also exposed so you can bridge your own events through
 the same bus. All subscriptions are dropped automatically on `destroy()`.
+
+#### Tracking a gesture
+
+`rangeChange` and `rangeChanging` report the same payload at two different
+rhythms, and the difference matters for anything you draw yourself.
+
+A wheel or pinch zoom re-renders the plot on **every animation frame**, but the
+underlying `zoomed` callback is deliberately once-per-gesture: it arrives about
+150ms after the last wheel notch. So:
+
+- **`rangeChanging`** fires on every frame while the gesture is running
+  (`source: "live"`). Subscribe to it for anything that has to stay glued to the
+  axis: a custom overlay, an annotation layer, a linked widget. ApexStock's own
+  x-axis, event markers, price-line handles, and [cross-chart sync](#cross-chart-synchronization)
+  run on this signal, which is why they follow a scroll instead of catching up
+  after it.
+- **`rangeChange`** fires once, when the gesture settles. Subscribe to it for
+  work that should happen once per gesture rather than sixty times a second:
+  fetching data for the new window, writing the range to a URL, analytics.
+
+Both fire for a programmatic `setVisibleRange` and a zoom reset. If you only
+want one signal and are unsure which, start with `rangeChange`.
 
 ### Data readout at a point (`getDataAt`)
 
