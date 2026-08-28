@@ -646,6 +646,9 @@ off(); // stop listening
 | `eventMarkerAdded` / `eventMarkerUpdated` | `{ id, marker }` | An event marker is added or patched. `eventMarkerRemoved` fires `{ id }`; `eventMarkersCleared` fires `{}`. |
 | `eventMarkerHover` / `eventMarkerClick` | `{ id, marker, nativeEvent }` | The pointer enters or clicks a marker badge. |
 | `priceScaleChange` | `{ mode, base, logBase, indexBase }` | The primary price-axis scale mode changes (`setPriceScale`). |
+| `rangeMeasured` | `{ id, stats, selection, drawing, source }` | A measurement settles (created, or its anchors moved). One event per change, never on a plain zoom. See [the `rangeMeasured` event](#the-rangemeasured-event). |
+| `measurementRemoved` | `{ id }` | A measurement is cleared. |
+| `comparisonChange` | `{ reason, mode, benchmark, baseline, instruments, stats, warnings }` | The comparison set, mode, benchmark, or baseline changes. `stats` is the recomputed [leaderboard](#the-leaderboard). |
 
 `emit(name, payload)` is also exposed so you can bridge your own events through
 the same bus. All subscriptions are dropped automatically on `destroy()`.
@@ -680,6 +683,294 @@ apexStock.getDataAt();     // no argument -> the latest bar
 Values are plain numbers (unformatted); unavailable ones are `null` (volume,
 change) or omitted (an indicator still in its warm-up period). Returns `null`
 when there's no data.
+
+## Analysis: range statistics and drawdown
+
+The analysis engine answers the two questions a price line cannot: *what
+happened over this stretch*, and *what did holding it feel like*. It is pure and
+memoized, so it also runs with no chart at all (a server-side report, a test, a
+worker) via the `ApexStock.stats` static namespace.
+
+### Measuring a region (`measureRange`)
+
+Drag the **Measure** tool from the drawing toolbar across a stretch of the chart,
+or create one in code, and ApexStock reports what happened over it:
+
+```javascript
+const { id, stats } = apexStock.measureRange("2024-01-02", "2024-03-15");
+
+apexStock.getMeasurements();     // [{ id, from, to, selection, stats }]
+apexStock.getMeasurement(id);
+apexStock.clearMeasurement(id);  // or clearMeasurement() for all of them
+```
+
+A measurement **is** a `measure` drawing, so it renders on the chart, can be
+selected and dragged, stays anchored to its bars through zoom and pan, and
+persists through `getState()` / `setState()` with the rest of your drawings. No
+separate save path, no separate API.
+
+The on-chart box gets a two-line readout, and the **analysis panel** appears
+alongside it with the full region statistics: change, duration, true high and
+low, average price and volume, volatility, annualized return, max drawdown, and
+how long the decline and the recovery took.
+
+#### Two changes, both named
+
+A measurement reports two different moves, and conflating them is the easy
+mistake:
+
+| Field | What it is |
+| --- | --- |
+| `stats.change` | The instrument's **close-to-close** move over the bars the selection spans. Every other statistic (the averages, the volatility, the drawdown) is consistent with this one, because they are all properties of the series. |
+| `selection` | The delta between the two **anchors you dragged**. This is what the box's height shows, and the right number when you measure a swing from one bar's low to another's high. |
+
+They are identical when the anchors sit on the closes (which is what
+`measureRange` does). Set `analysis: { measure: { snap: true } }` to pull
+hand-drawn anchors onto the bar values too, and the two agree by construction.
+
+#### The analysis panel
+
+Automatic by default: it appears when a measurement exists and disappears when
+the last one is cleared, so a chart nobody has measured on carries no extra
+chrome.
+
+```javascript
+new ApexStock(el, {
+  chart: { height: 500 },
+  series: [{ name: "AAPL", data }],
+  analysis: {
+    panel: {
+      position: "top-right",          // opposite corner from the legend
+      metrics: ["change", "duration", "high", "low", "drawdown"],
+      formatters: {
+        price: (v) => `$${v.toFixed(2)}`,
+        date: (x) => new Date(x).toLocaleDateString(),
+      },
+    },
+    measure: {
+      snap: true,                     // or "high" / "low" / "open" / "close"
+      label: (stats) => [`${stats.change.percent.toFixed(1)}%`, `${stats.bars} bars`],
+    },
+  },
+});
+
+apexStock.showAnalysisPanel({ position: "bottom-left" });  // pin it open
+apexStock.hideAnalysisPanel();
+apexStock.isAnalysisPanelVisible();
+```
+
+Available metrics: `change`, `selection`, `duration`, `high`, `low`, `average`,
+`volume`, `volatility`, `annualized`, `drawdown`, `recovery`. Each row carries a
+`data-metric` attribute and a stable class, so you can restyle it. Set
+`analysis: { panel: false }` for **headless** use: no panel, no chrome, and you
+render your own from `getRangeStats()`.
+
+Statistics conventions (`periodsPerYear`, `minAnnualizeDays`, `drawdownBasis`,
+`source`) are chart-level, not per-measurement, so a measurement restored from
+state can never disagree with the chart it is on.
+
+#### The `rangeMeasured` event
+
+```javascript
+apexStock.on("rangeMeasured", ({ id, stats, selection, source }) => {
+  // source: "drag" | "api" | "coreRuler"
+  console.log(stats.change.percent, stats.drawdown.max);
+});
+
+apexStock.on("measurementRemoved", ({ id }) => { /* ... */ });
+```
+
+It fires when a measurement **settles**, not on every drag frame: one drag
+produces one event, and a plain zoom or pan produces none.
+
+#### Using ApexCharts' measure ruler
+
+ApexCharts ships its own measure ruler as an opt-in feature bundle. ApexStock
+does not require it, but if you load it, ApexStock feeds it the same financial
+readout and re-emits its result on the same event, so the two gestures never
+disagree:
+
+```javascript
+import "apexcharts/features/measure";   // or dist/features/measure.js
+
+new ApexStock(el, {
+  chart: { height: 500, measure: { enabled: true } },   // hold "m" and drag
+  series: [{ name: "AAPL", data }],
+});
+
+apexStock.on("rangeMeasured", (e) => e.source === "coreRuler" && render(e.stats));
+```
+
+ApexStock keeps its own measure drawing as the primary gesture for two reasons:
+the core ruler's pins live on the chart instance rather than in ApexStock's
+state (so they would not survive `getState()`/`setState()`), and its numbers are
+geometric only (`dx`, `dy`, `%`, slope) with no view of the high, low, volume,
+volatility, or drawdown across the span.
+
+### Range statistics (`getRangeStats`)
+
+Every statistic for a selected region, in one object:
+
+```javascript
+const stats = apexStock.getRangeStats(0, 42);              // by bar index
+apexStock.getRangeStats("2024-01-02", "2024-03-15");       // by date
+const { min, max } = apexStock.getVisibleRange();
+apexStock.getRangeStats(min, max);                         // the visible window
+
+// {
+//   from:   { index: 0,  x: 1704153600000, value: 142 },
+//   to:     { index: 42, x: 1707696000000, value: 171 },
+//   change: { absolute: 29, percent: 20.42 },
+//   bars: 43, upBars: 24, downBars: 18, flatBars: 0,
+//   spanMs: 3542400000, calendarDays: 41,
+//   annualized: { return: 18.4, basis: "calendar" } | null,
+//   high: { value: 174.2, index: 39, x: ... },
+//   low:  { value: 138.9, index: 3,  x: ... },
+//   average: { close: 156.4, volume: 41200000 },
+//   total:   { volume: 1771600000 },
+//   volatility: { stdev: 1.31, annualized: 20.8, periodsPerYear: 252, inferred: true },
+//   drawdown: {
+//     max: -6.4,                       // percent below the peak
+//     peak:   { index: 12, x: ..., value: 160.1 },
+//     trough: { index: 19, x: ..., value: 149.8 },
+//     recovery: { index: 27, x: ... } | null,
+//     barsToTrough: 7,                 // peak -> trough   (the decline)
+//     barsToRecovery: 8,               // trough -> peak   (the recovery)
+//     barsUnderwater: 15,              // peak -> recovery (whole episode)
+//     recovered: true
+//   },
+//   basis: { source: "close", drawdown: "close" },
+//   warnings: []
+// }
+```
+
+Endpoints may be given in either order as a bar index, an epoch-ms `x` value, a
+`Date`, or a date string. A bare number is read as a bar index when it is a
+valid one and as an `x` value otherwise, which is unambiguous for timestamps;
+pass `{ by: "index" }` or `{ by: "x" }` to be explicit.
+
+**Three contracts worth knowing:**
+
+1. **Values are unrounded.** Statistics come back as plain numbers so they stay
+   faithful; your UI formats them. (Same contract as `getDataAt`.)
+2. **Every percent-like value is in percent units.** `change.percent: 20.42`
+   means +20.42%, `drawdown.max: -6.4` means 6.4% below the peak. No fractions
+   mixed in with percentages.
+3. **Anything the data cannot support is `null`**, never `0` and never `NaN`, and
+   the reason lands in `warnings`. In particular:
+   - `annualized` is omitted for spans under `minAnnualizeDays` (default 30),
+     because extrapolating a 3-day move to a yearly figure is misleading.
+   - `volatility.annualized` is omitted for intraday bars unless you pass
+     `periodsPerYear`, because annualizing intraday volatility depends on the
+     session length (6.5h equity session? 24h crypto?) and guessing it would
+     produce an authoritative-looking wrong number.
+   - `bars` is a **bar** count, and is called one. A true trading-session count
+     needs a per-exchange holiday calendar, which ApexStock does not own.
+
+### Drawdown (`getDrawdown`)
+
+How far below its own running peak the instrument has fallen at every bar, plus
+each drawdown episode:
+
+```javascript
+const dd = apexStock.getDrawdown();
+
+// {
+//   values: [0, 0, -1.2, -4.8, ...],   // percent, <= 0, aligned to the series
+//   points: [{ x, y }, ...],           // the same, ready to plot
+//   max: -27.4,                        // the deepest
+//   maxEpisodeIndex: 2,
+//   current: -3.1,                     // at the last bar
+//   episodes: [{ peak, trough, recovery, depth, barsToTrough,
+//                barsToRecovery, barsUnderwater, ongoing }],
+//   basis: "close"
+// }
+
+apexStock.getDrawdown({ basis: "intrabar" });   // low vs running high
+```
+
+`basis: "intrabar"` measures each bar's low against the running high instead of
+close-against-close. It is strictly more conservative, and the right basis for a
+stop-loss or margin question.
+
+### Configuration
+
+Set the defaults once on the constructor, override per call:
+
+```javascript
+new ApexStock(el, {
+  chart: { height: 500 },
+  series: [{ name: "AAPL", data }],
+  analysis: {
+    source: "close",            // which OHLC field the anchors and averages read
+    drawdownBasis: "close",     // or "intrabar"
+    periodsPerYear: 252,        // annualization convention; inferred when absent
+    minAnnualizeDays: 30,
+  },
+});
+
+apexStock.getRangeStats(0, 42, { drawdownBasis: "intrabar" });
+```
+
+`periodsPerYear` is inferred from the median bar spacing when you do not set it
+(daily to 252, weekly to 52, monthly to 12), and the result says so via
+`volatility.inferred` plus a `warnings` entry.
+
+### Headless use (`ApexStock.stats`)
+
+The whole engine is available as a static namespace, so nothing here needs a
+chart, a DOM, or a browser:
+
+```javascript
+import ApexStock from "apexstock";
+
+ApexStock.stats.rangeStats(series, "2024-01-02", "2024-03-15");
+ApexStock.stats.drawdown(series);
+ApexStock.stats.returns(series, { mode: "simple" });   // { mode, values, points }
+ApexStock.stats.volatility(series, 0, 251, { periodsPerYear: 252 });
+ApexStock.stats.annualize(21, 730);                    // -> { return: 10, basis }
+ApexStock.stats.inferPeriodsPerYear(series);
+```
+
+### Aligning multiple instruments
+
+`ApexStock.stats.align` is the primitive behind comparing instruments that do
+not share a calendar, which is the normal case: different listings, different
+exchanges, different holidays, feeds with holes.
+
+```javascript
+const aligned = ApexStock.stats.align(
+  { AAPL: aaplData, MSFT: msftData, SPY: spyData },
+  {
+    primary: "AAPL",
+    join: "primary",   // "primary" | "intersection" | "union"
+    fill: "hold",      // "hold" | "gap" | "drop"
+  }
+);
+// { x, columns: { AAPL: [...], MSFT: [...], SPY: [...] }, coverage, warnings }
+
+// 100 = starting value, on the first date every instrument actually has data.
+const { columns } = ApexStock.stats.rebase(aligned, {
+  mode: "indexed",     // "percent" | "indexed" | "absolute"
+  baseline: "common",  // "common" | "own" | "visible" | <x value>
+  indexBase: 100,
+});
+
+// Relative performance. The benchmark is a role, filled by any instrument.
+ApexStock.stats.relative(aligned, "AAPL", "SPY", { mode: "spread" }); // pct points
+ApexStock.stats.relative(aligned, "AAPL", "SPY", { mode: "ratio" });  // A / B
+```
+
+- `join` picks the x grid: the primary's own dates (default), only dates every
+  instrument shares (`intersection`), or every date seen (`union`).
+- `fill` decides what an unobserved grid point becomes: the last observation
+  carried forward (`hold`, the finance default, so one market's holiday does not
+  put a hole in the line), a visible break (`gap`), or a removed row (`drop`).
+- One rule overrides `fill` everywhere: a point **before** an instrument's first
+  observation is always `null`. Carrying a value backwards would invent history.
+- `baseline: "common"` is the default because it is the only policy under which
+  instruments with different start dates are actually comparable. `coverage`
+  reports how many points were carried forward, so you can disclose it.
 
 ## State Persistence (`getState` / `setState`)
 
@@ -843,25 +1134,130 @@ render as lines on a dedicated **secondary y-axis**; the primary candlestick and
 indicators keep their own axis.
 
 ```javascript
-apexStock.addComparison({ name: "MSFT", data: msftBars }); // data: [{x, y}] or OHLC (uses close)
+apexStock.addComparison({ name: "MSFT", data: msftBars }); // data: [{x, y}] or OHLC (uses `source`)
+apexStock.addComparison({ name: "NVDA", data: nvdaBars });
 apexStock.addComparison({ name: "SPY", data: spyBars, color: "#FEB019" });
 
-apexStock.setComparisonMode("percent"); // indexed % change from each series' first point (default)
-apexStock.setComparisonMode("absolute"); // raw prices instead
+apexStock.setComparisonMode("percent");  // % change from the baseline (default)
+apexStock.setComparisonMode("indexed");  // 100 = starting value
+apexStock.setComparisonMode("absolute"); // raw prices
 
 apexStock.getComparisons(); // -> [{ name, color, points }]
 apexStock.removeComparison("SPY");
 apexStock.clearComparisons();
 ```
 
-- **`percent`** (default): every instrument is indexed to its first point (0%),
-  so you compare *performance* ("who's up more") regardless of nominal price.
-- **`absolute`**: raw close prices on the secondary axis (best for same-scale peers).
+| Mode | What the line shows |
+| --- | --- |
+| `percent` (default) | Percent change from the baseline. The "who's up more" view. |
+| `indexed` | An index where the baseline reads `indexBase` (default 100). |
+| `absolute` | Raw close prices (best for same-scale peers). |
+| `relative` | `percentChange(asset) - percentChange(benchmark)`, in percentage points. Zero means "kept pace". |
+| `ratio` | `asset / benchmark`, rebased so the baseline reads `indexBase`. A rising line means outperformance. |
 
 Comparisons persist across zoom, theme changes, chart-type switches, indicator
 toggles, and `appendData`. The compared instrument's data is supplied by you
-(ApexStock does not fetch it); pass `[{x, y}]` closes or full OHLC bars (the
-close is used).
+(ApexStock does not fetch it); pass `[{x, y}]` closes or full OHLC bars.
+
+### Instruments with different histories
+
+Instruments do not share a calendar: a newer listing starts later, exchanges keep
+different holidays, and a feed can simply be missing a day. Every instrument
+(**the primary included**) is put on one shared x grid before anything is
+normalized, so the comparison is fair by construction rather than by luck.
+
+```javascript
+apexStock.setComparisonOptions({
+  join: "union",        // "union" (default) | "primary" | "intersection"
+  fill: "hold",         // "hold" (default) | "gap" | "drop"
+  baseline: "common",   // "common" (default) | "own" | "visible" | <x value>
+  indexBase: 100,       // baseline value for `indexed` and `ratio`
+  source: "close",      // which OHLC field every instrument is compared on
+});
+```
+
+- **`baseline: "common"`** rebases everything at the first x where *all* of them
+  have data. That is the only basis on which lines with different start dates are
+  comparable, so it is the default. History before that point still plots, as a
+  negative percent, rather than being hidden.
+- **`baseline: "own"`** is each instrument's own first point (the pre-0.5.0
+  behavior), and **`"visible"`** follows the zoom: rebasing to the left edge of
+  the window as you navigate.
+- **`fill: "hold"`** carries the last observation across a hole so the math lines
+  up; a carried-forward value is never *plotted*, so a line never shows a bar its
+  instrument does not have. `getComparisonStats()` reports how many points were
+  filled. `"gap"` leaves the hole, and `"drop"` removes x values not everyone has.
+- **`join: "primary"`** resamples every instrument onto the primary's bars
+  (useful for mixed bar spacings, and it plots the resampled grid);
+  `"intersection"` keeps only x values every instrument has.
+
+A single-instrument comparison on a matching calendar behaves exactly as before:
+these policies only start to matter once the histories differ.
+
+### Benchmarks and relative performance
+
+The benchmark is a **role**, not a ticker: point it at any added instrument, or
+at `"__primary__"` (the default) for the chart's own symbol. Nothing in ApexStock
+hard-codes a benchmark symbol.
+
+```javascript
+apexStock.setComparisonBenchmark("SPY"); // any added instrument, or "__primary__"
+apexStock.setComparisonMode("relative"); // excess return, in percentage points
+```
+
+In `relative` and `ratio` mode the benchmark's own line becomes the flat
+reference (zero, or `indexBase`), so what everything is measured against is
+visible on the chart. Removing the instrument that fills the role hands it back
+to the primary.
+
+### The leaderboard
+
+`getComparisonStats()` returns the table you would otherwise have to recompute:
+one row per instrument, the primary included, ranked by performance.
+
+```javascript
+const rows = apexStock.getComparisonStats();
+// [{ name: "NVDA", rank: 1, change: { absolute, percent }, relative,
+//    start, end, from, to, high, low, volatility, drawdown, bars,
+//    coverage: { bars, filled, firstX, lastX }, primary, benchmark, color }, ...]
+
+apexStock.getComparisonStats({ from: "2024-06-01", to: "2024-09-30" }); // scoped
+```
+
+The window runs from the baseline to the last observation, so with
+`baseline: "visible"` the rows follow the zoom. Every row is computed from
+`source` (close by default) for *every* instrument, so the rows are comparable
+with each other; `getRangeStats()` is the OHLC-aware path for the primary alone.
+Volatility and drawdown are measured on each instrument's **own** observations,
+so a weekly line on a daily grid is not annualized as if it had 252 bars a year.
+
+The same rows arrive with the `comparisonChange` event, which fires when the
+instrument set, mode, benchmark, or baseline changes:
+
+```javascript
+apexStock.on("comparisonChange", ({ reason, mode, benchmark, stats, warnings }) => {
+  renderLeaderboard(stats); // already computed, nothing to recalculate
+});
+```
+
+Defaults can be set declaratively at construction, before any data arrives:
+
+```javascript
+new ApexStock(el, {
+  series: [{ name: "AAPL", data: bars }],
+  analysis: {
+    comparison: { mode: "relative", benchmark: "SPY", baseline: "common" },
+  },
+});
+```
+
+A benchmark named here is remembered until its instrument is added; until then
+the primary fills the role and says so in `warnings`. Anything the data cannot
+support is `null` rather than a plausible-looking zero, with the reason in
+`warnings`, the same contract as the rest of the analysis layer.
+
+See [`examples/comparison.html`](examples/comparison.html) for the whole surface:
+four instruments with four different histories, every mode, a live leaderboard.
 
 ## Price scale modes
 

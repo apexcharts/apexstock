@@ -11,6 +11,143 @@ those are called out explicitly below.
 
 ### Added
 
+- **Comparison v2: instrument alignment, baseline policies, indexed / relative /
+  ratio modes, the benchmark role, and `getComparisonStats()`.** Phase 3 of the
+  financial-analysis workspace (see `plans/financial-analysis-workspace.md`):
+  comparison mode now answers "who's up more" fairly even when the instruments
+  do not share a calendar.
+  - Every instrument, **the primary included**, is aligned onto one shared x grid
+    before anything is normalized, so a newer listing, a different holiday
+    calendar, or a missing day no longer skews the comparison.
+    `setComparisonOptions({ join, fill, baseline, indexBase, source,
+    rebaseRatio, resample })` / `getComparisonOptions()` expose the policies:
+    `join` (`"union"` by default, or `"primary"` to resample onto the primary's
+    bars, or `"intersection"`) and `fill` (`"hold"` by default, or `"gap"`, or
+    `"drop"`).
+  - A carried-forward value is used for the math but is **not plotted**, so a
+    line never shows a bar its instrument does not have.
+    `getComparisonStats()` reports how many points were filled.
+    `resample: true` plots the filled grid instead (the default for
+    `join: "primary"`, which exists to resample).
+  - **Baseline policies**: `"common"` (the new default) rebases at the first x
+    where every instrument has data; earlier history still plots, as a negative
+    percent, rather than being hidden. `"own"` is the previous behavior, kept for
+    compatibility. `"visible"` rebases to the left edge of the visible window and
+    follows the zoom. A number is an explicit x value.
+  - Three new modes on top of `absolute` and `percent`: `indexed` (the baseline
+    reads `indexBase`, default 100, the "100 = starting value" view), `relative`
+    (`percentChange(asset) - percentChange(benchmark)`, in percentage points,
+    where zero means "kept pace"), and `ratio` (`asset / benchmark`, rebased to
+    `indexBase`).
+  - **The benchmark is a role, not a ticker**:
+    `setComparisonBenchmark(name | "__primary__")` /
+    `getComparisonBenchmark()` points it at any added instrument or the chart's
+    own symbol (the default). In `relative` and `ratio` mode the benchmark's own
+    line becomes the flat reference, so what everything is measured against is
+    visible on the chart. Removing that instrument hands the role back to the
+    primary. No symbol is hard-coded anywhere in the library.
+  - `getComparisonStats({ from?, to? })` returns the leaderboard ready to render:
+    one row per instrument (primary included) with change, excess return vs the
+    benchmark, high and low, volatility, worst drawdown, rank, and grid coverage.
+    The window runs from the baseline to the last observation, so with
+    `baseline: "visible"` the rows follow the zoom. Volatility and drawdown are
+    measured on each instrument's **own** observations, so a weekly line on a
+    daily grid is not annualized as if it had 252 bars a year.
+  - New event `comparisonChange`
+    (`{ reason, mode, benchmark, baseline, instruments, stats, warnings }`),
+    carrying the recomputed leaderboard and skipped entirely when nothing is
+    subscribed. `baseline` reports the policy actually *applied*, which can fall
+    back to `"own"` when no x value has data for every instrument.
+  - Declarative defaults via
+    `analysis: { comparison: { mode, benchmark, join, fill, baseline, indexBase,
+    source } }`. A benchmark named there is remembered until its instrument is
+    added, with the primary filling the role (and saying so in `warnings`) until
+    then. Unknown option values are warned about and ignored rather than
+    silently changing what the numbers mean.
+  See the README "Comparison mode" section and `examples/comparison.html`.
+
+- **Range measurement: `measureRange()`, the analysis panel, and the
+  `rangeMeasured` event.** Phase 2 of the financial-analysis workspace (see
+  `plans/financial-analysis-workspace.md`): the `measure` drawing tool now
+  reports what happened over the region it spans, not just the distance between
+  its two anchors.
+  - `measureRange(from, to, opts?)` creates a persistent measurement and returns
+    its region statistics. It is a real `measure` drawing, so it renders, can be
+    selected and dragged, stays anchored to its bars through zoom and pan, and
+    round-trips through `getState()`/`setState()` with the other drawings (no
+    separate state key). `getMeasurements()`, `getMeasurement(id)`, and
+    `clearMeasurement(id?)` complete the surface.
+  - A measurement reports **two** changes, separately named, because they answer
+    different questions: `stats.change` is the instrument's close-to-close move
+    over the spanned bars (the figure every other statistic is consistent with),
+    and `selection` is the delta between the two anchors the user dragged (what
+    the box's height shows, and the right number for a low-to-high swing). They
+    agree when the anchors sit on the closes; `analysis: { measure: { snap } }`
+    pulls hand-drawn anchors onto the bar values.
+  - **Analysis panel**: an on-chart readout of the region statistics (change,
+    duration, true high and low, average price and volume, volatility,
+    annualized return, max drawdown, and the decline and recovery durations).
+    Automatic by default (it appears while a measurement exists and hides when
+    the last one is cleared), configurable via `analysis.panel`
+    (`position`, `metrics`, `formatters`, `title`, `placeholder`), controllable
+    with `showAnalysisPanel()` / `hideAnalysisPanel()` /
+    `isAnalysisPanelVisible()`, and suppressible with `analysis: { panel: false }`
+    for headless use. Every row carries a `data-metric` attribute for styling.
+  - The on-chart measure label is now multi-line and comes from the same engine;
+    `analysis.measure.label(stats, { selection, drawing })` replaces it wholesale.
+  - New events: `rangeMeasured` (`{ id, from, to, selection, stats, source }`,
+    where `source` is `"drag"`, `"api"`, or `"coreRuler"`) and
+    `measurementRemoved` (`{ id }`). `rangeMeasured` fires once per **settled**
+    change: one drag produces one event, and a plain zoom or pan produces none.
+  - **ApexCharts measure-ruler interop.** When a consumer loads the optional
+    `apexcharts/features/measure` bundle and sets `chart: { measure: { enabled:
+    true } }`, ApexStock supplies `chart.measure.label` from the same statistics
+    engine and re-emits the core `measured` event as `rangeMeasured` with
+    `source: "coreRuler"`, so both gestures produce one consistent readout.
+    ApexStock keeps its own measure drawing as the primary gesture: the core
+    ruler's pins live on the chart instance rather than in ApexStock's state, and
+    its numbers are geometric only.
+  - `Utils.compactNumber(value)` (1.20B / 3.40M / 5.60K), now shared by the
+    legend's volume row and the analysis panel.
+  See the README "Measuring a region" section and `examples/analysis.html`.
+
+- **Analysis engine: `getRangeStats(from, to)`, `getDrawdown()`, and the
+  `ApexStock.stats` static namespace.** Window statistics over the series, as
+  the first phase of the financial-analysis workspace (see
+  `plans/financial-analysis-workspace.md`).
+  - `getRangeStats(from, to, opts?)` returns everything about a selected region:
+    absolute and percent change, bar count and calendar span, an annualized
+    return, the true high and low, average close and volume, volatility (sample
+    standard deviation of log returns, annualized), and the deepest drawdown
+    *within* the region with its peak, trough, recovery, and three separate
+    durations (`barsToTrough` for the decline, `barsToRecovery` for the
+    recovery, `barsUnderwater` for the whole episode). Endpoints may be given in
+    either order as a bar index, an epoch-ms `x`, a `Date`, or a date string.
+  - `getDrawdown(opts?)` returns per-bar drawdown as a plottable series plus
+    every drawdown episode, the deepest, and the current one.
+    `basis: "intrabar"` measures each bar's low against the running high.
+  - `ApexStock.stats` exposes the whole engine (`rangeStats`, `drawdown`,
+    `returns`, `volatility`, `annualize`, `inferPeriodsPerYear`, `align`,
+    `baseline`, `rebase`, `relative`) with no chart or DOM required, for
+    server-side reports, tests, and workers.
+  - `ApexStock.stats.align` is the multi-instrument primitive for comparing
+    instruments that do not share a calendar: a configurable x grid (`join`), a
+    missing-data policy (`fill`), and a baseline policy (`common` by default, the
+    first date every instrument actually has data). A point before an
+    instrument's first observation is always `null`, never backfilled.
+    `rebase` gives percent-change or "100 = starting value" columns; `relative`
+    gives a benchmark spread or ratio, with the benchmark as a role rather than
+    a hard-coded symbol.
+  - New construction option `analysis: { source, drawdownBasis, periodsPerYear,
+    minAnnualizeDays, by }`, overridable per call.
+  - Contracts: values are unrounded (the consumer formats), every percent-like
+    value is in percent units, and anything the data cannot support is `null`
+    with the reason in `warnings`. An annualized return is omitted for spans
+    under `minAnnualizeDays` (default 30) rather than extrapolated; an
+    annualized volatility is omitted for intraday bars unless `periodsPerYear`
+    is supplied; and bar counts are called bars, not trading sessions, because
+    ApexStock owns no market calendar.
+  See the README "Analysis: range statistics and drawdown" section.
 - **Crosshair data-readout API: `getDataAt(index)`.** A read-only, structured
   snapshot at a data-point index: OHLC, volume, change vs the previous close, and
   every active indicator's value across both the main-chart overlays and the
@@ -96,8 +233,25 @@ those are called out explicitly below.
   echo suppression so there is no feedback loop; the crosshair guide is a
   lightweight per-chart DOM overlay positioned from each chart's own axis.
 
+### Changed
+
+- **The default comparison baseline is now `"common"`, not each instrument's own
+  first point.** With more than one instrument, or one whose history starts
+  before or after the primary's, the previous default made each line start at 0%
+  on a different date, which quietly overstated the newest listing. The old
+  behavior is one option away (`setComparisonOptions({ baseline: "own" })`) and a
+  single instrument on a matching calendar renders identically either way.
+- **A comparison instrument may no longer take the primary series' name.**
+  `addComparison({ name })` refuses the name of `series[0]` (and the reserved
+  `"__primary__"`), which previously filtered the price series off the chart.
+
 ### Fixed
 
+- **`analysis` construction options were partly ignored.** The option object was
+  assigned to the instance *after* the managers that read it were constructed, so
+  the entire `analysis.panel` config (position, metrics, formatters, title, and
+  `panel: false`) was silently dropped. It is now assigned before any manager is
+  built.
 - **Drawing-toolbar icons no longer render undersized.** The tool `<button>`s
   never zeroed their native user-agent padding, and with `box-sizing: border-box`
   that padding shrank the 32px button's content box and squished each icon to

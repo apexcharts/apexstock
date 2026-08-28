@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Performance Comparison</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 { text-align: center; margin: 0 0 4px; }
+      p.lead { text-align: center; color: #667085; margin: 0 auto 16px; max-width: 860px; }
+      .wrap { max-width: 1100px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(16,24,40,0.08); padding: 12px; margin-bottom: 14px; }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+      label { font-size: 12px; color: #667085; display: flex; align-items: center; gap: 5px; }
+      select, button { padding: 6px 10px; border: 1px solid #d0d5dd; border-radius: 7px; background: #fff; cursor: pointer; font-size: 13px; }
+      button:hover { background: #f8fafc; }
+      .hint { color: #667085; font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid #eef1f5; }
+      th { color: #667085; font-weight: 600; }
+      th:first-child, td:first-child { text-align: left; }
+      td { font-variant-numeric: tabular-nums; }
+      .up { color: #00b746; }
+      .down { color: #ef403c; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+      .warn { color: #b54708; font-size: 12px; font-style: italic; margin-top: 8px; }
+      h3 { margin: 0 0 8px; font-size: 14px; }
+      tr.is-primary td { font-weight: 600; }
+      tr.is-benchmark td:first-child::after { content: " (benchmark)"; color: #667085; font-weight: 400; font-size: 11px; }
+    </style>
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <h1>ApexStock &bull; Performance Comparison</h1>
+    <p class="lead">
+      Four instruments with four different histories. NVDA lists 30 sessions
+      after the others, so a fair comparison has to say what "0%" means: the
+      <strong>baseline</strong> control does exactly that. The benchmark is a
+      role, not a ticker, so any instrument can fill it.
+    </p>
+
+    <div class="wrap">
+      <div class="row">
+        <label>
+          mode
+          <select id="mode">
+            <option value="percent">percent</option>
+            <option value="indexed">indexed (100 = start)</option>
+            <option value="absolute">absolute</option>
+            <option value="relative">relative (excess %)</option>
+            <option value="ratio">ratio</option>
+          </select>
+        </label>
+        <label>
+          baseline
+          <select id="baseline">
+            <option value="common">common (first shared session)</option>
+            <option value="own">own (each instrument's first point)</option>
+            <option value="visible">visible (follows the zoom)</option>
+          </select>
+        </label>
+        <label>
+          benchmark
+          <select id="benchmark">
+            <option value="__primary__">AAPL (primary)</option>
+            <option value="MSFT">MSFT</option>
+            <option value="NVDA">NVDA</option>
+            <option value="SPY">SPY</option>
+          </select>
+        </label>
+        <button id="clear">Clear comparisons</button>
+        <button id="restore">Restore all</button>
+      </div>
+
+      <div class="card"><div id="chart"></div></div>
+
+      <div class="card">
+        <h3>Leaderboard</h3>
+        <p class="hint" style="margin: 0 0 8px">
+          Straight from <code>getComparisonStats()</code>, recomputed on every
+          <code>comparisonChange</code>. Zoom with the baseline set to
+          <em>visible</em> and watch the whole table follow the window.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Instrument</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Change</th>
+              <th>Excess</th>
+              <th>Volatility</th>
+              <th>Max DD</th>
+              <th>Bars</th>
+              <th>Filled</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div id="warnings" class="warn"></div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const BASE = Date.UTC(2024, 0, 1);
+      const DAY = 86400000;
+      const COUNT = 240;
+      const LISTS_AT = 30;
+
+      // Deterministic but wiggly closes, so the lines look like prices without
+      // any randomness: two sine waves plus a drift.
+      function closes(start, drift, amp, phase) {
+        const out = [];
+        for (let i = 0; i < COUNT; i++) {
+          const wobble =
+            Math.sin((i + phase) / 11) * amp + Math.sin((i + phase) / 29) * amp * 2;
+          out.push(+(start * (1 + (drift * i) / 100) + wobble).toFixed(2));
+        }
+        return out;
+      }
+
+      const aaplCloses = closes(150, 0.18, 1.6, 0);
+      const peers = {
+        MSFT: { color: "#2563eb", from: 0, closes: closes(380, 0.09, 3.2, 7) },
+        NVDA: { color: "#16a34a", from: LISTS_AT, closes: closes(700, 0.42, 9, 3) },
+        SPY: { color: "#9333ea", from: 0, closes: closes(470, 0.05, 1.9, 13) },
+      };
+
+      const ohlc = aaplCloses.map((c, i) => ({
+        x: BASE + i * DAY,
+        y: [+(c - 0.6).toFixed(2), +(c + 1.1).toFixed(2), +(c - 1.2).toFixed(2), c],
+        v: 900000 + (i % 17) * 40000,
+      }));
+
+      const peerData = (name) =>
+        peers[name].closes
+          .map((c, i) => ({ x: BASE + i * DAY, y: c }))
+          .filter((_, i) => i >= peers[name].from);
+
+      const chart = new ApexStock(document.querySelector("#chart"), {
+        chart: { height: 460 },
+        theme: { mode: "light" },
+        series: [{ name: "AAPL", data: ohlc }],
+        analysis: { periodsPerYear: 252 },
+      });
+      chart.render();
+
+      function addAll() {
+        Object.keys(peers).forEach((name) =>
+          chart.addComparison({ name, data: peerData(name), color: peers[name].color })
+        );
+      }
+      addAll();
+
+      const pct = (v, digits) =>
+        v == null ? "&mdash;" : `${v >= 0 ? "+" : ""}${v.toFixed(digits == null ? 2 : digits)}%`;
+      const cls = (v) => (v == null ? "" : v >= 0 ? "up" : "down");
+      const num = (v) => (v == null ? "&mdash;" : v.toFixed(2));
+
+      function render(rows, warnings) {
+        if (!rows.length) {
+          // No comparison instruments: there is no leaderboard to show. The
+          // primary's own numbers live on getRangeStats(), which measures the
+          // real OHLC rather than the aligned closes.
+          $("rows").innerHTML =
+            '<tr id="empty"><td colspan="9" class="hint">' +
+            "No comparison instruments. Add one to compare.</td></tr>";
+          $("warnings").innerHTML = "";
+          return;
+        }
+        $("rows").innerHTML = rows
+          .map((r) => {
+            const swatch = r.color
+              ? `<span class="dot" style="background:${r.color}"></span>`
+              : `<span class="dot" style="background:#94a3b8"></span>`;
+            const klass = [r.primary ? "is-primary" : "", r.benchmark ? "is-benchmark" : ""]
+              .filter(Boolean)
+              .join(" ");
+            return `<tr class="${klass}">
+              <td>${swatch}${r.name}</td>
+              <td>${num(r.start)}</td>
+              <td>${num(r.end)}</td>
+              <td class="${cls(r.change.percent)}">${pct(r.change.percent)}</td>
+              <td class="${cls(r.relative)}">${r.benchmark ? "&mdash;" : pct(r.relative, 1)}</td>
+              <td>${r.volatility ? pct(r.volatility.annualized, 1) : "&mdash;"}</td>
+              <td class="down">${r.drawdown ? pct(r.drawdown.max) : "&mdash;"}</td>
+              <td>${r.bars}</td>
+              <td>${r.coverage.filled || 0}</td>
+            </tr>`;
+          })
+          .join("");
+        $("warnings").innerHTML = (warnings || []).join(" ");
+      }
+
+      // The leaderboard arrives with the event, already computed.
+      chart.on("comparisonChange", (e) => render(e.stats, e.warnings));
+      render(chart.getComparisonStats(), []);
+
+      $("mode").addEventListener("change", (e) =>
+        chart.setComparisonMode(e.target.value)
+      );
+      $("baseline").addEventListener("change", (e) =>
+        chart.setComparisonOptions({ baseline: e.target.value })
+      );
+      $("benchmark").addEventListener("change", (e) =>
+        chart.setComparisonBenchmark(e.target.value)
+      );
+      $("clear").addEventListener("click", () => chart.clearComparisons());
+      $("restore").addEventListener("click", () => {
+        chart.clearComparisons();
+        addAll();
+        $("benchmark").value = chart.getComparisonBenchmark();
+      });
+
+      // With `baseline: "visible"` the rows follow the zoom, so refresh them on
+      // every range change too (the chart rebases itself; this is just the table).
+      chart.on("rangeChange", () => {
+        if (chart.getComparisonOptions().baseline === "visible") {
+          render(chart.getComparisonStats(), []);
+        }
+      });
+
+      window.__chart = chart;
+    </script>
+  </body>
+</html>

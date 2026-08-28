@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock - Range Analysis</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 { text-align: center; margin: 0 0 4px; }
+      p.lead { text-align: center; color: #667085; margin: 0 auto 16px; max-width: 820px; }
+      .wrap { max-width: 1100px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(16,24,40,0.08); padding: 12px; margin-bottom: 14px; }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+      button { padding: 7px 12px; border: 1px solid #d0d5dd; border-radius: 7px; background: #fff; cursor: pointer; font-size: 13px; }
+      button:hover { background: #f8fafc; }
+      .hint { color: #667085; font-size: 12px; margin-left: 4px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #eef1f5; }
+      th { color: #667085; font-weight: 600; width: 45%; }
+      td { font-variant-numeric: tabular-nums; }
+      .up { color: #00b746; }
+      .down { color: #ef403c; }
+      .warn { color: #b54708; font-size: 12px; font-style: italic; margin-top: 8px; }
+      h3 { margin: 0 0 8px; font-size: 14px; }
+    </style>
+    <script src="../../apexcharts-js/dist/apexcharts.js"></script>
+    <script src="../dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <h1>ApexStock &bull; Range Analysis</h1>
+    <p class="lead">
+      Select a region and get the numbers behind it: change, duration, high and
+      low, averages, volatility, and the drawdown inside the selection. Pick the
+      <strong>Measure</strong> tool in the drawing toolbar and drag across the
+      chart, or use the buttons below.
+    </p>
+
+    <div class="wrap">
+      <div class="row">
+        <button id="m-run">Measure the run-up</button>
+        <button id="m-fall">Measure the decline</button>
+        <button id="m-all">Measure everything</button>
+        <button id="m-visible">Measure the visible window</button>
+        <button id="m-clear">Clear</button>
+        <button id="p-toggle">Hide panel</button>
+        <span class="hint">The panel appears on its own when you measure.</span>
+      </div>
+
+      <div class="card"><div id="chart"></div></div>
+
+      <div class="card">
+        <h3>Headless readout</h3>
+        <p class="hint" style="margin: 0 0 8px">
+          The same statistics via the <code>rangeMeasured</code> event, rendered
+          by this page instead of by ApexStock. Set
+          <code>analysis: { panel: false }</code> to use only this path.
+        </p>
+        <table id="readout">
+          <tr><td colspan="2" class="hint">Nothing measured yet.</td></tr>
+        </table>
+        <div id="warnings" class="warn"></div>
+      </div>
+    </div>
+
+    <script>
+      // A deterministic series with a shape worth measuring: a run-up to bar 60,
+      // a decline into bar 80, and a recovery that overshoots the old high.
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2024, 0, 1);
+        for (let i = 0; i < count; i++) {
+          let c;
+          if (i <= 60) c = 100 + i * 1.0;
+          else if (i <= 80) c = 160 - (i - 60) * 2.0;
+          else if (i <= 110) c = 120 + (i - 80) * 1.5;
+          else c = 165 + (i - 110) * 0.3;
+          // A little deterministic texture so the candles are not a straight line.
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          c = +(c + (n - 0.5) * 2.5).toFixed(2);
+          const o = +(c - (n - 0.5) * 1.5).toFixed(2);
+          data.push({
+            x: base + i * 86400000,
+            y: [o, +(Math.max(o, c) + n).toFixed(2), +(Math.min(o, c) - n).toFixed(2), c],
+            v: Math.floor(800000 + n * 900000),
+          });
+        }
+        return data;
+      }
+
+      const data = generateData(140);
+
+      const chart = new ApexStock(document.querySelector("#chart"), {
+        chart: { height: 460, animations: { enabled: false } },
+        theme: { mode: "light" },
+        series: [{ name: "AAPL", data: data }],
+        legend: { show: true, position: "top-left" },
+        analysis: {
+          // Daily bars, so annualize volatility on 252 trading days rather than
+          // letting the engine infer it (which it would, with a warning).
+          periodsPerYear: 252,
+          panel: { position: "top-right" },
+          measure: { snap: true },
+        },
+      });
+      chart.render();
+      chart.updateIndicator("volumes");
+
+      const fmt = (v, dp) => (v == null ? "-" : Number(v).toFixed(dp == null ? 2 : dp));
+      const pct = (v) => (v == null ? "-" : (v >= 0 ? "+" : "") + v.toFixed(2) + "%");
+      const cls = (v) => (v == null ? "" : v >= 0 ? "up" : "down");
+      const day = (x) => new Date(x).toISOString().slice(0, 10);
+
+      function renderReadout(e) {
+        const s = e.stats;
+        const dd = s.drawdown;
+        const rows = [
+          ["Range", day(s.from.x) + " to " + day(s.to.x)],
+          ["Start / End", fmt(s.from.value) + " / " + fmt(s.to.value)],
+          ["Change", '<span class="' + cls(s.change.absolute) + '">' +
+            (s.change.absolute >= 0 ? "+" : "") + fmt(s.change.absolute) +
+            " (" + pct(s.change.percent) + ")</span>"],
+          ["Duration", s.bars + " bars" +
+            (s.calendarDays != null ? " / " + Math.round(s.calendarDays) + " calendar days" : "")],
+          ["Up / down bars", s.upBars + " / " + s.downBars],
+          ["Annualized return", s.annualized ? pct(s.annualized.return) : "not computed"],
+          ["High / Low", fmt(s.high && s.high.value) + " / " + fmt(s.low && s.low.value)],
+          ["Average price", fmt(s.average.close)],
+          ["Average volume", s.average.volume == null ? "-" :
+            (s.average.volume / 1e6).toFixed(2) + "M"],
+          ["Volatility (annualized)", s.volatility && s.volatility.annualized != null ?
+            s.volatility.annualized.toFixed(2) + "%" : "not computed"],
+          ["Max drawdown", '<span class="down">' + (dd.max != null ? dd.max.toFixed(2) + "%" : "-") + "</span>"],
+          ["Drawdown duration", dd.barsToTrough != null ? dd.barsToTrough + " bars (peak to trough)" : "none"],
+          ["Recovery", dd.recovered && dd.barsToRecovery != null ?
+            dd.barsToRecovery + " bars (trough to peak)" : dd.max ? "not recovered" : "none"],
+          ["Selection (dragged)", e.selection.absolute == null ? "-" :
+            (e.selection.absolute >= 0 ? "+" : "") + fmt(e.selection.absolute) +
+            " (" + pct(e.selection.percent) + ")"],
+          ["Event source", e.source],
+        ];
+        document.querySelector("#readout").innerHTML = rows
+          .map((r) => "<tr><th>" + r[0] + "</th><td>" + r[1] + "</td></tr>")
+          .join("");
+        document.querySelector("#warnings").textContent = s.warnings.length
+          ? "Assumptions: " + s.warnings.join(" ")
+          : "";
+      }
+
+      chart.on("rangeMeasured", renderReadout);
+      chart.on("measurementRemoved", function () {
+        if (chart.getMeasurements().length) return;
+        document.querySelector("#readout").innerHTML =
+          '<tr><td colspan="2" class="hint">Nothing measured yet.</td></tr>';
+        document.querySelector("#warnings").textContent = "";
+      });
+
+      const one = (from, to) => {
+        chart.clearMeasurement();
+        chart.measureRange(from, to);
+      };
+      document.querySelector("#m-run").onclick = () => one(0, 60);
+      document.querySelector("#m-fall").onclick = () => one(60, 80);
+      document.querySelector("#m-all").onclick = () => one(0, data.length - 1);
+      document.querySelector("#m-visible").onclick = () => {
+        const r = chart.getVisibleRange();
+        if (r) one(r.min, r.max);
+      };
+      document.querySelector("#m-clear").onclick = () => chart.clearMeasurement();
+
+      const toggle = document.querySelector("#p-toggle");
+      toggle.onclick = () => {
+        if (chart.isAnalysisPanelVisible()) {
+          chart.hideAnalysisPanel();
+          toggle.textContent = "Show panel";
+        } else {
+          chart.showAnalysisPanel();
+          toggle.textContent = "Hide panel";
+        }
+      };
+
+      // Start with something measured so the page is self-explanatory.
+      chart.measureRange(0, 60);
+    </script>
+  </body>
+</html>
