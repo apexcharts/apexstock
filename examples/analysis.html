@@ -50,6 +50,8 @@
         <button id="m-visible">Measure the visible window</button>
         <button id="m-clear">Clear</button>
         <button id="p-toggle">Hide panel</button>
+        <button id="dd-toggle">Show drawdown pane</button>
+        <span class="hint" id="dd-note"></span>
         <span class="hint">The panel appears on its own when you measure.</span>
       </div>
 
@@ -183,6 +185,21 @@
         } else {
           chart.showAnalysisPanel();
           toggle.textContent = "Hide panel";
+        }
+      };
+
+      // The drawdown pane: the same series, plotted as how far underwater it is.
+      const ddToggle = document.querySelector("#dd-toggle");
+      ddToggle.onclick = () => {
+        chart.updateIndicator("drawdown"); // toggles on/off
+        const on = !!chart.indicatorChartMap.drawdown;
+        ddToggle.textContent = on ? "Hide drawdown pane" : "Show drawdown pane";
+        const note = document.querySelector("#dd-note");
+        if (on) {
+          const dd = chart.getDrawdown();
+          note.textContent = `max ${dd.max.toFixed(2)}%, ${dd.episodes.length} episodes, currently ${dd.current.toFixed(2)}%`;
+        } else {
+          note.textContent = "";
         }
       };
 

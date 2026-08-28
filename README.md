@@ -273,7 +273,7 @@ These indicators are drawn directly on the price chart:
 
 ### Oscillators (displayed in separate panels)
 
-These indicators are displayed in their own panels below the main chart. Multiple oscillators can be active at once; each gets its own pane and the panes share the indicator area evenly.
+These indicators are displayed in their own panels below the main chart. Multiple oscillators can be active at once; each gets its own pane, and the panes share the indicator area (evenly by default, or in proportion to a [`heightRatio`](#pane-heights)).
 
 | Oscillator                       | Key                              | Description                                            |
 | -------------------------------- | -------------------------------- | ------------------------------------------------------ |
@@ -291,6 +291,13 @@ These indicators are displayed in their own panels below the main chart. Multipl
 | **Accelerator Oscillator**       | `"accelerator oscillator"`       | Acceleration/deceleration of price movement            |
 | **Bollinger Bands %B**           | `"bollinger bands %b"`           | Position within Bollinger Bands (0-1 scale)            |
 | **Bollinger Bands Width**        | `"bollinger bands width"`        | Width of Bollinger Bands (volatility measure)          |
+
+One more pane is not a technical indicator but a view of the same series, so it
+is listed under an **Analysis** heading in the indicators dropdown:
+
+| Analysis pane | Key | Description |
+| --- | --- | --- |
+| **Drawdown** | `"drawdown"` | Percent below the running peak, per bar. See [the drawdown pane](#the-drawdown-pane). |
 
 ### Usage Examples
 
@@ -891,7 +898,49 @@ apexStock.getDrawdown({ basis: "intrabar" });   // low vs running high
 
 `basis: "intrabar"` measures each bar's low against the running high instead of
 close-against-close. It is strictly more conservative, and the right basis for a
-stop-loss or margin question.
+stop-loss or margin question. It defaults to the chart's
+`analysis.drawdownBasis`, so this, the range statistics, and the drawdown pane
+all report the same figure.
+
+### The drawdown pane
+
+The same numbers as a chart: price on top, how far underwater it is below, on one
+shared x-axis and one shared zoom.
+
+```javascript
+apexStock.updateIndicator("drawdown");   // toggles the pane on (and off again)
+```
+
+It is an ordinary pane, listed under **Analysis** in the indicators dropdown, so
+everything that works for RSI works here: it stacks with other panes, follows the
+zoom, survives a theme or chart-type switch, reports through `getDataAt`,
+round-trips through `getState()`/`setState()`, and updates incrementally on
+`appendData` (its running peak makes that O(1), with no warm-up period).
+
+The pane plots percent below the peak, with zero pinned to the top of the axis
+(a drawdown is never positive) and the deepest point labelled on the pane itself.
+It measures on the chart's `analysis.drawdownBasis`, so the pane and
+`getRangeStats()` cannot disagree.
+
+#### Pane heights
+
+A drawdown pane is cumulative, so it earns more room than a bounded oscillator:
+it takes 1.4 shares of the indicator area where others take 1. Ratios are
+relative, and configurable per pane:
+
+```javascript
+new ApexStock(el, {
+  series: [{ name: "AAPL", data: bars }],
+  panes: { drawdown: { heightRatio: 2 } },   // twice an RSI pane's height
+});
+
+apexStock.setPaneHeightRatio("drawdown", 3);  // at runtime
+apexStock.setPaneHeightRatio("drawdown", null); // back to the pane's default
+apexStock.getPaneHeightRatios();              // -> { drawdown: { heightRatio: 3 } }
+```
+
+The panes always add up to the indicator area exactly, so no gap opens at the
+bottom, and the ratios you set are captured by `getState()` (as `panes`).
 
 ### Configuration
 
@@ -1011,6 +1060,9 @@ apexStock.setState(saved);
     { type: "stop-loss", price: 96, draggable: true }
   ],
   priceScale: { mode: "logarithmic", base: null, logBase: 10, indexBase: 100 }, // or null (default linear)
+  panes: {                        // pane height ratios you set, or null
+    drawdown: { heightRatio: 2 }
+  },
   comparison: {                   // multi-instrument comparison, or null
     mode: "indexed",
     benchmark: "SPY",             // or "__primary__"
@@ -1024,7 +1076,7 @@ apexStock.setState(saved);
 `setState(state)` reconciles the live chart to that snapshot: it switches theme
 and chart type, adds/removes indicators (restoring their params), keeps the
 toolbar selection in sync, restores the drawings, event markers, annotations,
-price lines, price-scale mode, and comparison setup, and restores the zoom. It accepts any supported version (older
+price lines, price-scale mode, pane heights, and comparison setup, and restores the zoom. It accepts any supported version (older
 states are migrated automatically; `ApexStock.migrateState(state)` does the same
 up-front). Call `setState` after `render()`.
 

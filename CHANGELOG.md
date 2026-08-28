@@ -11,6 +11,36 @@ those are called out explicitly below.
 
 ### Added
 
+- **Drawdown as a first-class pane, and per-pane heights.** Phase 4 of the
+  financial-analysis workspace (see `plans/financial-analysis-workspace.md`):
+  price on top, how far underwater it is below, on one shared x-axis and zoom.
+  - `updateIndicator("drawdown")` toggles an analysis pane plotting percent below
+    the running peak, with zero pinned to the top of the axis (a drawdown is
+    never positive) and the deepest point labelled on the pane itself. It is an
+    ordinary oscillator-registry entry, so it inherits the whole pane machinery:
+    stacking with other panes, the shared zoom, the theme rebuild, `getDataAt`,
+    `getState`/`setState`, and the settings-free dropdown entry. No new pane
+    system, and no separate API.
+  - It measures on the chart's `analysis.drawdownBasis`, so the pane,
+    `getRangeStats()`, and `getDrawdown()` cannot disagree, and the basis
+    round-trips in state with the pane.
+  - It streams incrementally on `appendData`: the state is the running peak, so
+    the step is O(1) with no warm-up period. The pane's "max" label is
+    re-asserted after each append, so a new deeper trough moves it instead of
+    leaving a stale line behind.
+  - The indicators dropdown groups it under an **Analysis** heading (a new
+    optional `group` on a registry entry), keeping analysis views distinct from
+    technical indicators without adding a second control.
+  - **Per-pane heights.** Panes now divide the indicator area in proportion to a
+    relative `heightRatio` rather than always evenly: the drawdown pane takes 1.4
+    shares (it is cumulative, so it earns the room) and everything else takes 1.
+    Configure with `panes: { drawdown: { heightRatio: 2 } }` at construction, or
+    `setPaneHeightRatio(key, ratio)` / `getPaneHeightRatios()` at runtime (null
+    restores the pane's default). The heights always add up to the container
+    exactly, and the ratios you set are captured by `getState()` as a new `panes`
+    key.
+  See the README "The drawdown pane" section.
+
 - **Comparison persists, and the analysis can be exported.** Phase 5 of the
   financial-analysis workspace (see `plans/financial-analysis-workspace.md`).
   - `getState()` gains a `comparison` key: the mode, benchmark, alignment policy,
@@ -282,6 +312,12 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **`getDrawdown()` ignored `analysis.drawdownBasis`.** The chart-level
+  convention is spelled `drawdownBasis` (alongside `source` and
+  `periodsPerYear`) while the engine takes `basis`, and the method passed the
+  options through untranslated, so a chart configured for the conservative
+  intrabar basis still got close-against-close from `getDrawdown()`.
+  `getRangeStats()` was unaffected. An explicit per-call `basis` still wins.
 - **`analysis` construction options were partly ignored.** The option object was
   assigned to the instance *after* the managers that read it were constructed, so
   the entire `analysis.panel` config (position, metrics, formatters, title, and
