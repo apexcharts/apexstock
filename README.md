@@ -8,7 +8,7 @@ A comprehensive, feature-rich stock chart library built on top of ApexCharts. Ap
 - **Technical Indicators**: 20+ built-in indicators including RSI, MACD, Bollinger Bands, and more
 - **Real-time Streaming**: Incremental `appendData()` updates price, indicators, and panes without a full rebuild
 - **Events**: Subscribe to `crosshairMove`, `click`, `rangeChange`, `indicatorToggle`, and drawing/marker lifecycle events via `on()` / `off()` / `once()`
-- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, zoom, drawings, and event markers to portable JSON
+- **State Persistence**: `getState()` / `setState()` serialize the theme, chart type, indicators, zoom, drawings, event markers, and the comparison setup to portable JSON
 - **Custom Indicators**: Register your own indicators (overlay or oscillator, with optional live streaming) via `ApexStock.registerIndicator()`
 - **Trading Overlays**: Order lines, stop-loss, take-profit, and alert price lines (draggable, closable)
 - **Drawing Tools**: Interactive mouse toolbar plus a programmatic, price/time-anchored `addDrawing()` API (trend lines, rays, levels, zones)
@@ -1011,6 +1011,12 @@ apexStock.setState(saved);
     { type: "stop-loss", price: 96, draggable: true }
   ],
   priceScale: { mode: "logarithmic", base: null, logBase: 10, indexBase: 100 }, // or null (default linear)
+  comparison: {                   // multi-instrument comparison, or null
+    mode: "indexed",
+    benchmark: "SPY",             // or "__primary__"
+    options: { join: "union", fill: "hold", baseline: "common", /* ... */ },
+    instruments: [{ name: "SPY", color: "#FEB019" }]  // identity only, no data
+  },
   zoom: { minX: 1577836800000, maxX: 1580515200000 } // visible x-range, or null
 }
 ```
@@ -1018,13 +1024,42 @@ apexStock.setState(saved);
 `setState(state)` reconciles the live chart to that snapshot: it switches theme
 and chart type, adds/removes indicators (restoring their params), keeps the
 toolbar selection in sync, restores the drawings, event markers, annotations,
-price lines, and price-scale mode, and restores the zoom. It accepts any supported version (older
+price lines, price-scale mode, and comparison setup, and restores the zoom. It accepts any supported version (older
 states are migrated automatically; `ApexStock.migrateState(state)` does the same
 up-front). Call `setState` after `render()`.
 
-Price lines are captured as declarative config only: their interactive callbacks
-(`onCross` / `onMove` / `onRemove`) are not serializable, so re-bind them after
+Measurements need no key of their own: a measurement *is* a `measure` drawing,
+so it round-trips inside `drawings` with everything else you have drawn.
+
+### What the consumer owns
+
+Two things are captured by *reference* rather than by value, because they are
+yours, not the chart's:
+
+**A price line's interactive callbacks** (`onCross` / `onMove` / `onRemove`) are
+not serializable, so only the declarative config is captured. Re-bind them after
 `setState` if you use them, e.g. `updatePriceLine(id, { onCross })`.
+
+**A comparison instrument's price data** is fetched by your app, runs to
+thousands of bars per instrument, and would be stale the moment it was written to
+storage. So state carries each instrument's *name and color*, and `setState`
+tells you which ones need their data back:
+
+```javascript
+apexStock.on("comparisonRestoreNeeded", ({ names }) => {
+  names.forEach((name) => {
+    apexStock.addComparison({ name, data: myCache[name] }); // color remembered
+  });
+});
+apexStock.setState(saved);
+```
+
+The mode, benchmark, and alignment policy come back on their own, so the chart is
+already configured when the data arrives, and a re-supplied instrument returns in
+the color it had. An instrument whose data is *still loaded* is kept as it is, so
+a save/restore inside a live session costs no round trip and the event does not
+fire at all. A benchmark whose instrument has not come back yet is remembered by
+name; the primary symbol fills the role until it does.
 
 ## Real-time Streaming (`appendData`)
 
@@ -1637,7 +1672,7 @@ const csv = await apexStock.export({ format: "csv" });             // { format, 
 await apexStock.export({ format: "json", range: "visible", download: true });
 ```
 
-- **`export({ format, scale?, range?, includeVolume?, raw?, pretty?, download?, filename? })`**
+- **`export({ format, scale?, range?, include?, summary?, includeVolume?, raw?, pretty?, download?, filename? })`**
   → `Promise<{ format, blob, url, text?, fallback? }>`.
   `format` is `"png"` (default), `"svg"`, `"pdf"`, `"csv"`, or `"json"`. Image and
   PDF formats honor `scale`; data formats honor `range` / `includeVolume` / `raw`
@@ -1645,6 +1680,38 @@ await apexStock.export({ format: "json", range: "visible", download: true });
   `svg` (`fallback: true`) on browsers that block raster capture. `pdf` is a
   single-page document with the chart (price + oscillator panes) embedded as a
   raster, sized to the image; no external PDF library is used.
+
+### Exporting the analysis
+
+`include` carries the analysis into the export. It means something slightly
+different in each medium, because a spreadsheet and a report need different
+things:
+
+```javascript
+// A spreadsheet: extra columns, one value per bar.
+apexStock.exportData({ include: ["indicators", "analysis"] });
+// time,open,high,low,close,volume,MA 20,RSI,return,drawdown
+
+// A report: the numbers set below the chart image.
+await apexStock.export({ format: "pdf", include: ["analysis"], download: true });
+```
+
+- **`"indicators"`** adds one column per active indicator series, main-chart
+  overlays *and* oscillator panes, named after the series. A warm-up period is
+  `null`, not zero, so the columns stay aligned to the bars.
+- **`"analysis"`** adds `return` (percent change from the previous bar) and
+  `drawdown` (percent below the running peak, per `analysis.drawdownBasis`) for
+  csv/json. For `pdf` it sets a text block under the chart: the window's dates
+  and bar count, change, high, low, average, volume, annualized return,
+  volatility, max drawdown, and the comparison leaderboard when one is active.
+  Pass `summary: ["your", "own", "lines"]` to write that block yourself.
+
+Range statistics are a summary, not a per-bar value, so they are not columns:
+read them from `getRangeStats()`. The OHLC columns are always present, so the CSV
+keeps round-tripping through `ApexStock.fromCSV` whatever you add; an extra column
+whose name collides with a spine column is suffixed rather than overwriting it.
+The PDF summary follows `range` (defaulting to the visible window there), so
+zoom in and the exported numbers describe what you were looking at.
 
 The two lower-level methods remain available:
 
@@ -1655,7 +1722,7 @@ const csvText = apexStock.exportData({ format: "csv" });              // returns
 
 - **`exportImage({ format, scale?, download?, filename? })`** → `Promise<{ format, blob, url, fallback? }>`.
   `format` is `"png"` (default) or `"svg"`.
-- **`exportData({ format, range?, includeVolume?, raw?, pretty?, download?, filename? })`** → the serialized string.
+- **`exportData({ format, range?, include?, includeVolume?, raw?, pretty?, download?, filename? })`** → the serialized string.
   `format` is `"csv"` (default) or `"json"`; `range` is `"all"` (default) or
   `"visible"` (only the points in the current x-window). Time is ISO-8601 for
   numeric timestamps (`raw: true` keeps the raw value). The CSV round-trips

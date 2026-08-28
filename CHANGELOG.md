@@ -11,6 +11,41 @@ those are called out explicitly below.
 
 ### Added
 
+- **Comparison persists, and the analysis can be exported.** Phase 5 of the
+  financial-analysis workspace (see `plans/financial-analysis-workspace.md`).
+  - `getState()` gains a `comparison` key: the mode, benchmark, alignment policy,
+    and each instrument's name and color. **Instrument data is deliberately not
+    captured**: your app fetches it, it runs to thousands of bars per instrument,
+    and it would be stale the moment it was written to storage. So `setState()`
+    restores the setup, keeps any instrument whose data is still loaded, and
+    emits the new **`comparisonRestoreNeeded`** event with `{ names }` for the
+    rest, which the consumer re-supplies with `addComparison` (the remembered
+    color is reapplied). A benchmark whose instrument has not come back yet is
+    remembered by name, with the primary filling the role until it does. Same
+    division of labour as the price lines' interactive callbacks.
+  - Measurements need no state key of their own: a measurement *is* a `measure`
+    drawing, so it already round-tripped inside `drawings`.
+  - `exportData` / `export` gain **`include`**, which carries the analysis into an
+    export and means something appropriate to each medium. For `csv`/`json`:
+    `"indicators"` adds one column per active indicator series (main-chart
+    overlays *and* oscillator panes, `null` through each warm-up) and
+    `"analysis"` adds `return` and `drawdown` per bar. For `pdf`: `"analysis"`
+    sets a text summary below the chart image (the window's dates and bar count,
+    change, high, low, average, volume, annualized return, volatility, max
+    drawdown, and the comparison leaderboard when one is active), overridable
+    with `summary: string[]`. The PDF summary follows `range`, defaulting to the
+    visible window there, so the exported numbers describe what you were looking
+    at.
+  - The OHLC columns are always present, so a CSV keeps round-tripping through
+    `ApexStock.fromCSV` whatever you add, and an extra column whose name collides
+    with a spine column is suffixed rather than overwriting it. Range statistics
+    are a summary, not a per-bar value, so they are not columns; read them from
+    `getRangeStats()`.
+  - The PDF summary is still dependency-free: `buildPdfFromJpeg` grows the page
+    for a text band below the image and sets it in Helvetica, one of the PDF
+    base-14 fonts, so there is nothing to embed.
+  See the README "State Persistence" and "Exporting the analysis" sections.
+
 - **Comparison v2: instrument alignment, baseline policies, indexed / relative /
   ratio modes, the benchmark role, and `getComparisonStats()`.** Phase 3 of the
   financial-analysis workspace (see `plans/financial-analysis-workspace.md`):

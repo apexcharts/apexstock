@@ -77,7 +77,11 @@
           </select>
         </label>
         <button id="clear">Clear comparisons</button>
-        <button id="restore">Restore all</button>
+        <button id="restoreAll">Restore all</button>
+        <button id="save">Save state</button>
+        <button id="load">Reload from state</button>
+        <button id="pdf">Export PDF + summary</button>
+        <span class="hint" id="status"></span>
       </div>
 
       <div class="card"><div id="chart"></div></div>
@@ -215,10 +219,48 @@
         chart.setComparisonBenchmark(e.target.value)
       );
       $("clear").addEventListener("click", () => chart.clearComparisons());
-      $("restore").addEventListener("click", () => {
+      $("restoreAll").addEventListener("click", () => {
         chart.clearComparisons();
         addAll();
         $("benchmark").value = chart.getComparisonBenchmark();
+      });
+
+      // State: the setup persists, the instrument data does not. The chart asks
+      // for what it needs by name, and the app supplies it from wherever it
+      // keeps it (here: the `peers` object it built at startup).
+      chart.on("comparisonRestoreNeeded", ({ names }) => {
+        names.forEach((name) =>
+          chart.addComparison({ name, data: peerData(name), color: peers[name].color })
+        );
+        $("status").textContent = `re-supplied ${names.join(", ")}`;
+      });
+
+      let saved = null;
+      $("save").addEventListener("click", () => {
+        saved = JSON.stringify(chart.getState());
+        $("status").textContent = `saved (${saved.length} bytes, no bar data)`;
+      });
+      $("load").addEventListener("click", () => {
+        if (!saved) {
+          $("status").textContent = "save something first";
+          return;
+        }
+        // Simulate a reload: nothing but the JSON survives.
+        chart.clearComparisons();
+        chart.setState(JSON.parse(saved));
+        $("mode").value = chart.getComparisonMode();
+        $("baseline").value = String(chart.getComparisonOptions().baseline);
+        $("benchmark").value = chart.getComparisonBenchmark();
+      });
+
+      $("pdf").addEventListener("click", async () => {
+        $("status").textContent = "exporting...";
+        await chart.export({
+          format: "pdf",
+          include: ["analysis"],
+          download: true,
+        });
+        $("status").textContent = "exported with the summary block";
       });
 
       // With `baseline: "visible"` the rows follow the zoom, so refresh them on
