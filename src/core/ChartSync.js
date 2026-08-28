@@ -58,7 +58,14 @@ export default class ChartSync {
       if (typeof inst.on !== "function") return;
 
       if (this.opts.zoom) {
+        // `rangeChanging` is the per-frame signal during a wheel/pinch gesture;
+        // `rangeChange` is the settled one. Subscribing to both makes a linked
+        // chart track the gesture instead of jumping once it ends. Both route
+        // through _onRange, so the same echo suppression covers them.
         this._unsubs.push(inst.on("rangeChange", (p) => this._onRange(inst, p)));
+        this._unsubs.push(
+          inst.on("rangeChanging", (p) => this._onRange(inst, p))
+        );
       }
 
       if (this.opts.crosshair) {
@@ -100,6 +107,18 @@ export default class ChartSync {
     try {
       this.instances.forEach((inst) => {
         if (inst === source || inst._destroyed) return;
+        // Skip a target that is already showing this window. A gesture reports
+        // its final window twice (the last live frame, then the settled
+        // callback), and re-zooming a chart to the range it already shows costs
+        // it a full re-render.
+        const shown = this._lastRange.get(inst);
+        if (
+          shown &&
+          Math.abs(shown.min - min) <= eps &&
+          Math.abs(shown.max - max) <= eps
+        ) {
+          return;
+        }
         this._lastRange.set(inst, { min, max });
         if (typeof inst.setVisibleRange === "function") {
           inst.setVisibleRange(min, max);

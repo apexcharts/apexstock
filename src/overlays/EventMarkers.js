@@ -127,7 +127,11 @@ export default class EventMarkers {
     if (this._active) return;
     this._active = true;
     if (typeof this.ctx.on === "function") {
+      // Both signals: `rangeChanging` tracks a wheel/pinch gesture frame by
+      // frame, `rangeChange` catches the settled window (and the gestures that
+      // emit no live frames, e.g. a programmatic setVisibleRange).
       this._unsubRange = this.ctx.on("rangeChange", this._boundPosition);
+      this._unsubRanging = this.ctx.on("rangeChanging", this._boundPosition);
     }
     if (typeof window !== "undefined" && window.addEventListener) {
       window.addEventListener("resize", this._boundPosition);
@@ -138,14 +142,15 @@ export default class EventMarkers {
   _deactivate() {
     if (!this._active) return;
     this._active = false;
-    if (this._unsubRange) {
+    ["_unsubRange", "_unsubRanging"].forEach((k) => {
+      if (!this[k]) return;
       try {
-        this._unsubRange();
+        this[k]();
       } catch {
         /* already gone */
       }
-      this._unsubRange = null;
-    }
+      this[k] = null;
+    });
     if (typeof window !== "undefined" && window.removeEventListener) {
       window.removeEventListener("resize", this._boundPosition);
     }

@@ -80,32 +80,64 @@ class EventManager {
     // Try to listen for chart events if available
     try {
       if (this.chart.addEventListener) {
+        // `updated` fires once per animation frame while a wheel/pinch zoom is
+        // in progress. This used to schedule the reposition on a 300ms timer,
+        // which both queued one redraw per frame and landed 300ms after the
+        // geometry it was reading, so drawings visibly trailed the plot. A
+        // single rAF instead coalesces the whole gesture's frames into one
+        // redraw each, timed against layout that is already up to date
+        // (ApexStock renders with animations off, so nothing is still moving).
         this.chart.addEventListener("updated", () => {
-          setTimeout(() => {
-            if (typeof this.syncOverlayPosition === "function") {
-              this.syncOverlayPosition();
-            }
-            this.redrawElements();
-          }, 300);
+          this.scheduleReposition();
         });
 
         this.chart.addEventListener("zoomed", () => {
-          if (typeof this.coordinateConverter?.refreshBounds === "function") {
-            this.coordinateConverter.refreshBounds();
-          }
-          this.redrawElements();
+          this.refreshBoundsAndRedraw();
         });
 
         this.chart.addEventListener("scrolled", () => {
-          if (typeof this.coordinateConverter?.refreshBounds === "function") {
-            this.coordinateConverter.refreshBounds();
-          }
-          this.redrawElements();
+          this.refreshBoundsAndRedraw();
         });
       }
     } catch (err) {
       Utils.error("Error setting up chart event listeners:", err);
     }
+  }
+
+  /**
+   * Reposition the drawing overlay on the next animation frame, coalescing any
+   * number of calls made in the same frame into one redraw.
+   * @returns {void}
+   */
+  scheduleReposition() {
+    if (this._cancelReposition) return;
+    const run = () => {
+      this._cancelReposition = null;
+      if (typeof this.syncOverlayPosition === "function") {
+        this.syncOverlayPosition();
+      }
+      this.redrawElements();
+    };
+    // Keep the canceller rather than the raw id: a rAF handle and a timeout
+    // handle are both plain numbers, so cancelling the wrong one would reach
+    // into an unrelated task.
+    if (typeof requestAnimationFrame === "function") {
+      const id = requestAnimationFrame(run);
+      this._cancelReposition = () => cancelAnimationFrame(id);
+    } else {
+      // No rAF (a non-browser host): keep it asynchronous so the caller's
+      // update finishes first, as the timer version did.
+      const id = setTimeout(run, 0);
+      this._cancelReposition = () => clearTimeout(id);
+    }
+  }
+
+  /** Re-read the axis bounds, then redraw. Shared by `zoomed` and `scrolled`. */
+  refreshBoundsAndRedraw() {
+    if (typeof this.coordinateConverter?.refreshBounds === "function") {
+      this.coordinateConverter.refreshBounds();
+    }
+    this.redrawElements();
   }
 
   /**
@@ -120,6 +152,12 @@ class EventManager {
     // Remove wheel event listeners
     this.chartDiv.removeEventListener("wheel", this.boundWheelEvent);
     this.svgOverlay.removeEventListener("wheel", this.boundWheelEvent);
+
+    // Drop a pending reposition so it cannot run against a torn-down chart.
+    if (this._cancelReposition) {
+      this._cancelReposition();
+      this._cancelReposition = null;
+    }
 
     // Disconnect the mutation observer
     if (this.mutationObserver) {

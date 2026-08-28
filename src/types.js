@@ -85,7 +85,12 @@
  *   ({@link CrosshairEvent}).
  * - `click` fires on a click on the price chart ({@link CrosshairEvent}).
  * - `rangeChange` fires when the visible x-range changes via zoom, pan, or
- *   reset ({@link RangeChangeEvent}).
+ *   reset ({@link RangeChangeEvent}). Once per gesture: a wheel or pinch zoom
+ *   emits it when the gesture settles, not on every frame.
+ * - `rangeChanging` fires on every frame of an in-progress zoom/pan
+ *   ({@link RangeChangeEvent} with `source: "live"`). Use it to keep your own
+ *   overlay glued to the axis during a gesture; use `rangeChange` for work that
+ *   should happen once, such as fetching data for the new window.
  * - `indicatorToggle` fires when an indicator is added or removed
  *   ({@link IndicatorToggleEvent}).
  * - `drawingAdded` / `drawingUpdated` fire with `{ id, drawing }` when a
@@ -108,7 +113,7 @@
  * - `comparisonRestoreNeeded` fires with `{ names }` after `setState` restored a
  *   comparison whose instrument data is not loaded: the consumer re-supplies it
  *   with `addComparison`. See {@link ApexStockState}.
- * @typedef {"crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange" | "rangeMeasured" | "measurementRemoved" | "comparisonChange" | "comparisonRestoreNeeded"} ApexStockEventName
+ * @typedef {"crosshairMove" | "click" | "rangeChange" | "rangeChanging" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange" | "rangeMeasured" | "measurementRemoved" | "comparisonChange" | "comparisonRestoreNeeded"} ApexStockEventName
  */
 
 /**
@@ -147,7 +152,8 @@
  * @typedef {Object} RangeChangeEvent
  * @property {number} min - New visible range start.
  * @property {number} max - New visible range end.
- * @property {"zoom"|"pan"|"reset"} source - What triggered the change.
+ * @property {"zoom"|"pan"|"reset"|"live"} source - What triggered the change.
+ *   `"live"` marks a per-frame `rangeChanging` emission mid-gesture.
  */
 
 /**

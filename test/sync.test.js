@@ -70,6 +70,29 @@ describe("ApexStock.sync — zoom/pan", () => {
     delete global.ApexCharts;
   });
 
+  it("mirrors the per-frame rangeChanging signal, so linked charts track a gesture", () => {
+    // ApexCharts reports a wheel zoom's `zoomed` only once the gesture settles,
+    // so syncing on `rangeChange` alone left the linked charts still until the
+    // scroll stopped and then jumped them. `rangeChanging` fires per frame.
+    handle = ApexStock.sync([a, b]);
+    a.emit("rangeChanging", { min: 10, max: 50, source: "live" });
+    expect(b.chart.zoomX).toHaveBeenCalledWith(10, 50);
+
+    a.emit("rangeChanging", { min: 12, max: 48, source: "live" });
+    expect(b.chart.zoomX).toHaveBeenLastCalledWith(12, 48);
+    expect(b.chart.zoomX).toHaveBeenCalledTimes(2);
+  });
+
+  it("suppresses the settled echo of a window already pushed live", () => {
+    // The live frames and the settled callback report the same final window;
+    // the target must not be re-zoomed to a range it is already showing.
+    handle = ApexStock.sync([a, b]);
+    a.emit("rangeChanging", { min: 10, max: 50, source: "live" });
+    expect(b.chart.zoomX).toHaveBeenCalledTimes(1);
+    a.emit("rangeChange", { min: 10, max: 50, source: "zoom" });
+    expect(b.chart.zoomX).toHaveBeenCalledTimes(1);
+  });
+
   it("mirrors a range change to the other instances, not the source", () => {
     handle = ApexStock.sync([a, b, c]);
     a.emit("rangeChange", { min: 10, max: 50, source: "zoom" });

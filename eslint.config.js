@@ -9,6 +9,8 @@ export default [
       "node_modules/**",
       "coverage/**",
       "examples/**",
+      // Gitignored scratch space (design notes, throwaway perf harnesses).
+      "plans/**",
       ".github/**",
       // Framework wrappers are independent packages with their own toolchains
       // (tsup / ng-packagr / vitest) and TypeScript sources; the root config

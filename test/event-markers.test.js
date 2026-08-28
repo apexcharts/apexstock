@@ -132,6 +132,30 @@ describe("EventMarkers (manager unit)", () => {
     expect(badges(ctx)[0].style.left).toBe("10px");
   });
 
+  it("also tracks the per-frame rangeChanging signal", () => {
+    // A wheel zoom re-renders the plot every frame but only reports `zoomed`
+    // once it settles, so markers subscribed to `rangeChange` alone hung in
+    // their old positions for the whole gesture. `rangeChanging` is the
+    // per-frame signal; both are subscribed, since a programmatic
+    // setVisibleRange produces only the settled one.
+    m.add({ x: 50, type: "earnings" });
+    expect(ctx._handlers.rangeChanging).toHaveLength(1);
+
+    ctx.chart.w.globals.minX = 50;
+    ctx.chart.w.globals.maxX = 60;
+    ctx._handlers.rangeChanging[0]({ min: 50, max: 60, source: "live" });
+    expect(badges(ctx)[0].style.left).toBe("10px");
+  });
+
+  it("unsubscribes both range signals when the last marker goes", () => {
+    const id = m.add({ x: 50, type: "earnings" });
+    expect(ctx._handlers.rangeChange).toHaveLength(1);
+    expect(ctx._handlers.rangeChanging).toHaveLength(1);
+    m.remove(id);
+    expect(ctx._handlers.rangeChange).toHaveLength(0);
+    expect(ctx._handlers.rangeChanging).toHaveLength(0);
+  });
+
   it("updates a marker in place and emits eventMarkerUpdated", () => {
     const id = m.add({ x: 50, type: "earnings", label: "old" });
     ctx._emitted.length = 0;

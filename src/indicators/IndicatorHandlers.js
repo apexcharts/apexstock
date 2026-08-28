@@ -1420,6 +1420,14 @@ export default class IndicatorHandlers {
     chartInstance.render();
     context.indicatorChartMap[indicatorKey] = chartInstance;
 
+    // A wheel gesture over a pane zooms the whole group, so the pane's own
+    // per-frame `updated` has to drive the live tracking too. The tracker reads
+    // the main chart's window and short-circuits on an unchanged one, so extra
+    // panes cost a comparison, not extra redraws.
+    if (typeof context._trackLiveRangeOn === "function") {
+      context._trackLiveRangeOn(chartInstance);
+    }
+
     // Whole-series pane decorations (see the registry header).
     IndicatorHandlers.decoratePane(indicatorKey, context, chartInstance);
 

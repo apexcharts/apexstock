@@ -161,6 +161,10 @@ export default class ApexStock {
     // Created before render so consumers can subscribe immediately after
     // construction, before the first render() wires the underlying chart events.
     this._emitter = new EventEmitter();
+    // Last x-window the live tracker drew (see _trackLiveRangeOn). Also written
+    // by the settled zoom/scroll handlers so the two paths never duplicate work.
+    /** @type {{min: number, max: number}|null} */
+    this._liveWindow = null;
 
     // Document-level click handlers this instance adds (dropdown auto-close).
     // Tracked so destroy() can remove them and not leak across SPA unmounts.
@@ -646,7 +650,10 @@ export default class ApexStock {
    *
    * Events:
    * - `crosshairMove` / `click` — pointer over the price chart ({@link import("./types.js").CrosshairEvent}).
-   * - `rangeChange` — visible x-range changed via zoom/pan/reset ({@link import("./types.js").RangeChangeEvent}).
+   * - `rangeChange` fires when the visible x-range changes via zoom/pan/reset,
+   *   once per gesture ({@link import("./types.js").RangeChangeEvent}).
+   * - `rangeChanging` fires on every frame of an in-progress zoom/pan, with the
+   *   same payload, for overlays that must track the gesture.
    * - `indicatorToggle` — an indicator was added or removed ({@link import("./types.js").IndicatorToggleEvent}).
    *
    * @param {import("./types.js").ApexStockEventName|string} name
@@ -999,21 +1006,10 @@ export default class ApexStock {
         this.xaxisRange.max
       );
 
-      // Update the custom x-axis if it exists
-      if (this.xaxis) {
-        this.xaxis.render();
-      }
-
-      if (
-        this.indicatorChartMap["fibonacci retracements"] &&
-        typeof this.indicatorChartMap["fibonacci retracements"].update ===
-          "function"
-      ) {
-        this.indicatorChartMap["fibonacci retracements"].update();
-      }
-
-      // Reposition draggable price-line handles for the new visible range.
-      if (this.tradingInteractions) this.tradingInteractions.sync();
+      // Usually a no-op: the live tracker has already drawn this window frame
+      // by frame during the gesture. It does the work for the gestures that
+      // produce no live frames at all (a toolbar or programmatic zoom, a reset).
+      this._syncRangeChrome();
 
       this._emitRangeChange("zoom");
     }
@@ -1036,24 +1032,121 @@ export default class ApexStock {
         this.xaxisRange.max
       );
 
-      // Update the custom x-axis if it exists
-      if (this.xaxis) {
-        this.xaxis.render();
-      }
-
-      if (
-        this.indicatorChartMap["fibonacci retracements"] &&
-        typeof this.indicatorChartMap["fibonacci retracements"].update ===
-          "function"
-      ) {
-        this.indicatorChartMap["fibonacci retracements"].update();
-      }
-
-      // Reposition draggable price-line handles for the new visible range.
-      if (this.tradingInteractions) this.tradingInteractions.sync();
+      // Usually a no-op: the live tracker has already drawn this window frame
+      // by frame during the gesture. It does the work for the gestures that
+      // produce no live frames at all (a toolbar or programmatic zoom, a reset).
+      this._syncRangeChrome();
 
       this._emitRangeChange("pan");
     }
+  }
+
+  /**
+   * Draw the chrome for the current `xaxisRange`, unless it is already drawn.
+   * The single entry point for both the per-frame tracker and the settled
+   * zoom/scroll handlers, so a gesture redraws once per frame and not once more
+   * when it ends.
+   * @returns {boolean} Whether the window had moved (and so a redraw happened).
+   * @private
+   */
+  _syncRangeChrome() {
+    const min = this.xaxisRange && this.xaxisRange.min;
+    const max = this.xaxisRange && this.xaxisRange.max;
+    const last = this._liveWindow;
+    if (last && last.min === min && last.max === max) return false;
+    this._liveWindow = { min, max };
+    this._refreshRangeChrome();
+    return true;
+  }
+
+  /**
+   * Re-project everything ApexStock draws *around* the plot onto the current
+   * `xaxisRange`: the custom x-axis, the fibonacci pane, and the draggable
+   * price-line handles. Cheap (sub-millisecond) and idempotent, so it is safe
+   * to call once per animation frame during a gesture.
+   * @returns {void}
+   * @private
+   */
+  _refreshRangeChrome() {
+    if (this.xaxis) this.xaxis.render();
+
+    const fib = this.indicatorChartMap["fibonacci retracements"];
+    if (fib && typeof fib.update === "function") fib.update();
+
+    // Reposition draggable price-line handles for the new visible range.
+    if (this.tradingInteractions) this.tradingInteractions.sync();
+  }
+
+  /**
+   * Track the visible x-window *per animation frame*, not just when a gesture
+   * settles.
+   *
+   * ApexCharts' `zoomed` callback is deliberately once-per-gesture: a wheel or
+   * pinch zoom re-renders the plot every frame but defers `zoomed` until 150ms
+   * after the last wheel event. Hanging the chrome off `zoomed` alone therefore
+   * froze the x-axis, the event markers and any linked chart for the whole
+   * gesture, then snapped them into place afterwards: the candles moved and
+   * everything around them lagged behind. (Drag-panning never showed this,
+   * because ApexCharts' pan path *does* fire `scrolled` per move.)
+   *
+   * `updated` does fire per frame, so it is the live signal. It also fires for
+   * every other kind of update (new series, a theme rebuild, an append), hence
+   * the window comparison: anything that did not move the x-window returns
+   * immediately.
+   *
+   * The settled `rangeChange` event keeps its once-per-gesture semantics for
+   * consumers; the per-frame signal is `rangeChanging`.
+   *
+   * @param {object} chart - An ApexCharts instance to listen on (the main chart
+   *   or an oscillator pane; the window is always read from the main chart, so
+   *   whichever pane the gesture happened over, the work happens once).
+   * @returns {void}
+   * @private
+   */
+  _trackLiveRangeOn(chart) {
+    if (!chart || typeof chart.addEventListener !== "function") return;
+    try {
+      chart.addEventListener("updated", () => this._trackLiveRange());
+    } catch (err) {
+      // A build without the event API: the settled path still works.
+      Utils.warn("Could not attach live range tracking:", err);
+    }
+  }
+
+  /**
+   * Read the main chart's current x-window and, if it moved, re-draw the chrome
+   * and emit `rangeChanging`. See {@link ApexStock#_trackLiveRangeOn}.
+   * @returns {void}
+   * @private
+   */
+  _trackLiveRange() {
+    if (this._destroyed || !this.chart || !this.chart.w) return;
+    if (!this.xaxisRange) return;
+
+    const g = this.chart.w.globals;
+    const min = this.resolveXToTimestamp(this.chart, g.minX, NaN);
+    const max = this.resolveXToTimestamp(this.chart, g.maxX, NaN);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) return;
+
+    this.xaxisRange.min = min;
+    this.xaxisRange.max = max;
+    if (!this._syncRangeChrome()) return;
+    this._emitRangeChanging(min, max);
+  }
+
+  /**
+   * Emit the per-frame `rangeChanging` event. Gated on there being a subscriber,
+   * since this runs once per animation frame during a gesture.
+   * @param {number} min
+   * @param {number} max
+   * @returns {void}
+   * @private
+   */
+  _emitRangeChanging(min, max) {
+    if (!this._emitter || this._emitter.listenerCount("rangeChanging") === 0) {
+      return;
+    }
+    this._emitter.emit("rangeChanging", { min, max, source: "live" });
   }
 
   /**
@@ -1088,6 +1181,12 @@ export default class ApexStock {
     this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
 
     this.chart.render();
+    // Seed the live-window cache from the initial view, so the first `updated`
+    // (the render itself) is not mistaken for a gesture.
+    this._liveWindow = this.xaxisRange
+      ? { min: this.xaxisRange.min, max: this.xaxisRange.max }
+      : null;
+    this._trackLiveRangeOn(this.chart);
     this.addCustomIndicatorDropdowns();
 
     // Initialize the ChartSwitch component
@@ -1486,6 +1585,7 @@ export default class ApexStock {
       if (c && typeof c.destroy === "function") safe(() => c.destroy());
     });
     this.indicatorChartMap = {};
+    this._liveWindow = null;
     if (this.chart && typeof this.chart.destroy === "function") {
       safe(() => this.chart.destroy());
     }
