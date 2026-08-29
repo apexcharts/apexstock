@@ -869,9 +869,15 @@ export default class XAxis {
       this.axisElement.parentNode.removeChild(this.axisElement);
     }
 
-    // Add correct positioning styles
+    // Sits in normal flow directly under the chart. It must NOT be pulled up
+    // over the plot: ApexCharts reserves a band below the grid for x-axis
+    // labels, and even with those turned off the band is not empty, because the
+    // bottom y-axis label is centred on the last gridline and so hangs half of
+    // its height into it. A -15px margin used to close that band, which sliced
+    // every bottom-most axis label in two (and made the widget 15px shorter
+    // than the height that was asked for).
     this.axisElement.style.position = "relative";
-    this.axisElement.style.marginTop = "-15px";
+    this.axisElement.style.marginTop = "0px";
 
     // Always append the axis as the LAST child of the chart container
     // This ensures it will be below all other elements

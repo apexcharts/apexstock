@@ -71,6 +71,40 @@ test.describe("ApexStock toolbar + chart", () => {
     await expect.poll(range).toBeGreaterThan(zoomedIn); // zoomed back out
   });
 
+  test("the x-axis strip sits below the plot, not over it", async ({
+    page,
+  }) => {
+    // The strip used to be pulled up with a hard-coded `margin-top: -15px`,
+    // over the band ApexCharts reserves below the grid. That band is not empty:
+    // the bottom y-axis label is centred on the last gridline and hangs half of
+    // its height into it, so the strip's opaque background sliced every
+    // bottom-most axis label in two.
+    const geometry = await page.evaluate(() => {
+      const svg = document.querySelector("#chart .apexcharts-svg");
+      const strip = document.querySelector(".apexstock-xaxis");
+      const labels = [
+        ...document.querySelectorAll("#chart .apexcharts-yaxis text"),
+      ];
+      const lowest = labels.reduce((a, b) =>
+        b.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom
+          ? b
+          : a
+      );
+      return {
+        svgBottom: svg.getBoundingClientRect().bottom,
+        stripTop: strip.getBoundingClientRect().top,
+        labelBottom: lowest.getBoundingClientRect().bottom,
+        labelText: lowest.textContent.trim(),
+      };
+    });
+
+    // The strip starts at or below the plot's bottom edge...
+    expect(geometry.stripTop).toBeGreaterThanOrEqual(geometry.svgBottom - 0.5);
+    // ...so nothing it paints can land on the lowest axis label.
+    expect(geometry.labelBottom).toBeLessThanOrEqual(geometry.stripTop + 0.5);
+    expect(geometry.labelText).not.toBe("");
+  });
+
   test("draws a trendline on the overlay", async ({ page }) => {
     // Activate the line (trendline) tool.
     await page.locator('.apexstock-drawing-tool[data-tool="line"]').click();

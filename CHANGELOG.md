@@ -344,6 +344,15 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **The bottom-most y-axis label was sliced in half.** The custom x-axis strip
+  was pulled up over the plot with a hard-coded `margin-top: -15px`, closing the
+  band ApexCharts reserves below the grid for x-axis labels. That band is not
+  empty even with those labels turned off: a y-axis label is centred on its
+  gridline, so the lowest one hangs half its height into it, and the strip's
+  opaque background cut it in two. Most visible with a secondary axis, where
+  both scales lost their bottom label. The strip now sits in normal flow, which
+  also makes the widget exactly the height it was asked for rather than 15px
+  short.
 - **The chart container kept its construction-time surface.** It was painted
   inline from `colors.toolbar.background`, which is not preset-aware and, being
   written once, could not follow a later `updateTheme()` or `setThemePreset()`:
