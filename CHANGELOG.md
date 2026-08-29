@@ -243,8 +243,7 @@ those are called out explicitly below.
   theme/chart-type switches and data updates, is captured by `getState()` (as
   `theme.preset`), and is cleared by `updateTheme()`. Register custom presets
   with any subset of `{ mode, up, down, grid, axis, background, accent }` (the
-  rest backfilled from the mode). See `examples/theme-presets.html` and
-  THEMING.md.
+  rest backfilled from the mode). See `examples/theming.html` and THEMING.md.
 - **Primary price-scale modes: `setPriceScale(mode, opts?)` / `getPriceScale()`,
   plus a `priceScale` construction option.** Four modes for the price y-axis:
   `linear` (default), `logarithmic` (native log axis, optional `logBase`),
@@ -336,6 +335,18 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **The chart container kept its construction-time surface.** It was painted
+  inline from `colors.toolbar.background`, which is not preset-aware and, being
+  written once, could not follow a later `updateTheme()` or `setThemePreset()`:
+  a chart switched to dark kept a white container around it. The same inline
+  color was also written onto the container's PARENT, an element the consumer
+  owns, overriding their own stylesheet and then going stale (the theming
+  example had to repaint its card by hand to compensate). The surface now comes
+  from the stylesheet, keyed off a new `apexstock-chart` marker class on the
+  container, so it follows both the mode and a preset's `--apx-surface`. The
+  wrapper keeps its mirrored theme class (a host card styles itself from it) and
+  that mirror is now re-applied on every theme change instead of only at
+  construction.
 - **The custom x-axis stayed in the light palette after `updateTheme("dark")`.**
   Its surface and top rule were assigned inline at construction from
   `colors.toolbar`, which runs once, so a dark chart kept a white band under it
