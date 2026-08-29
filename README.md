@@ -743,9 +743,23 @@ apexStock.clearMeasurement(id);  // or clearMeasurement() for all of them
 ```
 
 A measurement **is** a `measure` drawing, so it renders on the chart, can be
-selected and dragged, stays anchored to its bars through zoom and pan, and
+selected and reshaped, stays anchored to its bars through zoom and pan, and
 persists through `getState()` / `setState()` with the rest of your drawings. No
 separate save path, no separate API.
+
+#### Adjusting one: reshape or project
+
+Click a measurement to select it. A **handle appears on each of its two
+anchors**; drag one to change what the measurement covers from that end, and the
+statistics recompute over the bars it now spans.
+
+Dragging the **body** instead moves the whole box with its span intact. That is
+deliberate, not a limitation: measuring one leg of a move and dragging that same
+box onto a later breakout is how a *measured move* is projected. Reshape from an
+anchor, project from the body.
+
+Handles appear on any two-anchor drawing (trend line, ray, fib, measure). A
+drawing with `locked: true` shows none, and stays fixed.
 
 The on-chart box gets a two-line readout, and the **analysis panel** appears
 alongside it with the full region statistics: change, duration, true high and
@@ -760,7 +774,7 @@ mistake:
 | Field | What it is |
 | --- | --- |
 | `stats.change` | The instrument's **close-to-close** move over the bars the selection spans. Every other statistic (the averages, the volatility, the drawdown) is consistent with this one, because they are all properties of the series. |
-| `selection` | The delta between the two **anchors you dragged**. This is what the box's height shows, and the right number when you measure a swing from one bar's low to another's high. |
+| `selection` | The delta between the two **anchors the box spans**, read from where it is actually drawn. This is what the box's height shows, and the right number when you measure a swing from one bar's low to another's high. |
 
 They are identical when the anchors sit on the closes (which is what
 `measureRange` does). Set `analysis: { measure: { snap: true } }` to pull

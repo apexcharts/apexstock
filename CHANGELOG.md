@@ -298,6 +298,14 @@ those are called out explicitly below.
   echo suppression so there is no feedback loop; the crosshair guide is a
   lightweight per-chart DOM overlay positioned from each chart's own axis.
 
+- **Measurements (and every two-anchor drawing) can be reshaped.** Selecting a
+  measure box, trend line, ray or fib now puts a drag handle on each of its two
+  anchors: drag one to change what it covers from that end and the statistics
+  recompute over the bars it now spans. Previously a measurement could only be
+  translated, so its span was frozen at whatever created it and re-measuring
+  meant deleting and redrawing. Dragging the body still translates with the span
+  intact, which is deliberate: that is how a measured move is projected onto a
+  later breakout. A `locked: true` drawing shows no handles.
 - **`rangeChanging`, a per-frame companion to `rangeChange`.** `rangeChange`
   keeps its once-per-gesture semantics (the right rhythm for fetching data or
   writing the range to a URL); `rangeChanging` fires on every animation frame of
@@ -319,6 +327,25 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **A moved measurement reported the move it was created on.** With
+  `analysis.measure.snap`, the box is drawn on the bar values while the raw
+  anchors keep whatever they were dragged to. A move translates those raw
+  anchors, so their delta survives by construction, but `selection` was read
+  from them rather than from the drawn geometry: drag a box off a -24% decline
+  onto a rise and the on-chart label still read `-39.13 (-24.62%)` over a
+  stretch that had gained 16%. The selection is now read from the coordinates
+  the box is drawn at, restoring the documented invariant that with `snap` on it
+  agrees with `stats.change`. Unsnapped measurements are unaffected: there, a
+  translation genuinely does preserve the dragged delta.
+- **Selecting a drawing made it undraggable.** The selection outline is drawn on
+  top of the element it surrounds and carries `pointer-events="none"`, but a
+  blanket `pointer-events: all` on overlay shapes beat that presentation
+  attribute, so the outline swallowed every click and drag meant for the
+  element underneath.
+- **The style popup opened on top of the drawing it belonged to.** It is ~220px
+  wide and anchored at the pointer, which is on the drawing, so it covered the
+  selection (including its new resize handles). It is now placed clear of the
+  element's box: below, above, right or left, whichever fits inside the chart.
 - **The chart's chrome lagged a mouse-wheel zoom by ~135ms.** ApexCharts
   re-renders the plot on every animation frame of a wheel or pinch zoom, but its
   `zoomed` callback is deliberately once-per-gesture and arrives ~150ms after the
