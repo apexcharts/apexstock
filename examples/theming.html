@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ApexStock - Custom Theming (no fork)</title>
+    <title>ApexStock - Theming</title>
 
     <style>
       body {
@@ -11,40 +11,115 @@
           Helvetica, Arial, sans-serif;
         margin: 0;
         padding: 20px;
-        background: #eef2f6;
+        background: #f5f6f8;
+        color: #1f2937;
+      }
+      h1 {
+        text-align: center;
+        margin: 0 0 4px;
+        font-size: 22px;
+      }
+      p.lead {
+        text-align: center;
+        color: #667085;
+        margin: 0 auto 18px;
+        max-width: 860px;
+        line-height: 1.5;
       }
       .wrap {
-        max-width: 1100px;
+        max-width: 1080px;
         margin: 0 auto;
       }
-      .bar {
+      .group {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
       }
-      .bar button {
-        border: 1px solid #cbd5e1;
+      .group > .label {
+        width: 108px;
+        flex: none;
+        font-size: 12px;
+        font-weight: 600;
+        color: #344054;
+      }
+      .group > .note {
+        font-size: 12px;
+        color: #667085;
+      }
+      button {
+        padding: 7px 12px;
+        border: 1px solid #d0d5dd;
+        border-radius: 7px;
         background: #fff;
-        border-radius: 6px;
-        padding: 6px 14px;
         cursor: pointer;
         font-size: 13px;
       }
-      #card {
+      button:hover {
+        background: #f8fafc;
+      }
+      button.active {
+        background: #111827;
+        color: #fff;
+        border-color: #111827;
+      }
+      .card {
         background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        padding: 16px;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(16, 24, 40, 0.08);
+        padding: 12px;
+        margin: 14px 0;
+        transition: background 0.15s ease;
+      }
+      #status {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        color: #344054;
+        background: #eef1f5;
+        border-radius: 7px;
+        padding: 8px 10px;
+      }
+      /* The page follows the chart, so a dark chart is never stranded on a
+         white card. */
+      body.is-dark {
+        background: #12161b;
+        color: #e6eaf0;
+      }
+      body.is-dark .card {
+        background: #1e242b;
+        box-shadow: none;
+      }
+      body.is-dark #status {
+        background: #1a1f26;
+        color: #c3cbd6;
+      }
+      body.is-dark p.lead,
+      body.is-dark .group > .label,
+      body.is-dark .group > .note {
+        color: #9aa4b2;
+      }
+      body.is-dark button {
+        background: #232a32;
+        border-color: #39424c;
+        color: #e6eaf0;
+      }
+      body.is-dark button.active {
+        background: #e6eaf0;
+        color: #111827;
+        border-color: #e6eaf0;
       }
 
       /* ================================================================
-       * CUSTOM THEME — applied with ONLY the documented override recipe.
-       * No stylesheet fork: we re-declare --apexstock-* tokens scoped to
-       * `[class^="apexstock-"]` under the theme class (specificity 0,2,0),
-       * so they win over the library's own declarations. See THEMING.md.
+       * PATH 3: a custom skin in pure CSS, no stylesheet fork.
+       *
+       * Re-declare --apexstock-* tokens scoped under the theme class, which
+       * beats the library's own `[class^="apexstock-"]` declarations on
+       * specificity (0,3,0 here vs 0,1,0). Gated behind `body.amber` only so
+       * this demo can toggle it; in an app these rules sit in your stylesheet
+       * unconditionally. See THEMING.md.
        * ================================================================ */
-      .apexstock-theme-light [class^="apexstock-"] {
+      body.amber .apexstock-theme-light [class^="apexstock-"] {
         --apexstock-light-bg: #fffdf7;
         --apexstock-light-surface-2: #fef6e7;
         --apexstock-light-border: #e7d9b8;
@@ -54,8 +129,8 @@
         --apexstock-light-muted: #9a7b46;
         --apexstock-light-selected: #fdecc8;
       }
-      .apexstock-theme-light [class^="apexstock-"],
-      .apexstock-theme-dark [class^="apexstock-"] {
+      body.amber .apexstock-theme-light [class^="apexstock-"],
+      body.amber .apexstock-theme-dark [class^="apexstock-"] {
         /* Shared amber accent + chunkier rounding for both modes. */
         --apexstock-blue: #d98a09;
         --apexstock-blue-hover: #b9740a;
@@ -65,7 +140,7 @@
         --apexstock-border-radius-lg: 14px;
         --apexstock-button-size: 34px;
       }
-      .apexstock-theme-dark [class^="apexstock-"] {
+      body.amber .apexstock-theme-dark [class^="apexstock-"] {
         --apexstock-dark-bg: #1a1206;
         --apexstock-dark-surface-2: #241a0b;
         --apexstock-dark-border: #4a3a1c;
@@ -81,49 +156,148 @@
     <script src="../dist/apexstock.min.js"></script>
   </head>
   <body>
+    <h1>ApexStock &bull; Theming</h1>
+    <p class="lead">
+      Three ways to change how a chart looks, on one chart. A <strong>mode</strong>
+      is the baseline. A <strong>preset</strong> is a named appearance that
+      retints both the plot and the chrome. <strong>CSS token overrides</strong>
+      restyle the chrome from your own stylesheet, with no fork, and layer on top
+      of whichever of the two is active.
+    </p>
+
     <div class="wrap">
-      <div class="bar">
-        <span style="color: #475569">Custom "amber" theme — no CSS fork.</span>
-        <button id="toggle">Toggle light / dark</button>
+      <div class="group">
+        <span class="label">Mode</span>
+        <button data-mode="light">light</button>
+        <button data-mode="dark">dark</button>
+        <span class="note"><code>updateTheme(mode)</code>, which also clears any preset</span>
       </div>
-      <div id="card"><div id="chart"></div></div>
+
+      <div class="group">
+        <span class="label">Preset</span>
+        <span id="presets" style="display: contents"></span>
+      </div>
+      <div class="group">
+        <span class="label"></span>
+        <span class="note">
+          <code>setThemePreset(name)</code> or <code>theme: { preset }</code>.
+          "vaporwave" is not built in: it is registered by this page with
+          <code>ApexStock.registerTheme()</code>.
+        </span>
+      </div>
+
+      <div class="group">
+        <span class="label">CSS skin</span>
+        <button id="amber">amber tokens: off</button>
+        <span class="note">
+          Re-declares <code>--apexstock-*</code> tokens in the page stylesheet.
+          Chrome only: the plot is drawn from JS, so a preset still owns the
+          candles and grid underneath.
+        </span>
+      </div>
+
+      <div class="card"><div id="chart"></div></div>
+      <div id="status"></div>
     </div>
 
     <script>
       function generateData(count) {
         const data = [];
-        const base = Date.UTC(2024, 0, 1);
+        const base = Date.UTC(2023, 0, 1);
         let last = 100;
         for (let i = 0; i < count; i++) {
-          let n = Math.sin(i * 12.9898) * 43758.5453;
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
           n = n - Math.floor(n);
           const o = last;
-          const c = +(o + (n - 0.5) * 4).toFixed(2);
-          const h = +(Math.max(o, c) + n * 2).toFixed(2);
-          const l = +(Math.min(o, c) - n * 2).toFixed(2);
-          data.push({ x: base + i * 86400000, y: [o, h, l, c] });
+          const c = +(o + (n - 0.5) * 5).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2.5).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2.5).toFixed(2);
+          data.push({
+            x: base + i * 86400000,
+            y: [o, h, l, c],
+            v: Math.floor(n * 1e6),
+          });
           last = c;
         }
         return data;
       }
 
-      document.addEventListener("DOMContentLoaded", function () {
-        let mode = "light";
-        const chart = new ApexStock(document.querySelector("#chart"), {
-          chart: { height: 460, animations: { enabled: false } },
-          theme: { mode },
-          series: [{ name: "Price", data: generateData(120) }],
-        });
-        chart.render();
-        window.__chart = chart;
+      // Register before reading the pack, so it shows up as just another
+      // preset. A definition may carry any subset of the keys; the rest are
+      // backfilled from its base mode.
+      ApexStock.registerTheme("vaporwave", {
+        mode: "dark",
+        up: "#22d3ee",
+        down: "#f472b6",
+        grid: "#2b2350",
+        axis: "#b9a9ff",
+        background: "#171130",
+        accent: "#a855f7",
+      });
 
-        document.getElementById("toggle").addEventListener("click", () => {
-          mode = mode === "light" ? "dark" : "light";
-          document.getElementById("card").style.background =
-            mode === "dark" ? "#1a1206" : "#fff";
-          chart.update({ theme: { mode } });
+      const chart = new ApexStock(document.querySelector("#chart"), {
+        chart: { height: 460, animations: { enabled: false } },
+        theme: { preset: "paper" },
+        series: [{ name: "AAPL", data: generateData(160) }],
+        legend: { show: true, position: "top-left" },
+      });
+      chart.render();
+      chart.updateIndicator("moving average");
+      window.__chart = chart;
+
+      const presetBar = document.getElementById("presets");
+      const modeButtons = [...document.querySelectorAll("[data-mode]")];
+      const amberButton = document.getElementById("amber");
+      const presetButtons = {};
+
+      ApexStock.getThemePresets().forEach((name) => {
+        const btn = document.createElement("button");
+        btn.textContent = name;
+        btn.addEventListener("click", () => {
+          chart.setThemePreset(name);
+          sync();
+        });
+        presetButtons[name] = btn;
+        presetBar.appendChild(btn);
+      });
+
+      modeButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          chart.updateTheme(btn.dataset.mode);
+          sync();
         });
       });
+
+      amberButton.addEventListener("click", () => {
+        document.body.classList.toggle("amber");
+        sync();
+      });
+
+      /** Reflect the live state: which of the three paths is doing what. */
+      function sync() {
+        const preset = chart.getThemePreset();
+        const dark = chart.chartEl.classList.contains("apexstock-theme-dark");
+        const amber = document.body.classList.contains("amber");
+
+        document.body.classList.toggle("is-dark", dark);
+        Object.entries(presetButtons).forEach(([name, b]) =>
+          b.classList.toggle("active", name === preset)
+        );
+        modeButtons.forEach((b) =>
+          b.classList.toggle("active", !preset && b.dataset.mode === (dark ? "dark" : "light"))
+        );
+        amberButton.textContent = `amber tokens: ${amber ? "on" : "off"}`;
+        amberButton.classList.toggle("active", amber);
+
+        document.getElementById("status").textContent =
+          `getThemePreset() -> ${preset === null ? "null" : `"${preset}"`}` +
+          `   |   base mode: ${dark ? "dark" : "light"}` +
+          `   |   CSS token overrides: ${
+            amber ? (preset ? "on (chrome wins over the preset)" : "on") : "off"
+          }`;
+      }
+
+      sync();
     </script>
   </body>
 </html>

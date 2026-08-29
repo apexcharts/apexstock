@@ -260,12 +260,12 @@ export default class ApexStock {
     this.colors = this.themeManager.getColors();
     this.chartEl.parentNode.classList.add(`apexstock-theme-${this.theme}`);
 
-    this.chartEl.parentNode.style.backgroundColor = this.isDarkTheme
-      ? this.colors.toolbar.background
-      : this.colors.toolbar.background;
-    this.chartEl.style.backgroundColor = this.isDarkTheme
-      ? this.colors.toolbar.background
-      : this.colors.toolbar.background;
+    // The container's surface comes from the stylesheet, keyed off the theme
+    // class. It used to be assigned inline from `colors.toolbar.background`,
+    // which had three problems: the value is not preset-aware, an inline color
+    // could not follow a later theme change (so a dark chart kept a white
+    // container), and it was written onto `chartEl.parentNode` too, painting an
+    // element the consumer owns and leaving it stale.
 
     const stockChartOptions =
       (chartOptions.plotOptions && chartOptions.plotOptions.stockChart) || {};
@@ -1344,21 +1344,8 @@ export default class ApexStock {
 
       themeConfig = this.themeManager.getChartConfig();
 
-      // Apply theme styles to DOM elements
-      this.chartEl.parentNode.classList.remove(
-        `apexstock-theme-dark`,
-        `apexstock-theme-light`
-      );
-      this.chartEl.parentNode.classList.add(`apexstock-theme-${this.theme}`);
-
-      this.chartEl.parentNode.style.backgroundColor = this.isDarkTheme
-        ? this.colors.toolbar.background
-        : this.colors.toolbar.background;
-      this.chartEl.style.backgroundColor = this.isDarkTheme
-        ? this.colors.toolbar.background
-        : this.colors.toolbar.background;
-
-      // Apply theme to all UI elements
+      // Apply theme to all UI elements. This also mirrors the theme class onto
+      // the wrapper, so there is nothing to do for it here.
       this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
     }
 

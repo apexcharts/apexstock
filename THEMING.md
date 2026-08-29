@@ -250,5 +250,7 @@ else. Delete the lines you want left to the family tokens.
 
 ## See it in action
 
-`examples/theming.html` applies a full custom palette to a live chart (with a
-light/dark toggle) using only the override recipe above — no stylesheet fork.
+`examples/theming.html` puts all three paths on one chart: the light/dark
+modes, the named presets (including one the page registers itself with
+`ApexStock.registerTheme()`), and a full custom palette applied with only the
+override recipe above, no stylesheet fork.

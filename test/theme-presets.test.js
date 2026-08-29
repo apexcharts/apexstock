@@ -261,6 +261,40 @@ describe("ApexStock theme presets (static + instance)", () => {
     expect(inst.getTheme()).toBe("dark");
   });
 
+  it("leaves the container's surface to the stylesheet", () => {
+    // It used to be assigned inline from `colors.toolbar.background`, which is
+    // not preset-aware and, being written once, could not follow a later theme
+    // change: a chart switched to dark kept a white container. The theme class
+    // plus a marker class now drive it from CSS.
+    const inst = makeInstance({ mode: "light" });
+    inst.render();
+    expect(inst.chartEl.style.backgroundColor).toBe("");
+    expect(inst.chartEl.classList.contains("apexstock-chart")).toBe(true);
+
+    inst.updateTheme("dark");
+    expect(inst.chartEl.style.backgroundColor).toBe("");
+    expect(inst.chartEl.classList.contains("apexstock-theme-dark")).toBe(true);
+    expect(inst.chartEl.classList.contains("apexstock-chart")).toBe(true);
+
+    inst.setThemePreset("graphite");
+    expect(inst.chartEl.style.backgroundColor).toBe("");
+    expect(inst.chartEl.classList.contains("apexstock-chart")).toBe(true);
+  });
+
+  it("does not paint the consumer's own wrapper element", () => {
+    // The wrapper still gets the theme class, so a host card can follow the
+    // theme from its own stylesheet. Writing an inline color onto it was a
+    // different matter: it overrode the consumer's CSS and then went stale.
+    const inst = makeInstance({ mode: "light" });
+    inst.render();
+    const wrapper = inst.chartEl.parentNode;
+    expect(wrapper.style.backgroundColor).toBe("");
+
+    inst.updateTheme("dark");
+    expect(wrapper.style.backgroundColor).toBe("");
+    expect(wrapper.classList.contains("apexstock-theme-dark")).toBe(true);
+  });
+
   it("round-trips the preset through getState/setState", () => {
     const a = makeInstance({ mode: "light" });
     a.render();

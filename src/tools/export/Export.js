@@ -557,9 +557,16 @@ export default class Export {
 
   /** Opaque background color for rasterized PNGs. */
   _backgroundColor() {
-    const bg =
-      this.chartEl && this.chartEl.style && this.chartEl.style.backgroundColor;
-    if (bg) return bg;
+    // Computed, not inline: the container's surface is a stylesheet token now,
+    // so reading `style.backgroundColor` would find nothing and every export
+    // would fall back to the hard-coded pair.
+    if (this.chartEl && typeof getComputedStyle === "function") {
+      const bg = getComputedStyle(this.chartEl).backgroundColor;
+      // A transparent container has no color to rasterize against.
+      if (bg && bg !== "transparent" && !bg.startsWith("rgba(0, 0, 0, 0")) {
+        return bg;
+      }
+    }
     return this.ctx.isDarkTheme ? "#1e1e2d" : "#ffffff";
   }
 

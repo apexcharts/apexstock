@@ -281,6 +281,21 @@ export default class ThemeManager {
       "apexstock-theme-dark"
     );
     chartContainer.classList.add(`apexstock-theme-${this.theme}`);
+    // Marks the chart's OWN container, as opposed to the consumer's wrapper,
+    // which also carries the theme class (so a host card can follow the theme).
+    // Anything that paints a surface has to target this and not the bare theme
+    // class, or it repaints an element the consumer owns.
+    chartContainer.classList.add("apexstock-chart");
+
+    // Mirror the theme class onto the wrapper, here rather than only at
+    // construction: it is the hook a host card styles itself from, and set once
+    // it went stale on the first updateTheme()/setThemePreset(), leaving a
+    // light wrapper around a dark chart.
+    const wrapper = chartContainer.parentNode;
+    if (wrapper && wrapper.classList) {
+      wrapper.classList.remove("apexstock-theme-light", "apexstock-theme-dark");
+      wrapper.classList.add(`apexstock-theme-${this.theme}`);
+    }
 
     // Drive (or clear) the preset's chrome tokens on the container. Setting the
     // `--apx-*` family here lets the toolbar/dropdown/legend/tooltip follow the

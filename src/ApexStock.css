@@ -473,6 +473,18 @@
 /* ==============================
  * 7. X-Axis Styling
  * ============================== */
+/* The chart container's own surface. Driven by the theme class rather than an
+   inline color, so it follows updateTheme() and setThemePreset() (which feeds
+   `--apx-surface`) instead of being frozen at whatever the mode was when the
+   instance was built. */
+.apexstock-chart.apexstock-theme-light {
+  background-color: var(--apexstock-light-bg);
+}
+
+.apexstock-chart.apexstock-theme-dark {
+  background-color: var(--apexstock-dark-bg);
+}
+
 /* The custom x-axis strip: ApexStock draws its own axis (the native one is
  * turned off), so it has to be themed here rather than by ApexCharts. */
 .apexstock-xaxis {
