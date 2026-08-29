@@ -315,6 +315,15 @@ those are called out explicitly below.
 
 ### Changed
 
+- **The x-axis crosshair readout has been redrawn.** ApexStock turns ApexCharts'
+  x-axis and its tooltip off and draws both itself, so this is ApexStock's own
+  chip. It was a pale bordered box (`#eceff1` with a `#90a4ae` outline) pinned to
+  one palette. It is now a filled cell spanning the axis strip: the fill is the
+  text color and the text is the surface color, so it inverts with the theme and
+  follows a theme preset's `--apx-fore` / `--apx-surface`. Set in tabular
+  figures, because the value changes on every pointer move and proportional
+  digits made the chip resize under the cursor. Axis tick labels now read muted
+  rather than at full text strength.
 - **The default comparison baseline is now `"common"`, not each instrument's own
   first point.** With more than one instrument, or one whose history starts
   before or after the primary's, the previous default made each line start at 0%
@@ -327,6 +336,21 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **The custom x-axis stayed in the light palette after `updateTheme("dark")`.**
+  Its surface and top rule were assigned inline at construction from
+  `colors.toolbar`, which runs once, so a dark chart kept a white band under it
+  for the life of the instance. Tick colors had the mirror-image problem: they
+  were read per render, so they only caught up on the next zoom or pan, leaving
+  near-black labels on the dark strip until then. Both now come from the
+  stylesheet, which also means a theme preset retints the axis, something a
+  value copied out of `colors.toolbar` never did.
+- **The x-axis crosshair printed a time on daily data.** The label was hard-coded
+  to `MMM DD, YYYY HH:mm`. A daily series carries one timestamp per bar, so the
+  time was noise; with bars stamped at UTC midnight and read in any other zone it
+  was wrong, labelling a bar that is simply March 5th as "Mar 05, 2024 05:30".
+  The format is now chosen from the data's own bar spacing (not the zoom level,
+  since minute bars are still minute bars when zoomed out to a year): intraday
+  series keep the time, daily and coarser ones do not.
 - **A moved measurement reported the move it was created on.** With
   `analysis.measure.snap`, the box is drawn on the bar values while the raw
   anchors keep whatever they were dragged to. A move translates those raw
