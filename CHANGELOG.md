@@ -314,6 +314,15 @@ those are called out explicitly below.
 
 ### Changed
 
+- **The example set no longer ships two demos of the same thing, twice over.**
+  `theming.html` and `theme-presets.html` covered two halves of one story and
+  are now a single page showing all three theming paths (modes, presets, CSS
+  token overrides) on one chart, including a preset the page registers itself
+  with `ApexStock.registerTheme()`. `advanced.html` and `timeframe.html` both
+  demonstrated period-plus-interval, the former through a 700-line controller
+  class predating the public API; `timeframe.html` now covers both, built on
+  `setVisibleRange()` and `ApexStock.aggregateOHLC()`, and makes the point the
+  pair of them blurred: range and interval are independent.
 - **The x-axis crosshair readout has been redrawn.** ApexStock turns ApexCharts'
   x-axis and its tooltip off and draws both itself, so this is ApexStock's own
   chip. It was a pale bordered box (`#eceff1` with a `#90a4ae` outline) pinned to

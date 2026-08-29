@@ -110,8 +110,10 @@ Tests use **Vitest** (jsdom for DOM-touching code). Patterns:
 
 > **Note:** the test suite is headless (jsdom + a mocked ApexCharts). Rendering
 > and interaction (overlay alignment, zoom/pan, drawing) are **not** covered by
-> automated tests — do a manual pass on `examples/basic.html` and
-> `examples/advanced.html` for visual/interaction changes.
+> automated tests, so do a manual pass for visual/interaction changes:
+> `examples/basic.html` and `examples/theming.html` for appearance,
+> `examples/analysis.html` for drawing, measuring and panes, and
+> `examples/timeframe.html` for zoom/range behavior.
 
 ## Releasing
 
