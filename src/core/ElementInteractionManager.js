@@ -2,6 +2,19 @@
 import SelectedElementPopup from "../components/SelectedElementPopup";
 import Utils from "../utils/Utils";
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * Drawing types built from a pair of data-space anchors (`x1,y1` / `x2,y2`).
+ * A selected one gets a drag handle per anchor, so its span can be adjusted
+ * instead of only translated: without them a measurement's range was frozen at
+ * whatever created it, and re-measuring meant deleting and redrawing.
+ */
+const ANCHOR_HANDLE_TYPES = new Set(["line", "ray", "fib", "measure"]);
+
+/** Handle radius in px. Big enough to grab, small enough not to hide the bar. */
+const HANDLE_RADIUS = 5;
+
 export default class ElementInteractionManager {
   /**
    * @param {HTMLElement} chartEl - The chart container element
@@ -32,6 +45,14 @@ export default class ElementInteractionManager {
     this.selectedElement = null;
     this.selectedElementId = null;
     this.isMoving = false;
+    /**
+     * Which anchor a resize drag is moving: 0 for `(x1,y1)`, 1 for `(x2,y2)`,
+     * null while the whole element is being translated.
+     * @type {0|1|null}
+     */
+    this.resizeAnchor = null;
+    /** @type {SVGCircleElement[]} */
+    this.resizeHandles = [];
     this.moveStartX = 0;
     this.moveStartY = 0;
     this.elementStartX = 0;
@@ -53,6 +74,7 @@ export default class ElementInteractionManager {
     this.handleMouseUp = this.handleMouseUp.bind(this);
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.deleteSelectedElement = this.deleteSelectedElement.bind(this);
+    this.handleResizeMouseDown = this.handleResizeMouseDown.bind(this);
 
     // Initialize
     this.createVisualElements();
@@ -150,6 +172,7 @@ export default class ElementInteractionManager {
       "http://www.w3.org/2000/svg",
       "rect"
     );
+    this.hoverOutline.setAttribute("class", "apexstock-hover-outline");
     this.hoverOutline.setAttribute("fill", "none");
     this.hoverOutline.setAttribute("stroke", "#1E90FF");
     this.hoverOutline.setAttribute("stroke-width", "1");
@@ -163,12 +186,131 @@ export default class ElementInteractionManager {
       "http://www.w3.org/2000/svg",
       "rect"
     );
+    this.selectionOutline.setAttribute("class", "apexstock-selection-outline");
     this.selectionOutline.setAttribute("fill", "none");
     this.selectionOutline.setAttribute("stroke", "#FF4500");
     this.selectionOutline.setAttribute("stroke-width", "2");
     this.selectionOutline.setAttribute("pointer-events", "none");
     this.selectionOutline.style.display = "none";
     this.drawingGroup.appendChild(this.selectionOutline);
+
+    // One grab handle per anchor of a two-anchor drawing. They live in the
+    // drawing group (so they are wiped and rebuilt with everything else on each
+    // redraw) and are the only interaction visuals that take pointer events.
+    this.resizeHandles.forEach((h) => {
+      if (h && h.parentNode) h.parentNode.removeChild(h);
+    });
+    this.resizeHandles = [0, 1].map((anchor) => {
+      const handle = document.createElementNS(SVG_NS, "circle");
+      handle.setAttribute("class", "apexstock-resize-handle");
+      handle.setAttribute("r", String(HANDLE_RADIUS));
+      handle.setAttribute("fill", "#FFFFFF");
+      handle.setAttribute("stroke", "#FF4500");
+      handle.setAttribute("stroke-width", "2");
+      handle.setAttribute("pointer-events", "all");
+      handle.style.cursor = "grab";
+      handle.style.display = "none";
+      handle.addEventListener("mousedown", (e) =>
+        this.handleResizeMouseDown(anchor, e)
+      );
+      this.drawingGroup.appendChild(handle);
+      return handle;
+    });
+
+    // A redraw rebuilds every node, so whatever was selected has to be found
+    // again and its visuals re-placed.
+    this.refreshSelectionVisuals();
+  }
+
+  /**
+   * Re-bind and re-place the selection visuals after a redraw.
+   *
+   * `DrawingTools.redrawElements()` empties the drawing group and builds fresh
+   * nodes, so `selectedElement` would otherwise keep pointing at a node that is
+   * no longer in the document (and the outline would vanish on every zoom or
+   * pan). The id is the stable handle, so the element is looked up by id and
+   * the reference refreshed.
+   * @returns {void}
+   */
+  refreshSelectionVisuals() {
+    this.hideResizeHandles();
+    if (!this.selectedElementId) return;
+
+    const item = this.getElementById(this.selectedElementId);
+    // Deleted, or hidden via `visible: false` (which renders no node).
+    if (!item || !item.element) {
+      this.selectedElement = null;
+      this.selectionOutline.style.display = "none";
+      return;
+    }
+
+    this.selectedElement = item.element;
+    this.updateSelectionOutline();
+    this.updateResizeHandles(item);
+  }
+
+  /** Hide both resize handles. @returns {void} */
+  hideResizeHandles() {
+    this.resizeHandles.forEach((h) => {
+      if (h) h.style.display = "none";
+    });
+  }
+
+  /**
+   * Place a handle on each anchor of the selected two-anchor drawing.
+   * @param {{data: object, element: SVGElement, anchors?: object}} item
+   * @returns {void}
+   */
+  updateResizeHandles(item) {
+    const data = item && item.data;
+    if (!data || !ANCHOR_HANDLE_TYPES.has(data.type)) return;
+    if (data.locked) return; // a locked drawing is not reshapable either
+    if (!this.coordinateConverter) return;
+
+    // `anchors` is the geometry the element was actually DRAWN at, which is not
+    // the raw data when a measure box snaps to bar values; falling back to the
+    // data covers every type that draws exactly where its anchors say.
+    const at = item.anchors || data;
+    const points = [
+      this.coordinateConverter.dataToScreen(at.x1, at.y1),
+      this.coordinateConverter.dataToScreen(at.x2, at.y2),
+    ];
+
+    points.forEach((p, i) => {
+      const handle = this.resizeHandles[i];
+      if (!handle || !p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+        return;
+      }
+      handle.setAttribute("cx", String(p.x));
+      handle.setAttribute("cy", String(p.y));
+      handle.style.display = "block";
+    });
+  }
+
+  /**
+   * Begin a resize: drag one anchor instead of translating the whole element.
+   * @param {0|1} anchor - Which anchor this handle owns.
+   * @param {MouseEvent} e
+   * @returns {void}
+   */
+  handleResizeMouseDown(anchor, e) {
+    if (!this.selectedElementId) return;
+    const item = this.getElementById(this.selectedElementId);
+    if (!item || !item.data || item.data.locked) return;
+
+    const rect = this.svgOverlay.getBoundingClientRect();
+    this.moveStartX = e.clientX - rect.left;
+    this.moveStartY = e.clientY - rect.top;
+    this.storeElementStartPosition(item.data);
+
+    this.resizeAnchor = anchor;
+    this.isMoving = true;
+
+    if (this.elementPopup) this.elementPopup.hide();
+
+    // Do not let the element's own mousedown start a translate as well.
+    e.stopPropagation();
+    e.preventDefault();
   }
 
   /**
@@ -396,8 +538,8 @@ export default class ElementInteractionManager {
     this.selectedElement = targetElement;
     this.selectedElementId = elementId;
 
-    // Show selection outline
-    this.updateSelectionOutline();
+    // Show the selection outline and the anchor handles
+    this.refreshSelectionVisuals();
 
     // Position and show the popup
     if (this.elementPopup) {
@@ -442,6 +584,7 @@ export default class ElementInteractionManager {
     this.selectedElement = null;
     this.selectedElementId = null;
     this.selectionOutline.style.display = "none";
+    this.hideResizeHandles();
 
     // Hide the popup
     if (this.elementPopup) {
@@ -630,11 +773,23 @@ export default class ElementInteractionManager {
       case "ray":
       case "fib":
       case "measure":
-        // Move both anchor points (fib/ray/measure shift as a whole).
-        elementData.x1 = this.elementStartX + dataSpaceDeltaX;
-        elementData.y1 = this.elementStartY + dataSpaceDeltaY;
-        elementData.x2 = this.elementStartX2 + dataSpaceDeltaX;
-        elementData.y2 = this.elementStartY2 + dataSpaceDeltaY;
+        // Dragging a handle reshapes (one anchor moves); dragging the body
+        // translates (both anchors shift, so the span is preserved). Keeping
+        // translation span-preserving is deliberate: measuring one leg and
+        // dragging that same box to a breakout is how a measured move is
+        // projected.
+        if (this.resizeAnchor === 0) {
+          elementData.x1 = this.elementStartX + dataSpaceDeltaX;
+          elementData.y1 = this.elementStartY + dataSpaceDeltaY;
+        } else if (this.resizeAnchor === 1) {
+          elementData.x2 = this.elementStartX2 + dataSpaceDeltaX;
+          elementData.y2 = this.elementStartY2 + dataSpaceDeltaY;
+        } else {
+          elementData.x1 = this.elementStartX + dataSpaceDeltaX;
+          elementData.y1 = this.elementStartY + dataSpaceDeltaY;
+          elementData.x2 = this.elementStartX2 + dataSpaceDeltaX;
+          elementData.y2 = this.elementStartY2 + dataSpaceDeltaY;
+        }
         break;
 
       case "hline":
@@ -700,6 +855,7 @@ export default class ElementInteractionManager {
     if (!this.isMoving) return;
 
     this.isMoving = false;
+    this.resizeAnchor = null;
 
     // If this was a direct drag (without selection), clear the active drag element
     if (this.activeElementForDrag) {
@@ -804,8 +960,19 @@ export default class ElementInteractionManager {
    */
   updateElementEventListeners() {
     // Re-activate interaction to ensure indices are correct
+    const selectedId = this.selectedElementId;
     this.deactivateInteraction();
     this.activateInteraction();
+
+    // deactivateInteraction() drops the selection wholesale, because it is also
+    // the teardown path. A redraw is not a deselect though, and redraws run on
+    // every zoom, pan and drag frame: without this the selection outline
+    // disappeared the moment the chart moved, and the anchor handles would
+    // vanish under the pointer mid-resize.
+    if (selectedId) {
+      this.selectedElementId = selectedId;
+      this.refreshSelectionVisuals();
+    }
   }
 
   /**
@@ -826,6 +993,11 @@ export default class ElementInteractionManager {
     if (this.selectionOutline && this.selectionOutline.parentNode) {
       this.selectionOutline.parentNode.removeChild(this.selectionOutline);
     }
+
+    this.resizeHandles.forEach((h) => {
+      if (h && h.parentNode) h.parentNode.removeChild(h);
+    });
+    this.resizeHandles = [];
 
     // Destroy popup
     if (this.elementPopup) {

@@ -18,9 +18,10 @@ import Align from "./Align";
  * A measurement carries two changes, and conflating them would be the easy
  * mistake here:
  *
- * - **selection**: the delta between the two `y` values the user dragged. This
- *   is what the box's height shows, and it is the right number when someone
- *   measures a swing from one bar's low to another's high.
+ * - **selection**: the delta between the two `y` values the box spans, read
+ *   from the coordinates it is drawn at (the dragged anchors, or the bar values
+ *   they snap to). This is what the box's height shows, and it is the right
+ *   number when someone measures a swing from one bar's low to another's high.
  * - **change**: the delta between the instrument's closes at the two bars the
  *   selection spans. This is the number every other statistic is consistent
  *   with (the averages, the volatility, the drawdown), because those are
@@ -148,14 +149,22 @@ export default class Measurement {
     });
     if (!stats) return null;
 
-    const selection = Measurement._selection(data);
+    // Read the selection from the coordinates the box is actually DRAWN at,
+    // not from the raw anchors. With `snap` on they differ the moment a
+    // measurement is moved: a move translates the raw anchors (so their delta
+    // is preserved by construction) while the drawn box re-snaps to the bars it
+    // now spans. Reading the raw pair left the on-chart label reporting the
+    // move from wherever the box was created, sign included, over a stretch it
+    // no longer covered.
+    const geometry = this._geometry(data, i0, i1, series);
+    const selection = Measurement._selection(geometry);
     const resolved = {
       id,
       i0,
       i1,
       stats,
       selection,
-      geometry: this._geometry(data, i0, i1, series),
+      geometry,
       lines: this._lines(stats, selection, data),
     };
 
@@ -186,7 +195,12 @@ export default class Measurement {
     this._cache.set(id, resolved);
   }
 
-  /** The dragged anchors and their delta. @private */
+  /**
+   * The spanned anchors and their delta. Takes whatever coordinate pair the box
+   * is drawn at (`{y1, y2}`), so callers pass the resolved geometry rather than
+   * the raw element data whenever the two can differ.
+   * @private
+   */
   static _selection(data) {
     const from = Number(data.y1);
     const to = Number(data.y2);

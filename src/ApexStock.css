@@ -500,6 +500,27 @@
   cursor: pointer;
 }
 
+/* The hover and selection outlines are feedback, not targets. They are drawn
+   ON TOP of the element they surround, and the blanket rule above beats the
+   `pointer-events="none"` presentation attribute they carry, so they used to
+   swallow every click and drag meant for the selected element: selecting a
+   drawing made it undraggable. */
+.apexstock-drawing-overlay .apexstock-hover-outline,
+.apexstock-drawing-overlay .apexstock-selection-outline {
+  pointer-events: none;
+}
+
+/* The resize handles, by contrast, ARE targets: one per anchor of a selected
+   two-anchor drawing, dragged to reshape it. */
+.apexstock-drawing-overlay .apexstock-resize-handle {
+  pointer-events: all;
+  cursor: grab;
+}
+
+.apexstock-drawing-overlay .apexstock-resize-handle:active {
+  cursor: grabbing;
+}
+
 /* ==============================
  * 9. Element Popup
  * ============================== */

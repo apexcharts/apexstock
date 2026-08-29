@@ -1,4 +1,7 @@
 // SelectedElementPopup.js - Creates a popup for selected elements with options
+/** Gap in px between a selected element and its popup. */
+const POPUP_GAP = 8;
+
 class SelectedElementPopup {
   /**
    * Creates a popup menu for interacting with selected elements
@@ -263,30 +266,95 @@ class SelectedElementPopup {
   show(x, y, element, elementData) {
     const chartRect = this.chartDiv.getBoundingClientRect();
 
-    const relativeX = x - chartRect.left;
-    const relativeY = y - chartRect.top;
-
     this.currentElement = element;
     this.currentElementData = elementData;
 
     this.configureForElement(elementData);
 
-    this.popupElement.style.left = `${relativeX}px`;
-    this.popupElement.style.top = `${relativeY}px`;
+    // Measure before placing: the popup's height depends on which controls the
+    // element type shows.
     this.popupElement.style.display = "block";
-
-    // Ensure popup is fully visible in the viewport
     const popupRect = this.popupElement.getBoundingClientRect();
 
-    // Adjust horizontal position if needed
-    if (popupRect.right > chartRect.right) {
-      this.popupElement.style.left = `${relativeX - popupRect.width}px`;
-    }
+    const bbox =
+      element && typeof element.getBoundingClientRect === "function"
+        ? element.getBoundingClientRect()
+        : null;
 
-    // Adjust vertical position if needed
-    if (popupRect.bottom > chartRect.bottom) {
-      this.popupElement.style.top = `${relativeY - popupRect.height}px`;
-    }
+    const pos = bbox
+      ? this.placeClearOf(bbox, chartRect, popupRect)
+      : this.placeAtPointer(x, y, chartRect, popupRect);
+
+    this.popupElement.style.left = `${pos.left}px`;
+    this.popupElement.style.top = `${pos.top}px`;
+  }
+
+  /**
+   * Position the popup so it does not sit on top of the element it belongs to.
+   *
+   * The popup is ~220px wide and the pointer that opened it is usually ON the
+   * drawing, so anchoring at the pointer covered the selection: styling
+   * controls landed over the drawing's own resize handles and swallowed the
+   * clicks meant for them. Tries below, above, right, then left of the
+   * element's box, taking the first that fits inside the chart; if none does,
+   * falls back to the roomiest side and clamps.
+   *
+   * @param {DOMRect} bbox - The selected element's client rect.
+   * @param {DOMRect} chartRect - The chart container's client rect.
+   * @param {DOMRect} popupRect - The popup's own client rect.
+   * @returns {{left: number, top: number}} Chart-relative position.
+   */
+  placeClearOf(bbox, chartRect, popupRect) {
+    const gap = POPUP_GAP;
+    const w = popupRect.width;
+    const h = popupRect.height;
+    const left = bbox.left - chartRect.left;
+    const top = bbox.top - chartRect.top;
+    const right = bbox.right - chartRect.left;
+    const bottom = bbox.bottom - chartRect.top;
+
+    const fits = (l, t) =>
+      l >= 0 && t >= 0 && l + w <= chartRect.width && t + h <= chartRect.height;
+
+    const candidates = [
+      { left, top: bottom + gap }, // below
+      { left, top: top - h - gap }, // above
+      { left: right + gap, top }, // right
+      { left: left - w - gap, top }, // left
+    ];
+    const clear = candidates.find((c) => fits(c.left, c.top));
+    if (clear) return clear;
+
+    // Nothing clears it (a drawing spanning most of the chart): keep the popup
+    // on screen and accept the overlap, favouring the side with more room.
+    const below = chartRect.height - bottom;
+    return this.clamp(
+      { left, top: below > top ? bottom + gap : top - h - gap },
+      chartRect,
+      popupRect
+    );
+  }
+
+  /**
+   * The pointer-anchored placement, used when there is no element to measure.
+   * @param {number} x @param {number} y
+   * @param {DOMRect} chartRect @param {DOMRect} popupRect
+   * @returns {{left: number, top: number}} Chart-relative position.
+   */
+  placeAtPointer(x, y, chartRect, popupRect) {
+    return this.clamp(
+      { left: x - chartRect.left, top: y - chartRect.top },
+      chartRect,
+      popupRect
+    );
+  }
+
+  /** Keep a position inside the chart container. @private */
+  clamp(pos, chartRect, popupRect) {
+    return {
+      left: Math.max(0, Math.min(pos.left, chartRect.width - popupRect.width)),
+      top: Math.max(0, Math.min(pos.top, chartRect.height - popupRect.height)),
+    };
   }
 
   /**

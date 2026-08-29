@@ -861,6 +861,10 @@ export default class DrawingTools {
           // `geometry` is the raw anchors unless `analysis.measure.snap` pulls
           // them onto the bar values.
           const geo = (resolved && resolved.geometry) || data;
+          // Where the box is actually drawn, which is what the resize handles
+          // have to sit on: with `snap` the corners are bar values, not the
+          // raw anchors.
+          item.anchors = { x1: geo.x1, y1: geo.y1, x2: geo.x2, y2: geo.y2 };
           const ma = this.coordinateConverter.dataToScreen(geo.x1, geo.y1);
           const mb = this.coordinateConverter.dataToScreen(geo.x2, geo.y2);
           const up = geo.y2 >= geo.y1;

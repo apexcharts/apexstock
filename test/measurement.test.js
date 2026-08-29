@@ -259,6 +259,68 @@ describe("snap", () => {
     expect(inst.measurement.resolve(record.data).geometry.y1).toBe(90);
   });
 
+  it("reports the selection from the snapped box, not the raw anchors", () => {
+    // A move translates the raw anchors, so their delta survives the drag by
+    // construction. The drawn box, meanwhile, re-snaps to the bars it now
+    // spans. Reading the raw pair made the on-chart label report the move from
+    // wherever the box was created: drag a box off a -25% decline onto a rise
+    // and it still read -25%.
+    const data = ohlcData();
+    const inst = makeInstance({ analysis: { measure: { snap: true } } });
+    inst.render();
+    const id = inst.addDrawing({
+      type: "measure",
+      points: [
+        { x: data[0].x, y: data[0].y[3] },
+        { x: data[5].x, y: data[5].y[3] },
+      ],
+    });
+    const record = inst.drawingTools.elements.find((e) => e.data.id === id);
+
+    // Translate it onto a different stretch, exactly as a move drag does.
+    const dx = data[8].x - data[0].x;
+    record.data.x1 += dx;
+    record.data.x2 += dx;
+
+    const resolved = inst.measurement.resolve(record.data);
+    expect(resolved.selection.from).toBe(data[8].y[3]);
+    expect(resolved.selection.to).toBe(data[13].y[3]);
+    expect(resolved.selection.absolute).toBeCloseTo(
+      data[13].y[3] - data[8].y[3],
+      10
+    );
+    // With snap on, the two changes agree by construction, which is the
+    // invariant the module documents.
+    expect(resolved.selection.absolute).toBeCloseTo(
+      resolved.stats.change.absolute,
+      10
+    );
+  });
+
+  it("still reports the dragged anchors when snap is off", () => {
+    // Without snap the box IS the raw anchors, so a move genuinely preserves
+    // the selection delta and the two changes are free to differ.
+    const data = ohlcData();
+    const inst = makeInstance();
+    inst.render();
+    const id = inst.addDrawing({
+      type: "measure",
+      points: [
+        { x: data[0].x, y: 90 },
+        { x: data[5].x, y: 130 },
+      ],
+    });
+    const record = inst.drawingTools.elements.find((e) => e.data.id === id);
+    const dx = data[8].x - data[0].x;
+    record.data.x1 += dx;
+    record.data.x2 += dx;
+
+    const resolved = inst.measurement.resolve(record.data);
+    expect(resolved.selection.from).toBe(90);
+    expect(resolved.selection.to).toBe(130);
+    expect(resolved.selection.absolute).toBe(40);
+  });
+
   it("snaps to a named field", () => {
     const data = ohlcData();
     const inst = makeInstance({ analysis: { measure: { snap: "high" } } });
