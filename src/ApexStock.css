@@ -473,18 +473,67 @@
 /* ==============================
  * 7. X-Axis Styling
  * ============================== */
+/* The custom x-axis strip: ApexStock draws its own axis (the native one is
+ * turned off), so it has to be themed here rather than by ApexCharts. */
+.apexstock-xaxis {
+  border-top: 1px solid var(--apexstock-light-border);
+  background: var(--apexstock-light-bg);
+}
+
+.apexstock-xaxis-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.apexstock-xaxis-tick-mark {
+  width: 1px;
+  height: 6px;
+  margin: 0 auto 4px;
+  background: var(--apexstock-light-border-strong);
+}
+
+/* Axis dates are secondary to the plot, so they read muted rather than at full
+   text strength. */
+.apexstock-xaxis-tick-label {
+  font-size: 11px;
+  padding: 0 4px;
+  color: var(--apexstock-light-muted);
+}
+
+/* The crosshair's date readout on the custom x-axis.
+ *
+ * Styled as a filled cell that spans the axis strip rather than a bordered box
+ * floating on it: it has to stay legible over the tick labels it covers, and it
+ * reads as "the axis position under the cursor" rather than as a panel. The
+ * fill is the text color and the text is the surface color, so it inverts with
+ * the theme and follows a theme preset's `--apx-fore` / `--apx-surface` instead
+ * of being pinned to one palette. JS toggles `display` between none and flex.
+ */
 .apexstock-xaxis-tooltip {
   position: absolute;
+  top: 0;
+  bottom: 0;
   display: none;
-  padding: 6px;
-  border-radius: var(--apexstock-border-radius-md);
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--apexstock-border-radius-sm);
   font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* The value changes on every pointer move. Proportional figures would resize
+     the chip under the cursor on each new digit, so it visibly jitters; fixed
+     digit widths keep it still. */
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
   z-index: 1000;
   white-space: nowrap;
-  transform: translateX(-50%) translateY(1px);
-  background-color: #eceff1;
-  border: 1px solid #90a4ae;
+  transform: translateX(-50%);
+  background: var(--apexstock-light-text);
+  color: var(--apexstock-light-bg);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.18);
 }
 
 /* ==============================
@@ -865,10 +914,23 @@
   color: #222;
 }
 
+.apexstock-theme-dark .apexstock-xaxis {
+  border-top-color: var(--apexstock-dark-border);
+  background: var(--apexstock-dark-bg);
+}
+
+.apexstock-theme-dark .apexstock-xaxis-tick-mark {
+  background: var(--apexstock-dark-border-strong);
+}
+
+.apexstock-theme-dark .apexstock-xaxis-tick-label {
+  color: var(--apexstock-dark-muted);
+}
+
 .apexstock-theme-dark .apexstock-xaxis-tooltip {
-  background: rgba(0, 0, 0, .8);
-  border: 1px solid rgba(0, 0, 0, .5);
-  color: var(--apexstock-dark-text);
+  background: var(--apexstock-dark-text);
+  color: var(--apexstock-dark-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .apexstock-theme-dark .apexstock-tooltip-annotation:hover rect {

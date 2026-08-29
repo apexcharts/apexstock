@@ -202,7 +202,7 @@ export default class XAxis {
       if (timestamp) {
         const date = new Date(timestamp);
         if (!isNaN(date.getTime())) {
-          formattedDate = this.formatDate(date, "MMM DD, YYYY HH:mm");
+          formattedDate = this.formatDate(date, this.crosshairFormat());
         } else {
           formattedDate = "Invalid date";
         }
@@ -216,7 +216,9 @@ export default class XAxis {
 
     // Update tooltip content
     this.tooltipElement.textContent = formattedDate;
-    this.tooltipElement.style.display = "block";
+    // flex, not block: the chip centres its text over the full height of the
+    // axis strip (see the stylesheet).
+    this.tooltipElement.style.display = "flex";
 
     // Get tooltip width to calculate boundaries
     const tooltipWidth = this.tooltipElement.offsetWidth;
@@ -365,11 +367,13 @@ export default class XAxis {
     this.axisElement.style.width = "100%";
     this.axisElement.style.height = "30px";
     this.axisElement.style.overflow = "hidden";
-    this.axisElement.style.borderTop = "1px solid #eee";
     this.axisElement.style.boxSizing = "border-box";
-    this.axisElement.style.backgroundColor =
-      this.context.colors.toolbar.background;
     this.axisElement.style.zIndex = "999"; // Ensure it's above other elements
+    // The surface and rule come from the stylesheet, NOT from an inline color
+    // read here. This runs once, at creation, so an inline color could never
+    // follow updateTheme(): the axis stayed a white band under a dark chart for
+    // the life of the instance. The tokens also mean a theme preset retints it,
+    // which a value copied from `colors.toolbar` never did.
 
     // Create the ticks container
     this.ticksContainer = document.createElement("div");
@@ -525,6 +529,83 @@ export default class XAxis {
         label: "year",
       };
     }
+  }
+
+  /**
+   * Build one axis tick: a mark and its label, positioned at `left`.
+   *
+   * The colors live in the stylesheet rather than being read from
+   * `context.colors` here. Ticks are only rebuilt on a render, so an inline
+   * color meant a theme switch left the labels in the old palette until the
+   * next zoom or pan: after switching to dark they stayed near-black on the
+   * dark strip.
+   *
+   * @param {string} label - The formatted date.
+   * @param {string} left - CSS left offset (a percentage).
+   * @returns {HTMLDivElement}
+   */
+  static buildTick(label, left) {
+    const tick = document.createElement("div");
+    tick.className = "apexstock-xaxis-tick";
+    tick.style.left = left;
+
+    const mark = document.createElement("div");
+    mark.className = "apexstock-xaxis-tick-mark";
+
+    const text = document.createElement("div");
+    text.className = "apexstock-xaxis-tick-label";
+    text.textContent = label;
+
+    tick.appendChild(mark);
+    tick.appendChild(text);
+    return tick;
+  }
+
+  /**
+   * The crosshair label's date format, chosen from the data's own bar spacing.
+   *
+   * Deliberately not from the zoom level: minute bars are still minute bars
+   * when the view is zoomed out to a year. And a daily series carries one
+   * timestamp per day, so printing a time on it is noise at best. With bars
+   * stamped at UTC midnight and read in any other zone it is worse than noise:
+   * a bar that is simply March 5th was labelled "Mar 05, 2024 05:30".
+   *
+   * Cached on the series identity, since this runs on every pointer move.
+   *
+   * @returns {string} A format string for {@link XAxis#formatDate}.
+   */
+  crosshairFormat() {
+    const series = this.context.series;
+    const n = Array.isArray(series) ? series.length : 0;
+    const key = n
+      ? `${n}:${Number(new Date(series[0].x))}:${Number(new Date(series[n - 1].x))}`
+      : "0";
+    if (this._crosshairFormatKey !== key) {
+      this._crosshairFormatKey = key;
+      this._crosshairFormatValue = XAxis.hasIntradayBars(series)
+        ? "MMM DD, YYYY · HH:mm"
+        : "MMM DD, YYYY";
+    }
+    return this._crosshairFormatValue;
+  }
+
+  /**
+   * Whether consecutive bars sit less than a day apart.
+   * @param {Array<{x: *}>} series
+   * @returns {boolean}
+   */
+  static hasIntradayBars(series) {
+    if (!Array.isArray(series) || series.length < 2) return false;
+    const DAY = 24 * 60 * 60 * 1000;
+    // The smallest gap is the bar interval. A leading sample is enough: a
+    // series does not change resolution partway through.
+    const limit = Math.min(series.length, 50);
+    for (let i = 1; i < limit; i++) {
+      const gap =
+        Number(new Date(series[i].x)) - Number(new Date(series[i - 1].x));
+      if (gap > 0 && gap < DAY) return true;
+    }
+    return false;
   }
 
   /**
@@ -761,31 +842,9 @@ export default class XAxis {
       lastPixelPosition = pixelPosition;
 
       // Create tick element with inline styles
-      const tickElement = document.createElement("div");
-      tickElement.style.position = "absolute";
-      tickElement.style.transform = "translateX(-50%)";
-      tickElement.style.textAlign = "center";
-      tickElement.style.whiteSpace = "nowrap";
-      tickElement.style.top = "0";
-      tickElement.style.left = `${tick.position}%`;
-
-      const tickMark = document.createElement("div");
-      tickMark.style.width = "1px";
-      tickMark.style.height = "6px";
-      tickMark.style.margin = "0 auto 4px";
-      tickMark.style.backgroundColor = "#888";
-
-      const tickLabel = document.createElement("div");
-      tickLabel.style.fontSize = "11px";
-      tickLabel.style.color = this.context.colors.toolbar.text;
-
-      tickLabel.style.padding = "0 4px";
-      tickLabel.textContent = tick.label;
-
-      tickElement.appendChild(tickMark);
-      tickElement.appendChild(tickLabel);
-
-      this.ticksContainer.appendChild(tickElement);
+      this.ticksContainer.appendChild(
+        XAxis.buildTick(tick.label, `${tick.position}%`)
+      );
     });
 
     // Make sure we have at least one tick showing
@@ -794,29 +853,7 @@ export default class XAxis {
       // at least show the middle tick
       const middleTick = ticks[Math.floor(ticks.length / 2)];
 
-      const tickElement = document.createElement("div");
-      tickElement.style.position = "absolute";
-      tickElement.style.transform = "translateX(-50%)";
-      tickElement.style.textAlign = "center";
-      tickElement.style.whiteSpace = "nowrap";
-      tickElement.style.top = "0";
-      tickElement.style.left = "50%";
-
-      const tickMark = document.createElement("div");
-      tickMark.style.width = "1px";
-      tickMark.style.height = "6px";
-      tickMark.style.margin = "0 auto 4px";
-      tickMark.style.backgroundColor = "#888";
-
-      const tickLabel = document.createElement("div");
-      tickLabel.style.fontSize = "11px";
-      tickLabel.style.color = "#666";
-      tickLabel.style.padding = "0 4px";
-      tickLabel.textContent = middleTick.label;
-
-      tickElement.appendChild(tickMark);
-      tickElement.appendChild(tickLabel);
-      this.ticksContainer.appendChild(tickElement);
+      this.ticksContainer.appendChild(XAxis.buildTick(middleTick.label, "50%"));
     }
   }
 
