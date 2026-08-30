@@ -71,6 +71,21 @@ export default class Legend {
    * DOM
    * ------------------------------------------------------------------ */
 
+  /**
+   * Height of the x-axis strip along the bottom of the host. Measured live so a
+   * re-laid-out axis is honoured (the panel is rebuilt on every {@link reapply},
+   * so this is re-read rather than baked in), falling back to the height the
+   * layout reserves for the strip.
+   * @returns {number}
+   * @private
+   */
+  _axisStripHeight() {
+    const el = this.ctx.xaxis && this.ctx.xaxis.axisElement;
+    const measured = el && el.offsetHeight;
+    if (Number.isFinite(measured) && measured > 0) return measured;
+    return Number.isFinite(this.ctx.xAxisHeight) ? this.ctx.xAxisHeight : 0;
+  }
+
   _ensureEl() {
     if (this._el) return this._el;
     const host = this.ctx.chartEl;
@@ -86,7 +101,14 @@ export default class Legend {
     const el = document.createElement("div");
     el.className = "apexstock-legend apexstock-legend-" + this.opts.position;
     const pos = this.opts.position;
-    const vy = pos.startsWith("top") ? "top:8px;" : "bottom:8px;";
+    // The host is the whole widget, and its bottom band is the custom x-axis
+    // strip. A bottom corner measured from the host's own edge therefore lands
+    // inside the date axis, which is opaque and painted well above the legend,
+    // so the panel's lower rows were sliced off. Clear the strip, so "bottom"
+    // means the bottom of the PLOT, which is the corner a reader means.
+    const vy = pos.startsWith("top")
+      ? "top:8px;"
+      : "bottom:" + (this._axisStripHeight() + 8) + "px;";
     const vx = pos.endsWith("left") ? "left:10px;" : "right:10px;";
     el.style.cssText =
       "position:absolute;" +

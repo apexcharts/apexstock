@@ -160,6 +160,34 @@ describe("Legend (data window)", () => {
     expect(el.style.right).toBe("10px");
   });
 
+  it("clears the x-axis strip, so a bottom corner is a corner of the plot", () => {
+    // The host is the whole widget and its bottom band is the date axis, which
+    // is opaque and painted above the legend. A panel measured from the host's
+    // own edge sat inside that band and had its lower rows sliced off.
+    const ctx2 = fakeCtx({ ctx: { xAxisHeight: 30 } });
+    const lg2 = new Legend(ctx2);
+    lg2.show({ position: "bottom-left" });
+    expect(panel(ctx2).style.bottom).toBe("38px");
+
+    // A top corner is already the top of the plot and must not move.
+    lg2.show({ position: "top-left" });
+    expect(panel(ctx2).style.top).toBe("8px");
+    expect(panel(ctx2).style.bottom).toBe("");
+    lg2.destroy();
+    ctx2.chartEl.remove();
+  });
+
+  it("prefers the axis strip's measured height over the reserved one", () => {
+    const axisElement = document.createElement("div");
+    Object.defineProperty(axisElement, "offsetHeight", { value: 44 });
+    const ctx2 = fakeCtx({ ctx: { xAxisHeight: 30, xaxis: { axisElement } } });
+    const lg2 = new Legend(ctx2);
+    lg2.show({ position: "bottom-right" });
+    expect(panel(ctx2).style.bottom).toBe("52px");
+    lg2.destroy();
+    ctx2.chartEl.remove();
+  });
+
   it("hide() unsubscribes and hides; toggle() flips; isVisible() reflects state", () => {
     lg.show();
     expect(lg.isVisible()).toBe(true);

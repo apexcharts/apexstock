@@ -344,6 +344,15 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **A bottom-corner data legend had its lower rows sliced off.** The panel is
+  positioned inside the widget, whose bottom band is the custom x-axis strip, so
+  `bottom-left` and `bottom-right` placed it inside the date axis. The strip is
+  opaque and painted far above the legend, so whatever fell in the overlap was
+  simply not drawn: with two overlay indicators, an entire indicator row and the
+  panel's own border went missing, with nothing to suggest a row was there at
+  all. A bottom corner now clears the strip, so it means the bottom of the plot.
+  The offset is measured from the rendered strip on each rebuild rather than
+  assumed, and the top corners are untouched.
 - **The crosshair's date chip was positioned in the wrong coordinate space.** It
   was placed at the crosshair's `x1`, which is an offset inside ApexCharts' plot
   group, but the chip lives in the custom axis strip, whose box starts at the

@@ -56,4 +56,51 @@ test.describe("data legend", () => {
     await page.evaluate(() => window.__chart.showLegend({ position: "top-right" }));
     await expect(page.locator("#chart .apexstock-legend-top-right")).toBeVisible();
   });
+
+  test("every corner keeps the panel clear of the date axis", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    // The custom x-axis strip is the bottom band of the host the legend is
+    // positioned in, it is opaque, and it paints far above the legend. A bottom
+    // corner measured from the host's own edge landed inside it, and the rows
+    // that fell in the overlap (a whole indicator row, plus the panel's border)
+    // were simply not visible.
+    for (const corner of [
+      "top-left",
+      "top-right",
+      "bottom-right",
+      "bottom-left",
+    ]) {
+      await page.evaluate(
+        (position) => window.__chart.showLegend({ position }),
+        corner
+      );
+      await expect(
+        page.locator(`#chart .apexstock-legend-${corner}`)
+      ).toBeVisible();
+
+      const geom = await page.evaluate(() => {
+        const r = (sel) =>
+          document.querySelector(sel).getBoundingClientRect();
+        const panel = r("#chart .apexstock-legend");
+        const strip = r("#chart .apexstock-xaxis");
+        const host = r("#chart");
+        return {
+          overlap:
+            Math.min(panel.bottom, strip.bottom) -
+            Math.max(panel.top, strip.top),
+          height: panel.height,
+          inside: panel.top >= host.top - 0.5 && panel.bottom <= host.bottom + 0.5,
+        };
+      });
+
+      expect(geom.height).toBeGreaterThan(0);
+      expect(geom.overlap).toBeLessThanOrEqual(0);
+      expect(geom.inside).toBe(true);
+    }
+
+    expect(errors).toEqual([]);
+  });
 });
