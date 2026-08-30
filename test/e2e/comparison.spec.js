@@ -170,6 +170,107 @@ test.describe("comparison mode", () => {
     expect(errors).toEqual([]);
   });
 
+  test("the zoom survives the rebase it triggers", async ({ page }) => {
+    const errors = await gotoFixture(page);
+    await page.evaluate(() =>
+      window.__chart.setComparisonOptions({ baseline: "visible" })
+    );
+
+    const want = await page.evaluate(() => {
+      const d = window.__data;
+      window.__chart.setVisibleRange(d[60].x, d[119].x);
+      return { min: d[60].x, max: d[119].x };
+    });
+
+    // Rebasing rebuilds the series, and a series update refits the axis to the
+    // whole extent. Under this baseline the zoom is what triggers the rebase,
+    // so without putting the window back the gesture undoes itself: the chart
+    // snaps to full history while the leaderboard still describes the window.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const g = window.__chart.chart.w.globals;
+          return { min: g.minX, max: g.maxX };
+        })
+      )
+      .toEqual(want);
+    expect(await yAt(page, "MSFT", 60)).toBe(0);
+
+    expect(errors).toEqual([]);
+  });
+
+  test("adding an instrument while zoomed keeps the window", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+
+    const want = await page.evaluate(() => {
+      const d = window.__data;
+      window.__chart.clearComparisons();
+      window.__chart.setVisibleRange(d[20].x, d[80].x);
+      return { min: d[20].x, max: d[80].x };
+    });
+    await page.evaluate(() =>
+      window.__chart.addComparison({
+        name: "MSFT",
+        data: window.__peers.MSFT,
+        color: "#2563eb",
+      })
+    );
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const g = window.__chart.chart.w.globals;
+          return { min: g.minX, max: g.maxX };
+        })
+      )
+      .toEqual(want);
+
+    expect(errors).toEqual([]);
+  });
+
+  test("the crosshair chip lines up with the crosshair over a left-hand axis", async ({
+    page,
+  }) => {
+    const errors = await gotoFixture(page);
+    // Comparison stacks a percentage axis and a price axis to the left of the
+    // plot, so the plot's coordinate space and the axis strip's start in
+    // different places. The chip is positioned in the strip's.
+    const box = await page
+      .locator("#chart .apexcharts-svg")
+      .first()
+      .boundingBox();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.4);
+    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.4);
+
+    const geom = await page.evaluate(() => {
+      const chip = document.querySelector(".apexstock-xaxis-tooltip");
+      const cross = document.querySelector(".apexcharts-xcrosshairs");
+      const strip = document.querySelector(".apexstock-xaxis");
+      const plot = document.querySelector(
+        "#chart .apexcharts-inner.apexcharts-graphical"
+      );
+      const c = chip.getBoundingClientRect();
+      const x = cross.getBoundingClientRect();
+      const s = strip.getBoundingClientRect();
+      return {
+        shown: getComputedStyle(chip).display !== "none",
+        offset: c.left + c.width / 2 - (x.left + x.width / 2),
+        gutter: plot.getBoundingClientRect().left - s.left,
+        inside: c.left >= s.left - 0.5 && c.right <= s.right + 0.5,
+      };
+    });
+
+    expect(geom.shown).toBe(true);
+    // A gutter worth having: without one this proves nothing.
+    expect(geom.gutter).toBeGreaterThan(60);
+    expect(Math.abs(geom.offset)).toBeLessThan(1.5);
+    expect(geom.inside).toBe(true);
+
+    expect(errors).toEqual([]);
+  });
+
   test("an indicator overlay can be toggled while comparisons are active", async ({
     page,
   }) => {

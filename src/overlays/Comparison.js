@@ -795,6 +795,7 @@ export default class Comparison {
     // then the axis binding once every series exists.
     this._rebasing = true;
     try {
+      const zoom = Comparison._zoomedWindow(this.ctx);
       chart.updateSeries([...base, ...cmpSeries]);
 
       if (items.length) {
@@ -815,9 +816,46 @@ export default class Comparison {
         chart.updateOptions({ yaxis: this._singleAxis() }, false, false, false);
         this._rendered = new Set();
       }
+
+      if (zoom) this.ctx.applyZoomToAllCharts(zoom);
     } finally {
       this._rebasing = false;
     }
+  }
+
+  /**
+   * The window on screen, but only when the chart is actually zoomed into one:
+   * null when it is showing its whole extent.
+   *
+   * Read this BEFORE `updateSeries()`, which clears `xaxis.min`/`max` and
+   * refits to the data extent. Without putting it back, every rebase snapped a
+   * zoomed chart to its full history. That is worst under `baseline: "visible"`,
+   * where the zoom is what triggers the rebase: the gesture undid itself, and
+   * the leaderboard (which reads the remembered window, not the chart) was left
+   * describing a range the chart was no longer showing. It also desynced the
+   * indicator panes, which are separate charts `updateSeries` does not reach.
+   *
+   * The zoom test is `minX`/`maxX` against `initialMinX`/`initialMaxX`, the data
+   * extent, which zooming does not touch. An unzoomed chart must be left alone:
+   * an instrument reaching further back than the primary widens the extent, and
+   * restoring a window that merely equalled the old one would hide exactly the
+   * history the caller just supplied.
+   *
+   * @param {import("../ApexStock.js").default} ctx
+   * @returns {{minX:number, maxX:number}|null}
+   * @private
+   */
+  static _zoomedWindow(ctx) {
+    const g = ctx.chart.w.globals;
+    if (!Number.isFinite(g.minX) || !Number.isFinite(g.maxX)) return null;
+    const lo = Number.isFinite(g.initialMinX) ? g.initialMinX : g.minX;
+    const hi = Number.isFinite(g.initialMaxX) ? g.initialMaxX : g.maxX;
+    if (g.minX <= lo && g.maxX >= hi) return null;
+    // Restored with zoomX (via ApexStock), not by folding xaxis.min/max into
+    // the updateOptions above: an explicit xaxis in an update is remembered as
+    // `lastXAxis` and silently re-applied to a LATER update, so a window pinned
+    // here would come back and override a setVisibleRange() made in between.
+    return ctx.getCurrentZoomState();
   }
 
   /* ------------------------------------------------------------------ *

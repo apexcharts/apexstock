@@ -590,6 +590,81 @@ describe("comparison v2: visible baseline and events", () => {
   });
 });
 
+describe("comparison v2: the visible window survives a rebase", () => {
+  let inst;
+  beforeEach(() => {
+    installApexChartsMock();
+    useQuietTimers();
+    inst = makeInstance();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  /** Put the chart in a state where `[from, to]` is on screen out of `extent`. */
+  const showing = (from, to, extent = [at(0), at(9)]) => {
+    const g = inst.chart.w.globals;
+    g.minX = from;
+    g.maxX = to;
+    g.initialMinX = extent[0];
+    g.initialMaxX = extent[1];
+  };
+
+  it("puts a zoomed window back after the series update drops it", () => {
+    showing(at(4), at(7));
+    inst.addComparison({ name: "AAA", data: line(AAA) });
+    expect(inst.chart.zoomX).toHaveBeenCalledWith(at(4), at(7));
+  });
+
+  it("leaves an unzoomed chart alone", () => {
+    showing(at(0), at(9));
+    inst.addComparison({ name: "AAA", data: line(AAA) });
+    // Pinning here would clip an instrument whose history reaches further back
+    // than the primary's, which is exactly the view that should widen.
+    expect(inst.chart.zoomX).not.toHaveBeenCalled();
+  });
+
+  it("restores through zoomX, never as an xaxis in updateOptions", () => {
+    // ApexCharts remembers an explicit `xaxis` from an update as `lastXAxis`
+    // and re-applies it to a LATER one, so a window pinned that way comes back
+    // and overrides a setVisibleRange() made in between.
+    showing(at(4), at(7));
+    inst.addComparison({ name: "AAA", data: line(AAA) });
+    inst.chart.updateOptions.mock.calls.forEach(([o]) => {
+      expect(o.xaxis).toBeUndefined();
+    });
+  });
+
+  it("carries the indicator panes with it, which updateSeries cannot reach", () => {
+    showing(at(4), at(7));
+    const pane = { zoomX: vi.fn() };
+    inst.indicatorChartMap.rsi = pane;
+    inst.addComparison({ name: "AAA", data: line(AAA) });
+    expect(pane.zoomX).toHaveBeenCalledWith(at(4), at(7));
+    delete inst.indicatorChartMap.rsi;
+  });
+
+  it("does not undo the very zoom that triggered a visible-baseline rebase", () => {
+    inst.setComparisonOptions({ baseline: "visible" });
+    inst.addComparison({ name: "AAA", data: line(AAA) });
+    inst.chart.zoomX.mockClear();
+
+    // The gesture: the chart is now showing days 4..9, and says so.
+    showing(at(4), at(9));
+    inst._emitter.emit("rangeChange", {
+      min: at(4),
+      max: at(9),
+      source: "zoom",
+    });
+
+    // Rebased to the new left edge, and still showing the window that caused it.
+    expect(lineOf(inst, "AAA")[4].y).toBe(0);
+    expect(inst.chart.zoomX).toHaveBeenCalledWith(at(4), at(9));
+  });
+});
+
 describe("comparison v2: rendering contracts and guards", () => {
   let inst;
   beforeEach(() => {

@@ -344,6 +344,26 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **The crosshair's date chip was positioned in the wrong coordinate space.** It
+  was placed at the crosshair's `x1`, which is an offset inside ApexCharts' plot
+  group, but the chip lives in the custom axis strip, whose box starts at the
+  widget's left edge. The two only coincide when nothing is drawn to the left of
+  the plot, so any left-hand y-axis shifted the chip left by the width of the
+  gutter: a few pixels normally, and over 140 on a comparison chart, which
+  stacks a percentage axis and a price axis there. The chip is now placed by
+  measuring the rendered crosshair, which is origin-independent, and it clamps
+  against the strip rather than the plot so it is never clipped at either end.
+- **Rebasing a comparison threw away the zoom.** `Comparison.reapply()` rebuilds
+  the series, and a series update clears `xaxis.min`/`max` and refits to the
+  whole data extent, so adding or removing an instrument, or switching mode,
+  snapped a zoomed chart back to its full history and desynced the indicator
+  panes (separate charts a series update does not reach). Worst under
+  `baseline: "visible"`, where a zoom is what triggers the rebase: the gesture
+  undid itself, leaving the chart at full extent while the leaderboard still
+  described the window that had been asked for. The window is now restored after
+  the rebuild, across the panes too, and only when the chart was genuinely
+  zoomed, so an instrument whose history reaches further back than the primary's
+  still widens the view instead of being clipped to it.
 - **The bottom-most y-axis label was sliced in half.** The custom x-axis strip
   was pulled up over the plot with a hard-coded `margin-top: -15px`, closing the
   band ApexCharts reserves below the grid for x-axis labels. That band is not

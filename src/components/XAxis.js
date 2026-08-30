@@ -177,9 +177,6 @@ export default class XAxis {
       return;
     }
 
-    // Get the x1 attribute directly - this is the exact pixel position of the crosshair
-    const crosshairX = parseFloat(xcrosshair.getAttribute("x1"));
-
     // Calculate relative position for finding data point
     const graphicalElement = chartElement.querySelector(
       ".apexcharts-inner.apexcharts-graphical"
@@ -220,25 +217,35 @@ export default class XAxis {
     // axis strip (see the stylesheet).
     this.tooltipElement.style.display = "flex";
 
-    // Get tooltip width to calculate boundaries
-    const tooltipWidth = this.tooltipElement.offsetWidth;
-    const tooltipHalfWidth = tooltipWidth / 2;
+    // Where the crosshair actually is, in the axis strip's own coordinates.
+    //
+    // The obvious source is the crosshair's `x1` attribute, but that is a
+    // coordinate inside the plot group, whose origin sits wherever ApexCharts
+    // put the plot. The chip is a child of the axis strip, whose origin is the
+    // widget's left edge. The two only coincide when nothing is drawn to the
+    // left of the plot, so any left-hand y-axis shifted the chip left by the
+    // width of the gutter: a few pixels on a normal chart, and 140+ on a
+    // comparison chart, which stacks a percentage axis and a price axis there.
+    // Measuring the rendered crosshair instead is origin-independent and
+    // survives whatever transforms sit between the two.
+    const axisRect = this.axisElement.getBoundingClientRect();
+    const crosshairRect = xcrosshair.getBoundingClientRect();
+    const crosshairX =
+      crosshairRect.left + crosshairRect.width / 2 - axisRect.left;
+    if (!Number.isFinite(crosshairX)) return;
 
-    // Get the chart area width to determine boundaries
-    const chartRect = graphicalElement.getBoundingClientRect();
-    const chartWidth = chartRect.width;
-
-    // Calculate the min and max allowed positions for the tooltip center
-    // to prevent it from being cut off at the edges
-    const minPosition = tooltipHalfWidth;
-    const maxPosition = chartWidth - tooltipHalfWidth;
-
-    // Constrain the tooltip position within the bounds
+    // Keep the chip inside the strip so its ends are never clipped. Clamping
+    // against the strip rather than the plot lets it stay centred on the
+    // crosshair further into the gutter, where there is room for it.
+    const tooltipHalfWidth = this.tooltipElement.offsetWidth / 2;
     let tooltipLeft = crosshairX;
-    if (tooltipLeft < minPosition) tooltipLeft = minPosition;
-    if (tooltipLeft > maxPosition) tooltipLeft = maxPosition;
+    if (axisRect.width > tooltipHalfWidth * 2) {
+      tooltipLeft = Math.min(
+        Math.max(crosshairX, tooltipHalfWidth),
+        axisRect.width - tooltipHalfWidth
+      );
+    }
 
-    // Position tooltip with the adjusted value
     this.tooltipElement.style.left = `${tooltipLeft}px`;
   }
 

@@ -90,8 +90,9 @@
         <h3>Leaderboard</h3>
         <p class="hint" style="margin: 0 0 8px">
           Straight from <code>getComparisonStats()</code>, recomputed on every
-          <code>comparisonChange</code>. Zoom with the baseline set to
-          <em>visible</em> and watch the whole table follow the window.
+          <code>comparisonChange</code>. Set the baseline to <em>visible</em> and
+          zoom: every row rebases to the left edge of the window, and measures
+          from there to the last bar.
         </p>
         <table>
           <thead>
@@ -132,18 +133,39 @@
         return out;
       }
 
-      const aaplCloses = closes(150, 0.18, 1.6, 0);
+      // A deterministic per-bar wobble in [-1.5, 1.5). AAPL is the only
+      // instrument drawn as candles, and a curve this smooth drifts up by less
+      // than a tick per bar, so every close would land above its open and the
+      // whole series would render green. The peers stay smooth: they are lines.
+      const jitter = (i) => {
+        const n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+        return (n - Math.floor(n) - 0.5) * 3;
+      };
+      const aaplCloses = closes(150, 0.18, 1.6, 0).map((c, i) =>
+        +(c + jitter(i)).toFixed(2)
+      );
       const peers = {
         MSFT: { color: "#2563eb", from: 0, closes: closes(380, 0.09, 3.2, 7) },
         NVDA: { color: "#16a34a", from: LISTS_AT, closes: closes(700, 0.42, 9, 3) },
         SPY: { color: "#9333ea", from: 0, closes: closes(470, 0.05, 1.9, 13) },
       };
 
-      const ohlc = aaplCloses.map((c, i) => ({
-        x: BASE + i * DAY,
-        y: [+(c - 0.6).toFixed(2), +(c + 1.1).toFixed(2), +(c - 1.2).toFixed(2), c],
-        v: 900000 + (i % 17) * 40000,
-      }));
+      // Open at the previous session's close, the way a real session does, with
+      // the wicks outside whichever end the body finished on.
+      const ohlc = aaplCloses.map((c, i) => {
+        const o = i === 0 ? +(c - 0.6).toFixed(2) : aaplCloses[i - 1];
+        const wick = 0.3 + (i % 5) * 0.2;
+        return {
+          x: BASE + i * DAY,
+          y: [
+            o,
+            +(Math.max(o, c) + wick).toFixed(2),
+            +(Math.min(o, c) - wick).toFixed(2),
+            c,
+          ],
+          v: 900000 + (i % 17) * 40000,
+        };
+      });
 
       const peerData = (name) =>
         peers[name].closes
