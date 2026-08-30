@@ -344,6 +344,18 @@ those are called out explicitly below.
 
 ### Fixed
 
+- **The crosshair drifted off the cursor on a zoomed chart with indicators.**
+  Fixed upstream in ApexCharts (`tooltip/Utils.getNearestValues`), with a guard
+  added here: an indicator's warm-up period is a run of leading nulls, and the
+  hovered bar was resolved against a null-stripped copy of the series, so each
+  chart landed short by its own warm-up length. The error is one bar-width per
+  warm-up bar, which hid it at full extent and grew it without bound on zoom
+  (259px three wheel notches in, 2056px at nine). Because the warm-ups differ,
+  the main chart and each oscillator pane disagreed with each other, and the
+  date chip, which mirrors the main crosshair, inherited the error and pinned
+  itself to the edge of the axis strip. Requires an ApexCharts release carrying
+  the fix; `test/e2e/pane-sync.spec.js` now asserts the panes agree on screen at
+  every zoom level, not just that they share an x-window.
 - **A bottom-corner data legend had its lower rows sliced off.** The panel is
   positioned inside the widget, whose bottom band is the custom x-axis strip, so
   `bottom-left` and `bottom-right` placed it inside the date axis. The strip is
