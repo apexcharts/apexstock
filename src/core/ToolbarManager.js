@@ -194,11 +194,6 @@ class ToolbarManager {
       button.title = tool.tooltip;
       button.setAttribute("aria-label", tool.tooltip);
 
-      // Add special style for selection tool
-      if (tool.name === "select") {
-        button.style.backgroundColor = "#f0f0f0";
-      }
-
       // Special styling for pin button
       if (tool.name === "pin") {
         button.classList.add("active"); // Pin is enabled by default
