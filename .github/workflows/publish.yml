@@ -116,7 +116,11 @@ jobs:
             # Fails loudly when CHANGELOG.md has no section for this version,
             # rather than publishing empty notes.
             node scripts/release-notes.mjs apexstock "$VERSION" > /tmp/notes.md
-            gh release create "$GIT_TAG" --title "$GIT_TAG" --notes-file /tmp/notes.md
+            # --latest: the core is the repo's headline package, so its release
+            # is what the sidebar should show. Without pinning, GitHub picks the
+            # most recent by date and a wrapper patch published minutes later
+            # would take the slot.
+            gh release create "$GIT_TAG" --title "$GIT_TAG" --latest --notes-file /tmp/notes.md
             echo "✅ Released $GIT_TAG"
           fi
 
@@ -226,6 +230,8 @@ jobs:
             echo "Release $GIT_TAG already exists, skipping"
           else
             node scripts/release-notes.mjs "${{ matrix.pkg }}" "$VERSION" > /tmp/notes.md
-            gh release create "$GIT_TAG" --title "$GIT_TAG" --notes-file /tmp/notes.md
+            # --latest=false: a wrapper patch must not displace the core release
+            # in the repo sidebar.
+            gh release create "$GIT_TAG" --title "$GIT_TAG" --latest=false --notes-file /tmp/notes.md
             echo "✅ Released $GIT_TAG"
           fi

@@ -184,6 +184,10 @@ the release and the changelog cannot drift; the step **fails** if that section
 is missing rather than posting empty notes. Wrappers have no changelog of their
 own and get a short stub pointing at the core's.
 
+The core's release is pinned as **Latest** and wrapper releases are explicitly
+not, so the repo sidebar keeps showing the library rather than whichever wrapper
+patch happened to publish most recently.
+
 **Write the editorial lead before you tag.** An optional
 `.github/release-notes/<package>@<version>.md` is inserted above the changelog
 and is where the framing belongs: what the release is about, what breaks, the
