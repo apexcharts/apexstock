@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 // indicator track correctly, the oscillator pane is not recreated, there are zero
 // console errors, and the incremental path is dramatically faster than the old
 // update()-per-tick rebuild.
-const FIXTURE = "/apexstock/test/e2e/fixtures/streaming.html";
+const FIXTURE = "/test/e2e/fixtures/streaming.html";
 
 async function gotoStreaming(page) {
   const errors = [];

@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // box with a multi-line readout, the analysis panel shows the region statistics,
 // and both survive a zoom (the anchors are in data space, so the box must move
 // with the bars rather than staying put in pixels).
-const FIXTURE = "/apexstock/test/e2e/fixtures/analysis.html";
+const FIXTURE = "/test/e2e/fixtures/analysis.html";
 
 async function gotoFixture(page) {
   const errors = [];

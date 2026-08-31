@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // SVG on the overlay, the drawings re-project when the visible range changes
 // (proving they are anchored to price/time, not to the screen), and their data
 // anchors survive zoom + a getState()/setState() round-trip. No console errors.
-const FIXTURE = "/apexstock/test/e2e/fixtures/chart.html";
+const FIXTURE = "/test/e2e/fixtures/chart.html";
 
 // Fixture data: bar i sits at BASE + i * DAY (see chart.html generateData).
 const BASE = Date.UTC(2024, 0, 1);

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 // Cross-chart sync in a real browser: zooming one chart mirrors the visible
 // range to the linked one, and a crosshair on one draws a guide on the other.
-const FIXTURE = "/apexstock/test/e2e/fixtures/sync.html";
+const FIXTURE = "/test/e2e/fixtures/sync.html";
 
 const BASE = Date.UTC(2024, 0, 1);
 const DAY = 86400000;

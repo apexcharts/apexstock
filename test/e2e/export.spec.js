@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Unified export() in a real browser: csv returns text + a Blob, png returns a
 // real raster Blob (or the svg fallback), and pdf returns an application/pdf Blob
 // that begins with the PDF magic bytes.
-const FIXTURE = "/apexstock/test/e2e/fixtures/chart.html";
+const FIXTURE = "/test/e2e/fixtures/chart.html";
 
 async function gotoFixture(page) {
   const errors = [];

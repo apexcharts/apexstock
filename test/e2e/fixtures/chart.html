@@ -17,10 +17,12 @@
         background: #fff;
       }
     </style>
-    <!-- Root-absolute paths: the e2e server root is the parent Work/apexcharts
-         dir, so these resolve regardless of this file's depth. -->
-    <script src="/apexcharts-js/dist/apexcharts.js"></script>
-    <script src="/apexstock/dist/apexstock.min.js"></script>
+    <!-- Root-absolute paths: the e2e server root is the repo root, so these
+         resolve regardless of this file's depth. ApexCharts comes from the
+         pinned devDependency, never from a checkout outside the repo, so the
+         suite tests the build a user would install. -->
+    <script src="/node_modules/apexcharts/dist/apexcharts.js"></script>
+    <script src="/dist/apexstock.min.js"></script>
   </head>
   <body>
     <div id="chart-container"><div id="chart"></div></div>

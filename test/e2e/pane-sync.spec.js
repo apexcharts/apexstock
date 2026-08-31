@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
 //
 // These sweep zoom levels and pointer positions and assert the rendered
 // crosshairs agree, which is the invariant no state-level test can express.
-const FIXTURE = "/apexstock/test/e2e/fixtures/chart.html";
+const FIXTURE = "/test/e2e/fixtures/chart.html";
 
 // The panes differ from the main plot by half a bar: ApexCharts insets a
 // candlestick's grid by one bar-width and a line pane's by nothing. That is a

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const FIXTURE = "/apexstock/test/e2e/fixtures/chart.html";
+const FIXTURE = "/test/e2e/fixtures/chart.html";
 
 // Wait until the fixture signals the first SVG has painted.
 async function gotoChart(page) {
@@ -135,7 +135,7 @@ test.describe("ApexStock toolbar + chart", () => {
 });
 
 test.describe("ApexStock consumer theming", () => {
-  const THEMED = "/apexstock/test/e2e/fixtures/chart-themed.html";
+  const THEMED = "/test/e2e/fixtures/chart-themed.html";
 
   test("custom --apexstock-* token overrides reach the rendered toolbar", async ({
     page,
@@ -187,7 +187,7 @@ test.describe("ApexStock visual regression", () => {
   });
 
   test("custom-themed toolbar matches the baseline", async ({ page }) => {
-    await page.goto("/apexstock/test/e2e/fixtures/chart-themed.html");
+    await page.goto("/test/e2e/fixtures/chart-themed.html");
     await page.waitForFunction(() => window.__ready === true, null, {
       timeout: 15000,
     });

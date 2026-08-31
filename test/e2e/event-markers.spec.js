@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Event markers in a real browser: time-anchored badges render over the plot,
 // reproject on zoom (and hide when their x scrolls off the visible grid), and
 // show a hover card with the marker's label.
-const FIXTURE = "/apexstock/test/e2e/fixtures/event-markers.html";
+const FIXTURE = "/test/e2e/fixtures/event-markers.html";
 
 const BASE = Date.UTC(2024, 0, 1);
 const DAY = 86400000;

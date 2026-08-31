@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // live chart config AND the `--apx-*` chrome tokens on the container (through the
 // multi-class token cascade), it clears back to a plain mode, and it round-trips
 // through getState/setState.
-const FIXTURE = "/apexstock/test/e2e/fixtures/theme-presets.html";
+const FIXTURE = "/test/e2e/fixtures/theme-presets.html";
 
 async function gotoFixture(page) {
   const errors = [];

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 // On-chart data legend in a real browser: it shows the instrument name + OHLC,
 // updates on hover, and lists a main-chart overlay indicator's value.
-const FIXTURE = "/apexstock/test/e2e/fixtures/legend.html";
+const FIXTURE = "/test/e2e/fixtures/legend.html";
 
 async function gotoFixture(page) {
   const errors = [];

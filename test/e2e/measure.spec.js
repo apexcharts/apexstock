@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 // Also pins the two behaviours that make the box useful together: dragging the
 // BODY still preserves the span (that is how a measured move is projected onto
 // a breakout), and the reported numbers follow the bars the box actually covers.
-const FIXTURE = "/apexstock/test/e2e/fixtures/measure.html";
+const FIXTURE = "/test/e2e/fixtures/measure.html";
 
 async function gotoFixture(page) {
   const errors = [];

@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // percent/indexed, logarithmic renders a candlestick chart without error, the
 // priceScaleChange event fires, and the mode round-trips through getState/
 // setState.
-const FIXTURE = "/apexstock/test/e2e/fixtures/price-scale.html";
+const FIXTURE = "/test/e2e/fixtures/price-scale.html";
 
 async function gotoFixture(page) {
   const errors = [];

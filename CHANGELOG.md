@@ -9,6 +9,23 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Changed
+
+- **The test harness and the examples now load the ApexCharts a user installs.**
+  Nothing in the repo declared the engine it renders with: every e2e fixture,
+  example, and framework demo pulled `apexcharts.js` from a sibling checkout on
+  the maintainer's disk. A clone plus `yarn install` could not run the e2e suite
+  at all, and when it did run it validated whatever happened to be in that
+  directory, which is not what the manifest promises or what a user gets. The
+  Angular demo's lockfile shows how far that can drift: it had the engine pinned
+  at 5.15.2, two majors behind the peer range declared at the time. ApexCharts
+  is now a devDependency pinned to the same range as the peer; fixtures load
+  `/node_modules/apexcharts/dist/apexcharts.js` from a server rooted at the repo
+  (it used to be rooted at the parent directory), and examples and demos use the
+  relative equivalent. No runtime code changed: the newly installed 7.1.0 is
+  byte identical to the checkout the suite had been running against, so the 83
+  e2e tests, visual baselines included, pass unchanged.
+
 ## [0.5.0] - 2026-08-31
 
 ### Added

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Toolbar customization in a real browser: config hides a built-in section and
 // injects a custom button that fires its onClick, and the runtime API adds/
 // removes items against the real, fully-populated toolbar.
-const FIXTURE = "/apexstock/test/e2e/fixtures/toolbar.html";
+const FIXTURE = "/test/e2e/fixtures/toolbar.html";
 
 async function gotoFixture(page) {
   const errors = [];

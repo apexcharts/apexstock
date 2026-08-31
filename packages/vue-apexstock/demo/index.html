@@ -55,8 +55,10 @@
       }
     </style>
 
-    <!-- Real ApexCharts global (peer dependency), loaded as the core expects. -->
-    <script src="../../../../apexcharts-js/dist/apexcharts.js"></script>
+    <!-- Real ApexCharts global (peer dependency), loaded as the core expects.
+         Served from the repo root's install, so it is the same pinned build
+         the core's own suite runs against. -->
+    <script src="../../../node_modules/apexcharts/dist/apexcharts.js"></script>
 
     <script type="importmap">
       {

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // State persistence in a real browser: getState() on a chart carrying
 // annotations + a trading price line, then setState() on a second chart, draws
 // those overlays on the target chart (portable, cross-instance).
-const FIXTURE = "/apexstock/test/e2e/fixtures/state.html";
+const FIXTURE = "/test/e2e/fixtures/state.html";
 
 async function gotoFixture(page) {
   const errors = [];

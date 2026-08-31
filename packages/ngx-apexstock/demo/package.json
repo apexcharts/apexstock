@@ -12,7 +12,7 @@
     "@angular/common": "^18.2.13",
     "@angular/core": "^18.2.13",
     "@angular/platform-browser": "^18.2.13",
-    "apexcharts": "file:../../../../apexcharts-js",
+    "apexcharts": "^7.1.0",
     "apexstock": "file:../../..",
     "ngx-apexstock": "file:../dist",
     "rxjs": "^7.8.1",

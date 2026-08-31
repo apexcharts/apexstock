@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Trading overlays in a real browser: the price lines render as y-axis
 // annotations on the main chart, survive a theme switch and a chart-type switch,
 // and the update/remove API reflects in the DOM. No console errors.
-const FIXTURE = "/apexstock/test/e2e/fixtures/trading-overlays.html";
+const FIXTURE = "/test/e2e/fixtures/trading-overlays.html";
 
 async function gotoFixture(page) {
   const errors = [];

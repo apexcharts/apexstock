@@ -10,7 +10,7 @@ import { test, expect } from "@playwright/test";
  * inheritance nor stylesheets.
  */
 
-const FIXTURE = "/apexstock/test/e2e/fixtures/chart.html";
+const FIXTURE = "/test/e2e/fixtures/chart.html";
 
 async function gotoChart(page) {
   await page.goto(FIXTURE);

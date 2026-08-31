@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // on a secondary y-axis, the normalized views, the benchmark role, and a
 // visible-window baseline that follows a real zoom. jsdom cannot prove the
 // multi-axis binding survives ApexCharts, which is the point of these.
-const FIXTURE = "/apexstock/test/e2e/fixtures/comparison.html";
+const FIXTURE = "/test/e2e/fixtures/comparison.html";
 
 async function gotoFixture(page) {
   const errors = [];

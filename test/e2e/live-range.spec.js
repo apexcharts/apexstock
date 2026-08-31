@@ -10,7 +10,7 @@ import { test, expect } from "@playwright/test";
 // the candles moved while everything around them stood still and then snapped
 // into place. These specs pin the per-frame behaviour, which cannot be observed
 // without real wheel events and real frames.
-const FIXTURE = "/apexstock/test/e2e/fixtures/chart.html";
+const FIXTURE = "/test/e2e/fixtures/chart.html";
 
 async function gotoFixture(page) {
   const errors = [];

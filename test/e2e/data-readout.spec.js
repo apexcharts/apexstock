@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // getDataAt(index) in a real browser: OHLC + volume + change from the series,
 // plus overlay (moving average) and oscillator-pane (RSI) indicator values, and
 // the intended pairing with the crosshairMove event's dataPointIndex.
-const FIXTURE = "/apexstock/test/e2e/fixtures/data-readout.html";
+const FIXTURE = "/test/e2e/fixtures/data-readout.html";
 
 async function gotoFixture(page) {
   const errors = [];

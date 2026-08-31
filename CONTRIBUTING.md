@@ -7,7 +7,8 @@ tools, theming, and export on top of the base ApexCharts engine.
 ## Getting started
 
 ```bash
-yarn install        # install dev dependencies (ApexCharts is a peer dep)
+yarn install        # dev dependencies, incl. the pinned ApexCharts the
+                    # examples and e2e suite run against (see Testing)
 yarn dev            # rollup watch build
 yarn build          # production build: bundles (IIFE/UMD/ESM) + types + standalone CSS
 ```
@@ -21,10 +22,14 @@ yarn build          # production build: bundles (IIFE/UMD/ESM) + types + standal
 | `yarn typecheck` | Type-check via JSDoc without emitting |
 | `yarn lint` / `yarn lint:fix` | ESLint (flat config) |
 | `yarn format` / `yarn format:check` | Prettier |
-| `yarn test` / `yarn test:watch` | Vitest |
+| `yarn test` / `yarn test:watch` | Vitest (unit, jsdom + a mocked ApexCharts) |
 | `yarn test:coverage` | Vitest with coverage (enforces a threshold on `Indicators.js`) |
+| `yarn test:e2e` | Playwright: real browser, real ApexCharts, incl. visual regression |
+| `yarn test:e2e:update` | Regenerate the committed visual baselines |
 
-CI (`.github/workflows/ci.yml`) runs `install → lint → test → build` on Node 20/22.
+CI (`.github/workflows/ci.yml`) runs `install → lint → test → build` on Node
+20/22. It does not run `test:e2e`: the visual baselines are generated on the
+maintainer's machine and font rendering differs on the CI image.
 
 ## Conventions
 
@@ -108,12 +113,36 @@ Tests use **Vitest** (jsdom for DOM-touching code). Patterns:
   pin the observable `updateSeries`/annotation/oscillator-pane behavior. Run them
   before and after any refactor of the indicator orchestration.
 
-> **Note:** the test suite is headless (jsdom + a mocked ApexCharts). Rendering
-> and interaction (overlay alignment, zoom/pan, drawing) are **not** covered by
-> automated tests, so do a manual pass for visual/interaction changes:
+> **Note:** the Vitest suite runs against a *mocked* ApexCharts, so it cannot
+> see anything about rendering. Geometry, alignment, zoom/pan and drawing are
+> covered by the Playwright suite below instead. Neither judges whether the
+> result looks right, so still do a manual pass for visual changes:
 > `examples/basic.html` and `examples/theming.html` for appearance,
 > `examples/analysis.html` for drawing, measuring and panes, and
 > `examples/timeframe.html` for zoom/range behavior.
+
+### End-to-end (`yarn test:e2e`)
+
+Playwright drives a real browser against the real ApexCharts, which is where
+anything positional has to be verified: a mocked engine reports no geometry, so
+a crosshair on the wrong bar or a legend under the axis strip is invisible to
+Vitest. Fixtures live in [`test/e2e/fixtures/`](test/e2e/fixtures/) and load two
+root-absolute paths, served from the repo root:
+
+- `/dist/apexstock.min.js`: the built bundle, so **run `yarn build` first**
+  after touching `src/`, or the suite tests the previous build.
+- `/node_modules/apexcharts/dist/apexcharts.js`: the pinned `apexcharts`
+  devDependency.
+
+**Keep ApexCharts coming from `node_modules`.** It is a peer dependency for
+consumers *and* a devDependency here, deliberately: the suite has to exercise
+the build a user installs. Pointing a fixture or an example at a local
+ApexCharts checkout makes every result depend on the state of a directory
+outside the repo, so a pass stops meaning the shipped combination works. Bump
+the devDependency and the `peerDependencies` range together.
+
+Examples use relative paths for the same two files, so
+`open examples/basic.html` works with no server.
 
 ## Releasing
 
