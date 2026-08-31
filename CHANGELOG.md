@@ -25,6 +25,16 @@ those are called out explicitly below.
   relative equivalent. No runtime code changed: the newly installed 7.1.0 is
   byte identical to the checkout the suite had been running against, so the 83
   e2e tests, visual baselines included, pass unchanged.
+- **The three framework wrappers ship at 0.2.2 with peer ranges that agree with
+  each other.** `react-apexstock`, `vue-apexstock`, and `ngx-apexstock` had
+  gained the `apexcharts` peer without a release, so npm still served 0.2.1,
+  which declared no engine requirement at all. Bumping them surfaced a defect in
+  the pairing: `apexstock: ">=0.5.0 <1"` is the only range that agrees with
+  `apexcharts: "^7.1.0"`, because apexstock 0.3.x requires `^5.15.0` and 0.4.x
+  requires `^6.7.0`. Left as `">=0.3.0 <1"` the two peers were mutually
+  unsatisfiable, and `npm ci` (in the publish workflow) and `npm install` (for a
+  user) both failed with ERESOLVE. Their lockfiles were stale for the same
+  reason and now resolve apexstock 0.5.0 and apexcharts 7.1.0.
 
 ## [0.5.0] - 2026-08-31
 
