@@ -164,10 +164,40 @@ trigger, so exactly one package publishes per release commit. A version with a
 hyphen (e.g. `0.3.0-beta.1`) publishes under the `next` dist-tag; otherwise
 `latest`.
 
+### Tags and GitHub releases
+
+After a successful publish the workflow pushes an annotated tag and creates the
+GitHub release. Tags are **`<package>@<version>`** (`apexstock@0.5.0`,
+`react-apexstock@0.2.2`), not `vX.Y.Z`: four packages share this repo, so a bare
+version tag would be ambiguous. This matches the `apex-grid` monorepo. (Two
+legacy `v0.1.0` / `v0.2.0` tags predate the wrappers and are left alone.)
+
+The body comes from [`scripts/release-notes.mjs`](scripts/release-notes.mjs),
+so what CI posts is what you can preview locally:
+
+```bash
+node scripts/release-notes.mjs apexstock 0.5.0
+```
+
+For the core it is the `## [<version>]` section of `CHANGELOG.md`, verbatim, so
+the release and the changelog cannot drift; the step **fails** if that section
+is missing rather than posting empty notes. Wrappers have no changelog of their
+own and get a short stub pointing at the core's.
+
+**Write the editorial lead before you tag.** An optional
+`.github/release-notes/<package>@<version>.md` is inserted above the changelog
+and is where the framing belongs: what the release is about, what breaks, the
+upgrade command. Committing it alongside the release commit means the notes are
+complete the moment CI posts them, and reviewable in the diff, rather than being
+typed into the GitHub UI afterwards (which is how the tags lapsed after 0.2.0).
+
 ### To cut a release
 
 1. Bump `version` in the package's `package.json` (and update `CHANGELOG.md`).
-2. Commit with the matching trigger message and push to `main`:
+2. For the core, write `.github/release-notes/apexstock@<version>.md` (the lead
+   paragraph; see above) and preview the notes with
+   `node scripts/release-notes.mjs apexstock <version>`.
+3. Commit with the matching trigger message and push to `main`:
 
    ```bash
    # core
@@ -177,7 +207,11 @@ hyphen (e.g. `0.3.0-beta.1`) publishes under the `next` dist-tag; otherwise
    git push origin main
    ```
 
-3. Watch the run: `gh run watch $(gh run list --workflow=publish.yml -L1 --json databaseId -q '.[0].databaseId')`.
+4. Watch the run: `gh run watch $(gh run list --workflow=publish.yml -L1 --json databaseId -q '.[0].databaseId')`.
+
+   Pushing several release commits at once publishes only **one** package: the
+   workflow reads `github.event.head_commit.message`, so each release commit has
+   to be the tip of its own push (`git push origin <sha>:main`).
 
 ### Things that will bite you
 

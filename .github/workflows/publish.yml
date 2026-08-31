@@ -20,7 +20,9 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  # write, not read: each publish also pushes its tag and creates the GitHub
+  # release (see "Tag and release" below).
+  contents: write
 
 jobs:
   # ── Core: apexstock ─────────────────────────────────────────────────────────
@@ -84,6 +86,39 @@ jobs:
 
       - run: npm publish --provenance --tag ${{ steps.check.outputs.tag }}
         if: steps.check.outputs.triggered == 'true'
+
+      # Tags are `<package>@<version>`, not `vX.Y.Z`: four packages share this
+      # repo, so a bare version tag would be ambiguous. Same scheme as the
+      # apex-grid monorepo. Both steps are idempotent, so a re-run of a
+      # published version does not fail here.
+      - name: Tag and release
+        if: steps.check.outputs.triggered == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          GIT_TAG="apexstock@$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Checked against the REMOTE: the checkout is shallow and fetches no
+          # tags, so a local lookup would miss an existing tag and the push
+          # below would then fail instead of skipping.
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$GIT_TAG")" ]; then
+            echo "Tag $GIT_TAG already exists, skipping"
+          else
+            git tag -a "$GIT_TAG" -m "Release $GIT_TAG"
+            git push origin "$GIT_TAG"
+          fi
+          if gh release view "$GIT_TAG" >/dev/null 2>&1; then
+            echo "Release $GIT_TAG already exists, skipping"
+          else
+            # Fails loudly when CHANGELOG.md has no section for this version,
+            # rather than publishing empty notes.
+            node scripts/release-notes.mjs apexstock "$VERSION" > /tmp/notes.md
+            gh release create "$GIT_TAG" --title "$GIT_TAG" --notes-file /tmp/notes.md
+            echo "✅ Released $GIT_TAG"
+          fi
 
   # ── Framework wrappers: react / vue / ngx ───────────────────────────────────
   publish-wrappers:
@@ -163,4 +198,34 @@ jobs:
             cd dist && npm publish --provenance --tag ${{ steps.check.outputs.tag }}
           else
             npm publish --provenance --tag ${{ steps.check.outputs.tag }}
+          fi
+
+      - name: Tag and release
+        if: steps.check.outputs.triggered == 'true'
+        # The job's default working-directory is the package; the script and the
+        # git repo are at the root.
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          GIT_TAG="${{ matrix.pkg }}@$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Checked against the REMOTE: the checkout is shallow and fetches no
+          # tags, so a local lookup would miss an existing tag and the push
+          # below would then fail instead of skipping.
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$GIT_TAG")" ]; then
+            echo "Tag $GIT_TAG already exists, skipping"
+          else
+            git tag -a "$GIT_TAG" -m "Release $GIT_TAG"
+            git push origin "$GIT_TAG"
+          fi
+          if gh release view "$GIT_TAG" >/dev/null 2>&1; then
+            echo "Release $GIT_TAG already exists, skipping"
+          else
+            node scripts/release-notes.mjs "${{ matrix.pkg }}" "$VERSION" > /tmp/notes.md
+            gh release create "$GIT_TAG" --title "$GIT_TAG" --notes-file /tmp/notes.md
+            echo "✅ Released $GIT_TAG"
           fi
