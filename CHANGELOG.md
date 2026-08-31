@@ -314,6 +314,14 @@ those are called out explicitly below.
 
 ### Changed
 
+- **The price crosshair label now matches the date chip.** ApexCharts draws the
+  price (y) readout and ApexStock draws the date (x) one, so nothing kept them in
+  step: the date chip was redrawn as a filled cell and the price label stayed a
+  white pill with a hairline border. It is restyled here by setting ApexCharts'
+  four `--apx-axt-*` tokens, which its pointer triangle also derives its colors
+  from, so the whole label retints with no geometry to override. Both readouts
+  resolve the same `--apexstock-*` tokens, so they follow a mode change and a
+  theme preset together.
 - **The example set no longer ships two demos of the same thing, twice over.**
   `theming.html` and `theme-presets.html` covered two halves of one story and
   are now a single page showing all three theming paths (modes, presets, CSS

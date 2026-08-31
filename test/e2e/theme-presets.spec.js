@@ -94,6 +94,55 @@ test.describe("theme presets", () => {
     expect(errors).toEqual([]);
   });
 
+  test("both crosshair readouts stay a matched pair", async ({ page }) => {
+    const errors = await gotoFixture(page);
+
+    // The date chip is ours and the price label is ApexCharts', so nothing
+    // makes them agree by construction: the price label was left as a white
+    // pill with a hairline border after the chip became a filled cell. Their
+    // palettes are only kept in step by both resolving the same
+    // `--apexstock-*` tokens, which a preset can redefine underneath.
+    const pair = async () => {
+      const box = await page
+        .locator("#chart .apexcharts-svg")
+        .first()
+        .boundingBox();
+      // Two moves: ApexCharts ignores a pointer that arrives without moving.
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.45);
+      await page.waitForTimeout(80);
+      await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.45);
+      await page.waitForTimeout(280);
+
+      return page.evaluate(() => {
+        const paint = (el) => {
+          if (!el) return null;
+          const s = getComputedStyle(el);
+          return `${s.backgroundColor}|${s.color}|${s.borderRadius}|${s.fontSize}`;
+        };
+        return {
+          price: paint(document.querySelector(".apexcharts-yaxistooltip")),
+          date: paint(document.querySelector(".apexstock-xaxis-tooltip")),
+        };
+      });
+    };
+
+    const light = await pair();
+    expect(light.price).not.toBeNull();
+    expect(light.price).toBe(light.date);
+
+    await page.evaluate(() => window.__chart.updateTheme("dark"));
+    const dark = await pair();
+    expect(dark.price).toBe(dark.date);
+    // Actually inverted by the mode, not merely equal to each other.
+    expect(dark.price).not.toBe(light.price);
+
+    await page.evaluate(() => window.__chart.setThemePreset("paper"));
+    const preset = await pair();
+    expect(preset.price).toBe(preset.date);
+
+    expect(errors).toEqual([]);
+  });
+
   test("the preset round-trips through getState/setState", async ({ page }) => {
     const errors = await gotoFixture(page);
     const state = await page.evaluate(() => {

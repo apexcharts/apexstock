@@ -548,6 +548,34 @@
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.18);
 }
 
+/* The price (y) crosshair label, the horizontal twin of the date chip above.
+ *
+ * ApexCharts draws this one, not us, but it has to read as the same control:
+ * the same fill, the same inverted text, the same rounding and figures. It was
+ * left as a white pill with a hairline border, which was fine on its own and
+ * obviously mismatched once the date chip became a filled cell.
+ *
+ * Only ApexCharts' four `--apx-axt-*` tokens are set. Its pointer triangle is a
+ * pair of pseudo-elements that take their colours from those same tokens, so it
+ * retints with the box and no border-width geometry has to be overridden here.
+ * A transparent border keeps the 1px ApexCharts reserves, so the label does not
+ * shift when the palette changes.
+ *
+ * Scoped with the theme class as well as the marker class: ApexCharts' own dark
+ * rule is `.apexcharts-yaxistooltip.apexcharts-theme-dark`, which carries the
+ * same specificity as a single-class ancestor selector would, and stylesheet
+ * order between the two is not ours to rely on.
+ */
+.apexstock-chart.apexstock-theme-light .apexcharts-yaxistooltip {
+  --apx-axt-bg: var(--apexstock-light-text);
+  --apx-axt-color: var(--apexstock-light-bg);
+  --apx-axt-border: transparent;
+  --apx-axt-shadow: 0 1px 2px rgba(16, 24, 40, 0.18);
+  border-radius: var(--apexstock-border-radius-sm);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ==============================
  * 8. Element Interactions
  * ============================== */
@@ -943,6 +971,16 @@
   background: var(--apexstock-dark-text);
   color: var(--apexstock-dark-bg);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.apexstock-chart.apexstock-theme-dark .apexcharts-yaxistooltip {
+  --apx-axt-bg: var(--apexstock-dark-text);
+  --apx-axt-color: var(--apexstock-dark-bg);
+  --apx-axt-border: transparent;
+  --apx-axt-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  border-radius: var(--apexstock-border-radius-sm);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .apexstock-theme-dark .apexstock-tooltip-annotation:hover rect {
