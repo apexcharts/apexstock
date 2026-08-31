@@ -159,6 +159,14 @@ export default class DrawingTools {
      */
     redrawElements(): void;
     /**
+     * The measure label when there is no analysis layer to ask (a bare
+     * DrawingTools built outside an ApexStock instance). Geometry only: the delta
+     * between the two dragged anchors, and the bar count they span.
+     * @param {object} data - The measure element record.
+     * @returns {string[]}
+     */
+    _measureFallbackLines(data: object): string[];
+    /**
      * Given a ray's first two screen points, return the point where the ray
      * (from p1 through p2) exits the chart's grid rectangle. Used to render an
      * open-ended ray. Falls back to p2 for a degenerate (zero-length) ray.

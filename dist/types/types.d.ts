@@ -70,6 +70,30 @@ export type StockChartOptions = {
     plotOptions?: {
         stockChart?: StockChartPlotOptions;
     };
+    /**
+     * - Analysis engine, measurement, panel,
+     * and comparison defaults.
+     */
+    analysis?: AnalysisOptions;
+    /**
+     * - Per-pane layout, keyed by
+     * indicator key (e.g. `{ drawdown: { heightRatio: 2 } }`).
+     */
+    panes?: {
+        [x: string]: PaneOptions;
+    };
+};
+/**
+ * Layout options for one oscillator/analysis pane.
+ */
+export type PaneOptions = {
+    /**
+     * - This pane's share of the indicator area,
+     * relative to the other panes: two panes at 1 and 2 split it one-third /
+     * two-thirds. Defaults to the indicator's own preference (1 for most, 1.4 for
+     * the drawdown pane).
+     */
+    heightRatio?: number;
 };
 /**
  * Visible x-axis range expressed as data indices/values.
@@ -85,14 +109,61 @@ export type ZoomState = {
  *   ({@link CrosshairEvent}).
  * - `click` fires on a click on the price chart ({@link CrosshairEvent}).
  * - `rangeChange` fires when the visible x-range changes via zoom, pan, or
- *   reset ({@link RangeChangeEvent}).
+ *   reset ({@link RangeChangeEvent}). Once per gesture: a wheel or pinch zoom
+ *   emits it when the gesture settles, not on every frame.
+ * - `rangeChanging` fires on every frame of an in-progress zoom/pan
+ *   ({@link RangeChangeEvent} with `source: "live"`). Use it to keep your own
+ *   overlay glued to the axis during a gesture; use `rangeChange` for work that
+ *   should happen once, such as fetching data for the new window.
  * - `indicatorToggle` fires when an indicator is added or removed
  *   ({@link IndicatorToggleEvent}).
  * - `drawingAdded` / `drawingUpdated` fire with `{ id, drawing }` when a
  *   programmatic drawing is added or patched; `drawingRemoved` fires with
  *   `{ id }`; `drawingsCleared` fires with `{}`.
+ * - `eventMarkerAdded` / `eventMarkerUpdated` fire with `{ id, marker }` when an
+ *   event marker is added or patched; `eventMarkerRemoved` fires with `{ id }`;
+ *   `eventMarkersCleared` fires with `{}`. `eventMarkerHover` /
+ *   `eventMarkerClick` fire with `{ id, marker, nativeEvent }` on pointer
+ *   interaction with a marker badge.
+ * - `priceScaleChange` fires with `{ mode, base, logBase, indexBase }` when the
+ *   primary price-axis scale mode changes.
+ * - `rangeMeasured` fires when a measurement settles (created, or its anchors
+ *   moved) with {@link RangeMeasuredEvent}. One event per change, not one per
+ *   drag frame, and never on a plain zoom or pan.
+ * - `measurementRemoved` fires with `{ id }` when a measurement is cleared.
+ * - `comparisonChange` fires when the comparison set, mode, benchmark, or
+ *   baseline changes, with {@link ComparisonChangeEvent} (the recomputed
+ *   leaderboard included).
+ * - `comparisonRestoreNeeded` fires with `{ names }` after `setState` restored a
+ *   comparison whose instrument data is not loaded: the consumer re-supplies it
+ *   with `addComparison`. See {@link ApexStockState}.
  */
-export type ApexStockEventName = "crosshairMove" | "click" | "rangeChange" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared";
+export type ApexStockEventName = "crosshairMove" | "click" | "rangeChange" | "rangeChanging" | "indicatorToggle" | "drawingAdded" | "drawingUpdated" | "drawingRemoved" | "drawingsCleared" | "eventMarkerAdded" | "eventMarkerUpdated" | "eventMarkerRemoved" | "eventMarkersCleared" | "eventMarkerHover" | "eventMarkerClick" | "priceScaleChange" | "rangeMeasured" | "measurementRemoved" | "comparisonChange" | "comparisonRestoreNeeded";
+/**
+ * Payload for the `rangeMeasured` event.
+ *
+ * `change` (inside `stats`) is the instrument's close-to-close move over the
+ * spanned bars; `selection` is the delta between the two anchors the user
+ * dragged. They differ whenever the anchors are not on the closes, which is why
+ * both are reported.
+ */
+export type RangeMeasuredEvent = {
+    /**
+     * - The measurement's id, or null for a reading that
+     * came from ApexCharts' own measure ruler.
+     */
+    id: string | null;
+    from: RangeAnchor;
+    to: RangeAnchor;
+    selection: {
+        from: number | null;
+        to: number | null;
+        absolute: number | null;
+        percent: number | null;
+    };
+    stats: RangeStats;
+    source: "drag" | "api" | "coreRuler";
+};
 /**
  * Payload for the `crosshairMove` and `click` events. `dataPointIndex` is `-1`
  * when the pointer is not over a candle, in which case `x`, `ohlc`, and
@@ -144,8 +215,9 @@ export type RangeChangeEvent = {
     max: number;
     /**
      * - What triggered the change.
+     * `"live"` marks a per-frame `rangeChanging` emission mid-gesture.
      */
-    source: "zoom" | "pan" | "reset";
+    source: "zoom" | "pan" | "reset" | "live";
 };
 /**
  * Payload for the `indicatorToggle` event.
@@ -316,6 +388,313 @@ export type IndicatorDefinition = {
     remove?: Function;
 };
 /**
+ * Options for the analysis engine, given as `analysis` on the constructor
+ * options and overridable per call on `getRangeStats` / `getDrawdown`.
+ *
+ * `periodsPerYear` is the bars-per-year convention used to annualize
+ * volatility (252 for daily equities, 52 weekly, 12 monthly). It is inferred
+ * from the bar spacing when it can be, and left out with a warning when it
+ * cannot (intraday, where the answer depends on session length), so set it
+ * explicitly for intraday data.
+ */
+export type AnalysisOptions = {
+    /**
+     * - Which OHLC field
+     * the anchors, the change, and the averages read.
+     */
+    source?: "close" | "open" | "high" | "low";
+    /**
+     * - `"intrabar"` measures
+     * each bar's low against the running high (the conservative figure).
+     */
+    drawdownBasis?: "close" | "intrabar";
+    /**
+     * - Annualization convention.
+     */
+    periodsPerYear?: number;
+    /**
+     * - Below this span an annualized
+     * return is omitted rather than extrapolated.
+     */
+    minAnnualizeDays?: number;
+    /**
+     * - How a bare number endpoint is read.
+     */
+    by?: "auto" | "index" | "x";
+    /**
+     * Measurement tool config. `snap` pulls the box's anchors onto the bar values
+     * (`true` means the close); `label(stats, { selection, drawing })` replaces the
+     * on-chart readout lines.
+     */
+    measure?: {
+        snap?: boolean | "open" | "high" | "low" | "close";
+        label?: Function;
+    };
+    /**
+     * The on-chart analysis panel. Automatic by default (it appears while a
+     * measurement exists); `false` opts out entirely for headless use.
+     */
+    panel?: boolean | import("./components/AnalysisPanel.js").AnalysisPanelOptions;
+    /**
+     * Multi-instrument comparison: alignment, baseline, mode, and the benchmark
+     * role. See {@link ComparisonOptions}.
+     */
+    comparison?: ComparisonOptions & {
+        mode?: ComparisonMode;
+        benchmark?: string;
+    };
+};
+/**
+ * One end of a measured range, resolved to a bar that actually exists.
+ */
+export type RangeAnchor = {
+    index: number;
+    x: number | string | Date;
+    value: number;
+};
+/**
+ * Every statistic for a selected region, returned by `ApexStock#getRangeStats`.
+ * Values are unrounded, every percent-like figure is in percent units
+ * (`20.42` means +20.42%), and anything the data cannot support is `null` with
+ * the reason in `warnings`. See `src/analysis/Statistics.js` for the per-field
+ * documentation.
+ */
+export type RangeStats = {
+    from: RangeAnchor;
+    to: RangeAnchor;
+    change: {
+        absolute: number;
+        percent: number | null;
+    };
+    /**
+     * - Inclusive bar count. Bars, not trading sessions.
+     */
+    bars: number;
+    upBars: number;
+    downBars: number;
+    flatBars: number;
+    spanMs: number | null;
+    calendarDays: number | null;
+    annualized: {
+        return: number;
+        basis: "calendar";
+    } | null;
+    high: {
+        value: number;
+        index: number;
+        x: any;
+    } | null;
+    low: {
+        value: number;
+        index: number;
+        x: any;
+    } | null;
+    average: {
+        close: number | null;
+        volume: number | null;
+    };
+    total: {
+        volume: number | null;
+    };
+    volatility: import("./analysis/Statistics.js").VolatilityResult | null;
+    drawdown: import("./analysis/Statistics.js").RangeDrawdown;
+    basis: {
+        source: string;
+        drawdown: string;
+    };
+    warnings: string[];
+};
+/**
+ * How comparison lines are normalized.
+ * - `"absolute"`: raw values.
+ * - `"percent"`: percent change from the baseline (the default).
+ * - `"indexed"`: the baseline reads `indexBase` (the "100 = starting value" view).
+ * - `"relative"`: `percentChange(asset) - percentChange(benchmark)`, in
+ *   percentage points; zero means "kept pace".
+ * - `"ratio"`: `asset / benchmark`, rebased so the baseline reads `indexBase`.
+ */
+export type ComparisonMode = "absolute" | "percent" | "indexed" | "relative" | "ratio";
+/**
+ * How instruments with different calendars are put on one grid, and what "0%"
+ * means. See `src/overlays/Comparison.js` for the reasoning behind the defaults.
+ */
+export type ComparisonOptions = {
+    /**
+     * - `"union"` keeps
+     * every x any instrument has, `"primary"` resamples onto the primary's bars,
+     * `"intersection"` keeps only x values every instrument has.
+     */
+    join?: "union" | "primary" | "intersection";
+    /**
+     * - How a hole in one instrument
+     * is handled: carry the last observation, leave it null, or drop the x value
+     * for everyone.
+     */
+    fill?: "hold" | "gap" | "drop";
+    /**
+     * - Where 0%
+     * sits. `"common"` is the first x where every instrument (primary included)
+     * has data, the only fair basis for different start dates. `"own"` is each
+     * instrument's own first point (pre-0.5.0 behavior). `"visible"` follows the
+     * zoom. A number is an explicit x value.
+     */
+    baseline?: "common" | "own" | "visible" | number;
+    /**
+     * - Baseline value for `indexed` and `ratio`.
+     */
+    indexBase?: number;
+    /**
+     * - Which OHLC field
+     * every instrument is compared on.
+     */
+    source?: "close" | "open" | "high" | "low";
+    /**
+     * - `ratio` mode: rebase to `indexBase`
+     * instead of reporting the raw quotient.
+     */
+    rebaseRatio?: boolean;
+    /**
+     * - Plot carried-forward grid points as
+     * well as real observations. Defaults to `join === "primary"`.
+     */
+    resample?: boolean | null;
+};
+/**
+ * One row of the comparison leaderboard, from `ApexStock#getComparisonStats`.
+ * The primary symbol is included, flagged with `primary: true`. Values are
+ * unrounded and every percent-like figure is in percent units; anything the
+ * data cannot support is `null`.
+ */
+export type ComparisonRow = {
+    name: string;
+    /**
+     * - The line color, or null for the primary.
+     */
+    color: string | null;
+    /**
+     * - True for the chart's own symbol.
+     */
+    primary: boolean;
+    /**
+     * - True for whichever instrument fills the
+     * benchmark role.
+     */
+    benchmark: boolean;
+    /**
+     * - x of the first observation in the window.
+     */
+    from: number | null;
+    /**
+     * - x of the last.
+     */
+    to: number | null;
+    /**
+     * - Value at `from`.
+     */
+    start: number | null;
+    /**
+     * - Value at `to`.
+     */
+    end: number | null;
+    change: {
+        absolute: number | null;
+        percent: number | null;
+    };
+    /**
+     * - Excess return vs the benchmark, in
+     * percentage points (0 for the benchmark itself).
+     */
+    relative: number | null;
+    /**
+     * - Highest `source` value in
+     * the window (not the intrabar high; see `ApexStock#getRangeStats` for that).
+     */
+    high: {
+        value: number;
+        x: number;
+    } | null;
+    low: {
+        value: number;
+        x: number;
+    } | null;
+    volatility: import("./analysis/Statistics.js").VolatilityResult | null;
+    /**
+     *   The worst drawdown in the window, measured on this instrument's own
+     *   observations.
+     */
+    drawdown: {
+        max: number;
+        barsToTrough: number;
+        barsToRecovery: number | null;
+        barsUnderwater: number;
+        recovered: boolean;
+    } | null;
+    /**
+     * - Observations in the window. Bars, not sessions.
+     */
+    bars: number;
+    /**
+     *   How much of the shared grid this instrument covers, and how many of those
+     *   points were carried forward rather than observed.
+     */
+    coverage: {
+        bars: number;
+        filled: number;
+        firstX: number | null;
+        lastX: number | null;
+    };
+    /**
+     * - 1-based rank by percent change, best first; 0 when
+     * there is no percent change to rank.
+     */
+    rank: number;
+};
+/**
+ * Payload for the `comparisonChange` event.
+ */
+export type ComparisonChangeEvent = {
+    reason: "add" | "remove" | "clear" | "mode" | "benchmark" | "options" | "visible" | "restore";
+    mode: ComparisonMode;
+    /**
+     * - The configured benchmark, or `"__primary__"`.
+     */
+    benchmark: string;
+    /**
+     * - The baseline policy actually applied (it can
+     * fall back to `"own"` when no x value has data for every instrument).
+     */
+    baseline: string;
+    /**
+     * - Added instrument names, in insertion order.
+     */
+    instruments: string[];
+    stats: ComparisonRow[];
+    warnings: string[];
+};
+/**
+ * The comparison slice of {@link ApexStockState}. Instrument *data* is not
+ * captured (the consumer owns it, and it would bloat state unboundedly): only
+ * each instrument's identity and color, plus the mode, benchmark, and alignment
+ * policy. On restore, instruments whose data is still loaded are kept and the
+ * rest are reported through `comparisonRestoreNeeded`.
+ */
+export type ComparisonState = {
+    mode: ComparisonMode;
+    /**
+     * - An instrument name, or `"__primary__"`.
+     */
+    benchmark: string;
+    options: ComparisonOptions;
+    /**
+     * - Identity and
+     * styling, in display order. No data.
+     */
+    instruments: Array<{
+        name: string;
+        color: string;
+    }>;
+};
+/**
  * A portable, schema-versioned snapshot of an ApexStock chart, produced by
  * `ApexStock#getState` and consumed by `ApexStock#setState`. Plain JSON (no
  * functions), safe to `JSON.stringify`.
@@ -326,10 +705,12 @@ export type ApexStockState = {
      */
     version: number;
     /**
-     * - Theme mode.
+     * - Theme mode, and the
+     * active named preset (or null for a plain mode).
      */
     theme: {
         mode: ThemeMode;
+        preset?: string | null;
     };
     /**
      * - Active chart type (e.g. "candlestick", "heikinashi", "renko", "line", "area", "ohlc").
@@ -344,6 +725,50 @@ export type ApexStockState = {
      * geometry+style record; restored verbatim by `setState`.
      */
     drawings: object[];
+    /**
+     * - Time-anchored event markers (v2+), each a
+     * plain-JSON `{ x, type, label?, color?, glyph?, position?, meta? }` record.
+     */
+    eventMarkers: object[];
+    /**
+     * - Data-space annotations (v2+): y/x lines,
+     * bands, points, and text records.
+     */
+    annotations: object[];
+    /**
+     * - Trading price lines (v2+), declarative config
+     * only; interactive callbacks (`onCross`/`onMove`/`onRemove`) are not captured.
+     */
+    priceLines: object[];
+    /**
+     *   - Primary price-axis scale mode (v2+), or null for the default linear scale.
+     */
+    priceScale: {
+        mode: "linear" | "logarithmic" | "percent" | "indexed";
+        base: number | null;
+        logBase: number;
+        indexBase: number;
+    } | null;
+    /**
+     * - Pane layout
+     * (v2+): the height ratios a consumer set, keyed by indicator key, or null
+     * when every pane is at its default. Which panes *exist* is derived from
+     * `indicators`, so only the layout is captured here.
+     */
+    panes: {
+        [x: string]: {
+            heightRatio: number;
+        };
+    } | null;
+    /**
+     * - Multi-instrument comparison
+     * (v2+): mode, benchmark, alignment policy, and instrument identity, or null
+     * for no comparison. Instrument data is not captured; `setState` emits
+     * `comparisonRestoreNeeded` with the names whose data must be re-supplied.
+     * Measurements need no key of their own: a measurement is a `measure` drawing,
+     * so it round-trips inside `drawings`.
+     */
+    comparison: ComparisonState | null;
     /**
      * - Visible x-range, or null for full/auto.
      */

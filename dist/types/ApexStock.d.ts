@@ -93,6 +93,52 @@ export default class ApexStock {
         };
     }): import("./types.js").Series;
     /**
+     * The pure analysis engine, exposed so the statistics can be computed with no
+     * chart at all (a server-side report, a test, a worker):
+     *
+     * ```js
+     * ApexStock.stats.rangeStats(series, "2024-01-02", "2024-03-15");
+     * ApexStock.stats.drawdown(series);
+     * ApexStock.stats.align({ AAPL, SPY }, { join: "intersection" });
+     * ```
+     *
+     * Two contracts worth knowing: values come back **unrounded** (the consumer
+     * formats), and every percent-like value is in **percent units** (`20.42`
+     * means +20.42%). Anything the data cannot support is `null`, never `0` or
+     * `NaN`, and the assumptions made land in the result's `warnings`.
+     *
+     * @type {{
+     *   rangeStats: typeof Statistics.rangeStats,
+     *   returns: typeof Statistics.returns,
+     *   volatility: typeof Statistics.volatility,
+     *   annualize: typeof Statistics.annualize,
+     *   inferPeriodsPerYear: typeof Statistics.inferPeriodsPerYear,
+     *   resolveIndex: typeof Statistics.resolveIndex,
+     *   drawdown: typeof Drawdown.compute,
+     *   drawdownRange: typeof Drawdown.range,
+     *   worstDrawdown: typeof Drawdown.worst,
+     *   align: typeof Align.align,
+     *   baseline: typeof Align.baseline,
+     *   rebase: typeof Align.rebase,
+     *   relative: typeof Align.relative
+     * }}
+     */
+    static stats: {
+        rangeStats: typeof Statistics.rangeStats;
+        returns: typeof Statistics.returns;
+        volatility: typeof Statistics.volatility;
+        annualize: typeof Statistics.annualize;
+        inferPeriodsPerYear: typeof Statistics.inferPeriodsPerYear;
+        resolveIndex: typeof Statistics.resolveIndex;
+        drawdown: typeof Drawdown.compute;
+        drawdownRange: typeof Drawdown.range;
+        worstDrawdown: typeof Drawdown.worst;
+        align: typeof Align.align;
+        baseline: typeof Align.baseline;
+        rebase: typeof Align.rebase;
+        relative: typeof Align.relative;
+    };
+    /**
      * The time-frame intervals accepted by {@link ApexStock.aggregateOHLC}.
      * @type {string[]}
      */
@@ -124,6 +170,19 @@ export default class ApexStock {
      */
     static registerIndicator(name: string, def: import("./types.js").IndicatorDefinition): string;
     /**
+     * Register (or override) a named theme preset globally, usable on any instance
+     * via `theme: { preset: name }` or `setThemePreset(name)`. A preset builds on
+     * a base `mode` ("light" | "dark") and overrides a small set of colors:
+     * `{ mode, up, down, grid, axis, background, accent }` (missing keys are
+     * backfilled from the base mode).
+     * @param {string} name
+     * @param {import("./core/ThemePresets.js").ThemePreset} def
+     * @returns {object|null} the stored preset def, or null on invalid input.
+     */
+    static registerTheme(name: string, def: import("./core/ThemePresets.js").ThemePreset): object | null;
+    /** @returns {string[]} all known theme preset names (built-in + registered). */
+    static getThemePresets(): string[];
+    /**
      * Register a custom drawing tool globally so `addDrawing({ type: name, ... })`
      * can create it on any ApexStock instance. The tool supplies a
      * `render(data, helpers)` that returns an SVG element from the drawing's
@@ -136,6 +195,16 @@ export default class ApexStock {
      * @returns {boolean} true if registered.
      */
     static registerDrawingTool(name: string, def: import("./tools/drawing/DrawingToolRegistry.js").DrawingToolDefinition): boolean;
+    /**
+     * Link independent ApexStock instances so pan/zoom mirrors across them and a
+     * crosshair on one draws a guide at the same x on the others. Built on the
+     * event bus and `setVisibleRange` (not ApexCharts' native `group`), so the
+     * charts stay independent and can be unlinked.
+     * @param {ApexStock[]} instances - Two or more rendered instances.
+     * @param {import("./core/ChartSync.js").SyncOptions} [options]
+     * @returns {ChartSync} a handle with `disconnect()`.
+     */
+    static sync(instances: ApexStock[], options?: import("./core/ChartSync.js").SyncOptions): ChartSync;
     /**
      * @param {HTMLElement} chartEl - The container element where the charts will be rendered.
      * @param {import("./types.js").StockChartOptions} chartOptions - ApexCharts options whose `series[0].data` holds the OHLC points.
@@ -150,10 +219,65 @@ export default class ApexStock {
     _ApexCharts: any;
     chartEl: HTMLElement;
     chartOptions: import("./types.js").StockChartOptions;
+    analysisOptions: {
+        /**
+         * - Which OHLC field
+         * the anchors, the change, and the averages read.
+         */
+        source?: "close" | "open" | "high" | "low";
+        /**
+         * - `"intrabar"` measures
+         * each bar's low against the running high (the conservative figure).
+         */
+        drawdownBasis?: "close" | "intrabar";
+        /**
+         * - Annualization convention.
+         */
+        periodsPerYear?: number;
+        /**
+         * - Below this span an annualized
+         * return is omitted rather than extrapolated.
+         */
+        minAnnualizeDays?: number;
+        /**
+         * - How a bare number endpoint is read.
+         */
+        by?: "auto" | "index" | "x";
+        /**
+         * Measurement tool config. `snap` pulls the box's anchors onto the bar values
+         * (`true` means the close); `label(stats, { selection, drawing })` replaces the
+         * on-chart readout lines.
+         */
+        measure?: {
+            snap?: boolean | "open" | "high" | "low" | "close";
+            label?: Function;
+        };
+        /**
+         * The on-chart analysis panel. Automatic by default (it appears while a
+         * measurement exists); `false` opts out entirely for headless use.
+         */
+        panel?: boolean | import("./components/AnalysisPanel").AnalysisPanelOptions;
+        /**
+         * Multi-instrument comparison: alignment, baseline, mode, and the benchmark
+         * role. See {@link ComparisonOptions}.
+         */
+        comparison?: import("./types.js").ComparisonOptions & {
+            mode?: import("./types.js").ComparisonMode;
+            benchmark?: string;
+        };
+    };
+    paneOptions: {
+        [x: string]: import("./types.js").PaneOptions;
+    };
     totalHeight: any;
     Utils: typeof Utils;
     xAxisHeight: number;
     _emitter: EventEmitter;
+    /** @type {{min: number, max: number}|null} */
+    _liveWindow: {
+        min: number;
+        max: number;
+    } | null;
     _documentClickHandlers: any[];
     groupID: string;
     mainChartId: any;
@@ -167,7 +291,13 @@ export default class ApexStock {
     tradingOverlays: TradingOverlays;
     annotations: Annotations;
     comparison: Comparison;
+    priceScale: PriceScale;
+    toolbar: Toolbar;
     drawings: Drawings;
+    eventMarkers: EventMarkers;
+    legend: Legend;
+    measurement: Measurement;
+    analysisPanel: AnalysisPanel;
     FIBLEVELS: number[];
     activeOscillator: any;
     themeManager: ThemeManager;
@@ -192,7 +322,10 @@ export default class ApexStock {
      *
      * Events:
      * - `crosshairMove` / `click` — pointer over the price chart ({@link import("./types.js").CrosshairEvent}).
-     * - `rangeChange` — visible x-range changed via zoom/pan/reset ({@link import("./types.js").RangeChangeEvent}).
+     * - `rangeChange` fires when the visible x-range changes via zoom/pan/reset,
+     *   once per gesture ({@link import("./types.js").RangeChangeEvent}).
+     * - `rangeChanging` fires on every frame of an in-progress zoom/pan, with the
+     *   same payload, for overlays that must track the gesture.
      * - `indicatorToggle` — an indicator was added or removed ({@link import("./types.js").IndicatorToggleEvent}).
      *
      * @param {import("./types.js").ApexStockEventName|string} name
@@ -237,18 +370,36 @@ export default class ApexStock {
     private _emitPointerEvent;
     /**
      * Capture the chart's current state as a portable, schema-versioned JSON
-     * object: theme mode, active chart type, active indicators (with their
-     * params), and the visible x-range. The result is plain JSON (no functions),
-     * safe to `JSON.stringify` and persist per user/workspace. Restore it with
+     * object: the theme (mode and preset), the active chart type, the active
+     * indicators with their params, the drawings (measurements included, since a
+     * measurement is a drawing), the event markers, the data-space annotations,
+     * the trading price lines, the price-scale mode, the comparison setup, and the
+     * visible x-range. The result is plain JSON (no functions), safe to
+     * `JSON.stringify` and persist per user/workspace. Restore it with
      * {@link ApexStock#setState}.
+     *
+     * Two things belong to the consumer and are captured by reference rather than
+     * by value: a price line's interactive callbacks (`onCross`/`onMove`/
+     * `onRemove`), and a comparison instrument's price data. Both are re-supplied
+     * after a restore, the second in response to `comparisonRestoreNeeded`.
      * @returns {import("./types.js").ApexStockState}
      */
     getState(): import("./types.js").ApexStockState;
     /**
      * Restore a state previously produced by {@link ApexStock#getState} (any
-     * supported version — it is migrated internally). Reconciles theme, chart
-     * type, indicators (+params), the toolbar selection, and zoom. Call after
-     * {@link ApexStock#render}.
+     * supported version, migrated internally). Reconciles everything
+     * {@link ApexStock#getState} captures. Call after {@link ApexStock#render}.
+     *
+     * A restored comparison keeps any instrument whose data is still loaded and
+     * emits `comparisonRestoreNeeded` with the names whose data is not, so
+     * subscribe before calling this if you need to re-supply it:
+     *
+     * ```js
+     * chart.on("comparisonRestoreNeeded", ({ names }) => {
+     *   names.forEach((name) => chart.addComparison({ name, data: myCache[name] }));
+     * });
+     * chart.setState(saved);
+     * ```
      * @param {import("./types.js").ApexStockState} state
      * @returns {this}
      */
@@ -343,6 +494,67 @@ export default class ApexStock {
      */
     handleScroll(ctx: any, e: any): void;
     /**
+     * Draw the chrome for the current `xaxisRange`, unless it is already drawn.
+     * The single entry point for both the per-frame tracker and the settled
+     * zoom/scroll handlers, so a gesture redraws once per frame and not once more
+     * when it ends.
+     * @returns {boolean} Whether the window had moved (and so a redraw happened).
+     * @private
+     */
+    private _syncRangeChrome;
+    /**
+     * Re-project everything ApexStock draws *around* the plot onto the current
+     * `xaxisRange`: the custom x-axis, the fibonacci pane, and the draggable
+     * price-line handles. Cheap (sub-millisecond) and idempotent, so it is safe
+     * to call once per animation frame during a gesture.
+     * @returns {void}
+     * @private
+     */
+    private _refreshRangeChrome;
+    /**
+     * Track the visible x-window *per animation frame*, not just when a gesture
+     * settles.
+     *
+     * ApexCharts' `zoomed` callback is deliberately once-per-gesture: a wheel or
+     * pinch zoom re-renders the plot every frame but defers `zoomed` until 150ms
+     * after the last wheel event. Hanging the chrome off `zoomed` alone therefore
+     * froze the x-axis, the event markers and any linked chart for the whole
+     * gesture, then snapped them into place afterwards: the candles moved and
+     * everything around them lagged behind. (Drag-panning never showed this,
+     * because ApexCharts' pan path *does* fire `scrolled` per move.)
+     *
+     * `updated` does fire per frame, so it is the live signal. It also fires for
+     * every other kind of update (new series, a theme rebuild, an append), hence
+     * the window comparison: anything that did not move the x-window returns
+     * immediately.
+     *
+     * The settled `rangeChange` event keeps its once-per-gesture semantics for
+     * consumers; the per-frame signal is `rangeChanging`.
+     *
+     * @param {object} chart - An ApexCharts instance to listen on (the main chart
+     *   or an oscillator pane; the window is always read from the main chart, so
+     *   whichever pane the gesture happened over, the work happens once).
+     * @returns {void}
+     * @private
+     */
+    private _trackLiveRangeOn;
+    /**
+     * Read the main chart's current x-window and, if it moved, re-draw the chrome
+     * and emit `rangeChanging`. See {@link ApexStock#_trackLiveRangeOn}.
+     * @returns {void}
+     * @private
+     */
+    private _trackLiveRange;
+    /**
+     * Emit the per-frame `rangeChanging` event. Gated on there being a subscriber,
+     * since this runs once per animation frame during a gesture.
+     * @param {number} min
+     * @param {number} max
+     * @returns {void}
+     * @private
+     */
+    private _emitRangeChanging;
+    /**
      * Emit the `rangeChange` event from the current `xaxisRange`. No-op when the
      * range is not yet initialized or nothing is subscribed.
      * @param {"zoom"|"pan"|"reset"} source - What triggered the change.
@@ -408,10 +620,40 @@ export default class ApexStock {
     randomId(): string;
     addCustomIndicatorDropdowns(): void;
     createIndicatorDropdown(title: any, indicators: any): HTMLDivElement;
-    computeHeights(newIndicatorCount: any): {
+    computeHeights(newIndicatorCount: any, weights: any): {
         newMainHeight: number;
         indicatorContainerHeight: number;
         indicatorHeight: number;
+        indicatorHeights: number[];
+    };
+    /**
+     * How much of the indicator area one pane should get, relative to the others:
+     * the `panes` option first, then the indicator's registry default, then 1.
+     * @param {string} key - Indicator key (a pane's `data-indicator`).
+     * @returns {number}
+     * @private
+     */
+    private _paneWeight;
+    /** The pane weights in DOM order, for {@link computeHeights}. @private */
+    private _paneWeights;
+    /**
+     * Set one pane's share of the indicator area and re-apportion the heights.
+     * `heightRatio` is relative, not absolute: two panes at 1 and 2 split the area
+     * one-third / two-thirds. Pass null to fall back to the pane's default.
+     * @param {string} key - Indicator key (e.g. "drawdown", "rsi").
+     * @param {number|null} heightRatio
+     * @returns {this}
+     */
+    setPaneHeightRatio(key: string, heightRatio: number | null): this;
+    /**
+     * The configured pane height ratios (only the ones that differ from their
+     * defaults), as captured by `getState()`.
+     * @returns {Object.<string, {heightRatio: number}>}
+     */
+    getPaneHeightRatios(): {
+        [x: string]: {
+            heightRatio: number;
+        };
     };
     updateAllChartHeights(): void;
     isOverlay(indicatorKey: any): boolean;
@@ -600,6 +842,60 @@ export default class ApexStock {
     /** @returns {object[]} copies of all annotation configs. */
     getAnnotations(): object[];
     /**
+     * Add (or replace, if `id` already exists) an event marker: a time-anchored
+     * flag (earnings, dividend, split, news, or custom) that floats along the
+     * x-axis with a hover card. Markers reproject through zoom/pan and persist
+     * across update/theme/chart-type switches; they are captured by
+     * {@link getState} and restored by {@link setState}.
+     *
+     * @param {import("./overlays/EventMarkers.js").EventMarkerConfig} config
+     *   `{ x, type?, label?, color?, glyph?, position?, meta? }`.
+     * @returns {string|null} the marker id, or null on invalid input.
+     */
+    addEventMarker(config: import("./overlays/EventMarkers.js").EventMarkerConfig): string | null;
+    /**
+     * Patch an existing event marker.
+     * @param {string} id
+     * @param {object} patch
+     * @returns {boolean} false if no such marker.
+     */
+    updateEventMarker(id: string, patch: object): boolean;
+    /**
+     * Remove an event marker by id.
+     * @param {string} id
+     * @returns {boolean} false if no such marker.
+     */
+    removeEventMarker(id: string): boolean;
+    /** Remove every event marker added via {@link addEventMarker}. */
+    clearEventMarkers(): void;
+    /**
+     * @param {string} id
+     * @returns {object|null} a copy of the marker config, or null.
+     */
+    getEventMarker(id: string): object | null;
+    /** @returns {object[]} copies of all event-marker configs. */
+    getEventMarkers(): object[];
+    /**
+     * Show the on-chart data legend: a corner panel that reads out the
+     * instrument's OHLC, change, and volume at the crosshair (falling back to the
+     * latest bar), plus the value of each main-chart overlay indicator. The panel
+     * is `pointer-events:none` and updates live via the `crosshairMove` event.
+     *
+     * @param {import("./components/Legend.js").LegendOptions} [opts]
+     *   `{ position?, showVolume?, showChange?, showIndicators? }`.
+     * @returns {ApexStock} this, for chaining.
+     */
+    showLegend(opts?: import("./components/Legend.js").LegendOptions): ApexStock;
+    /** Hide the data legend. @returns {ApexStock} this, for chaining. */
+    hideLegend(): ApexStock;
+    /**
+     * Toggle the data legend.
+     * @returns {boolean} the new visibility.
+     */
+    toggleLegend(): boolean;
+    /** @returns {boolean} whether the data legend is currently shown. */
+    isLegendVisible(): boolean;
+    /**
      * Add a programmatic, data-space drawing: a trend line, ray, horizontal price
      * level, vertical time marker, or rectangle/zone, anchored to price/time so it
      * re-projects through zoom/pan/resize like a mouse-drawn shape. Drawings are
@@ -653,14 +949,94 @@ export default class ApexStock {
     /** @returns {object[]} the current comparison instruments. */
     getComparisons(): object[];
     /**
-     * Set the comparison normalization mode: `"percent"` (indexed % change from
-     * each instrument's first point, the default) or `"absolute"` (raw prices).
-     * @param {"absolute"|"percent"} mode
+     * Set the comparison normalization mode.
+     *
+     * - `"percent"` (default): percent change from the baseline.
+     * - `"absolute"`: raw prices.
+     * - `"indexed"`: the baseline reads `indexBase` (default 100), the
+     *   "100 = starting value" view.
+     * - `"relative"`: `percentChange(asset) - percentChange(benchmark)`, in
+     *   percentage points. Zero means "kept pace".
+     * - `"ratio"`: `asset / benchmark`, rebased to `indexBase`.
+     *
+     * The last two read {@link ApexStock#setComparisonBenchmark}.
+     * @param {import("./types.js").ComparisonMode} mode
      * @returns {this}
      */
-    setComparisonMode(mode: "absolute" | "percent"): this;
-    /** @returns {"absolute"|"percent"} the current comparison mode. */
-    getComparisonMode(): "absolute" | "percent";
+    setComparisonMode(mode: import("./types.js").ComparisonMode): this;
+    /** @returns {import("./types.js").ComparisonMode} the current comparison mode. */
+    getComparisonMode(): import("./types.js").ComparisonMode;
+    /**
+     * Set the benchmark instrument for `relative` and `ratio` mode. The benchmark
+     * is a **role**, not a ticker: pass the name of any added instrument, or
+     * `"__primary__"` (the default) for the chart's own symbol. Removing the
+     * instrument that fills the role hands it back to the primary.
+     * @param {string} name
+     * @returns {this}
+     */
+    setComparisonBenchmark(name: string): this;
+    /** @returns {string} the benchmark instrument's name, or `"__primary__"`. */
+    getComparisonBenchmark(): string;
+    /**
+     * Patch how comparison instruments are aligned and rebased (`join`, `fill`,
+     * `baseline`, `indexBase`, `source`, `rebaseRatio`, `resample`) and re-render.
+     * Unknown values are warned about and ignored, so a typo cannot silently
+     * change what the numbers mean.
+     * @param {import("./types.js").ComparisonOptions} patch
+     * @returns {this}
+     */
+    setComparisonOptions(patch: import("./types.js").ComparisonOptions): this;
+    /** @returns {import("./types.js").ComparisonOptions} the current alignment options. */
+    getComparisonOptions(): import("./types.js").ComparisonOptions;
+    /**
+     * The comparison leaderboard: one row per instrument (the primary included),
+     * with change, excess return vs the benchmark, high/low, volatility, worst
+     * drawdown, rank, and grid coverage. Everything a "who's up more" table needs,
+     * already computed.
+     *
+     * The window runs from the baseline to the last observation, so with
+     * `baseline: "visible"` the rows follow the zoom; pass `from`/`to` (x values)
+     * to scope it explicitly.
+     * @param {{from?: number|Date|string, to?: number|Date|string}} [opts]
+     * @returns {import("./types.js").ComparisonRow[]} empty when no instrument is added.
+     */
+    getComparisonStats(opts?: {
+        from?: number | Date | string;
+        to?: number | Date | string;
+    }): import("./types.js").ComparisonRow[];
+    /**
+     * Set the primary price-axis scale mode. Purely an axis presentation change:
+     * indicators, drawings, annotations, and trading price lines stay in true
+     * price space and are unaffected.
+     *
+     * - `"linear"` — raw price, evenly spaced (default).
+     * - `"logarithmic"` — log-distributed price axis; `opts.logBase` (default 10).
+     * - `"percent"` — labelled as % change from a baseline (`opts.base`, default
+     *   the first data point's close).
+     * - `"indexed"` — labelled as an index where the baseline = `opts.indexBase`
+     *   (default 100).
+     *
+     * Fires `priceScaleChange`.
+     *
+     * @param {"linear"|"logarithmic"|"percent"|"indexed"} mode
+     * @param {{base?:number|null, logBase?:number, indexBase?:number}} [opts]
+     * @returns {this}
+     */
+    setPriceScale(mode: "linear" | "logarithmic" | "percent" | "indexed", opts?: {
+        base?: number | null;
+        logBase?: number;
+        indexBase?: number;
+    }): this;
+    /**
+     * @returns {{mode:"linear"|"logarithmic"|"percent"|"indexed", base:number|null, logBase:number, indexBase:number}}
+     *   the current price-scale configuration.
+     */
+    getPriceScale(): {
+        mode: "linear" | "logarithmic" | "percent" | "indexed";
+        base: number | null;
+        logBase: number;
+        indexBase: number;
+    };
     /**
      * Add, remove, or reconfigure a technical indicator, preserving zoom state.
      *
@@ -699,6 +1075,153 @@ export default class ApexStock {
      */
     applyZoomToAllCharts(zoomState: any): void;
     /**
+     * Read a structured snapshot of the chart at a data-point index: OHLC,
+     * volume, change vs the previous close, and every active indicator's value
+     * (main-chart overlays and oscillator panes). The programmatic complement to
+     * the on-chart legend and the `crosshairMove` event — pass the event's
+     * `dataPointIndex` here to build a custom legend/readout. Values are plain
+     * numbers (unformatted); unavailable ones are `null` or omitted.
+     * @param {number} [index] - Data-point index; defaults to (and clamps to) the latest bar.
+     * @returns {import("./core/DataReadout.js").Readout|null} null if there is no data.
+     */
+    getDataAt(index?: number): import("./core/DataReadout.js").Readout | null;
+    /**
+     * Merge the instance's `analysis` options under a per-call override.
+     * @param {object} [opts]
+     * @returns {object}
+     * @private
+     */
+    private _analysisOpts;
+    /**
+     * Every statistic for a selected region of the chart: the change (absolute and
+     * percent), the duration, the true high and low, the averages, the volatility,
+     * and the deepest drawdown *within* the region.
+     *
+     * ```js
+     * chart.getRangeStats(0, 42);                          // by bar index
+     * chart.getRangeStats("2024-01-02", "2024-03-15");     // by date
+     * const { min, max } = chart.getVisibleRange();
+     * chart.getRangeStats(min, max);                       // the visible window
+     * ```
+     *
+     * Endpoints may be given in either order as a bar index, an epoch-ms x value,
+     * a `Date`, or a date string; a bare number is read as a bar index when it is
+     * a valid one and as an x value otherwise (pass `{ by: "index" }` or
+     * `{ by: "x" }` to be explicit). Values are unrounded and every percent-like
+     * figure is in percent units. Anything the data cannot support is `null`, with
+     * the reason in `warnings`. Notably `annualized` is omitted for spans under
+     * `minAnnualizeDays` (default 30) rather than extrapolated.
+     *
+     * @param {number|string|Date} from
+     * @param {number|string|Date} to
+     * @param {Object} [opts] - Overrides the instance's `analysis` options.
+     * @param {"close"|"open"|"high"|"low"} [opts.source="close"]
+     * @param {"close"|"intrabar"} [opts.drawdownBasis="close"]
+     * @param {number} [opts.periodsPerYear] - Annualization convention (e.g. 252).
+     * @param {number} [opts.minAnnualizeDays=30]
+     * @param {"auto"|"index"|"x"} [opts.by="auto"]
+     * @returns {import("./analysis/Statistics.js").RangeStats|null} null when there
+     *   is no data or the endpoints cannot be resolved.
+     */
+    getRangeStats(from: number | string | Date, to: number | string | Date, opts?: {
+        source?: "close" | "open" | "high" | "low";
+        drawdownBasis?: "close" | "intrabar";
+        periodsPerYear?: number;
+        minAnnualizeDays?: number;
+        by?: "auto" | "index" | "x";
+    }): import("./analysis/Statistics.js").RangeStats | null;
+    /**
+     * Measure a region of the chart: create a persistent measurement between two
+     * points and return its statistics.
+     *
+     * The measurement is a real `measure` drawing, so it renders on the chart,
+     * can be selected and dragged, reprojects through zoom and pan, and persists
+     * through `getState()` / `setState()` exactly like a hand-drawn one. The
+     * analysis panel picks it up automatically.
+     *
+     * ```js
+     * const { id, stats } = chart.measureRange("2024-01-02", "2024-03-15");
+     * stats.change.percent;      // +20.42
+     * stats.drawdown.max;        // -6.4
+     * chart.clearMeasurement(id);
+     * ```
+     *
+     * Endpoints accept the same forms as {@link ApexStock#getRangeStats}. Fires
+     * `rangeMeasured` with `source: "api"`.
+     *
+     * @param {number|string|Date} from
+     * @param {number|string|Date} to
+     * @param {object} [opts] - Drawing style (`color`, `upColor`, `downColor`,
+     *   `fillOpacity`, `showLabel`, `locked`, `meta`, ...), plus `by` to steer how
+     *   a numeric endpoint is read. Statistics conventions (`periodsPerYear`,
+     *   `minAnnualizeDays`, `drawdownBasis`, `source`) are deliberately NOT
+     *   per-measurement: they come from the chart's `analysis` options, so a
+     *   measurement restored from state cannot disagree with the chart it is on.
+     *   Use {@link ApexStock#getRangeStats} for a one-off with different
+     *   conventions.
+     * @returns {{id: string, stats: import("./analysis/Statistics.js").RangeStats}|null}
+     *   null when there is no data or the endpoints cannot be resolved.
+     */
+    measureRange(from: number | string | Date, to: number | string | Date, opts?: object): {
+        id: string;
+        stats: import("./analysis/Statistics.js").RangeStats;
+    } | null;
+    /**
+     * Every measurement currently on the chart, with its statistics, in drawing
+     * order.
+     * @returns {import("./analysis/Measurement.js").MeasurementInfo[]}
+     */
+    getMeasurements(): import("./analysis/Measurement.js").MeasurementInfo[];
+    /**
+     * One measurement by id.
+     * @param {string} id
+     * @returns {import("./analysis/Measurement.js").MeasurementInfo|null}
+     */
+    getMeasurement(id: string): import("./analysis/Measurement.js").MeasurementInfo | null;
+    /**
+     * Remove one measurement, or every measurement when `id` is omitted. Other
+     * drawing types are never touched. Fires `measurementRemoved` per removal.
+     * @param {string} [id]
+     * @returns {number} how many measurements were removed.
+     */
+    clearMeasurement(id?: string): number;
+    /**
+     * Show the analysis panel: the on-chart readout of the active measurement's
+     * region statistics.
+     *
+     * The panel is automatic by default (it appears when a measurement exists and
+     * disappears when the last one is cleared), so this is only needed to pin it
+     * open, move it, or change which metrics it shows. `analysis: { panel: false }`
+     * at construction opts out entirely, for apps that render their own panel
+     * from {@link ApexStock#getRangeStats}.
+     *
+     * @param {import("./components/AnalysisPanel.js").AnalysisPanelOptions} [opts]
+     * @returns {this}
+     */
+    showAnalysisPanel(opts?: import("./components/AnalysisPanel.js").AnalysisPanelOptions): this;
+    /** Hide the analysis panel until `showAnalysisPanel()` is called again. @returns {this} */
+    hideAnalysisPanel(): this;
+    /** @returns {boolean} whether the analysis panel is currently visible. */
+    isAnalysisPanelVisible(): boolean;
+    /**
+     * The chart's drawdown: how far below its own running peak the instrument has
+     * fallen at every bar, plus the deepest drawdown, the current one, and each
+     * drawdown episode with its decline, recovery, and underwater durations kept
+     * separate (`barsToTrough`, `barsToRecovery`, `barsUnderwater`).
+     *
+     * Values are percentages at or below zero. `basis: "intrabar"` measures each
+     * bar's low against the running high instead of close-against-close, which is
+     * the more conservative figure. It defaults to the chart's
+     * `analysis.drawdownBasis`, so this, the range statistics, and the drawdown
+     * pane all report the same thing.
+     *
+     * @param {{basis?: "close"|"intrabar"}} [opts]
+     * @returns {import("./analysis/Drawdown.js").DrawdownResult}
+     */
+    getDrawdown(opts?: {
+        basis?: "close" | "intrabar";
+    }): import("./analysis/Drawdown.js").DrawdownResult;
+    /**
      * Get the currently visible x-axis range (the same values reported by the
      * `rangeChange` event). Useful for lazy-loading data for the visible window or
      * synchronizing an external control.
@@ -718,6 +1241,60 @@ export default class ApexStock {
      */
     setVisibleRange(min: number, max: number): this;
     /**
+     * Lazily create the (headless) image/PDF exporter so programmatic export works
+     * even before/without render(). render() creates the button-bearing one.
+     * @returns {Export}
+     * @private
+     */
+    private _ensureExporter;
+    /**
+     * Unified export: one entry point for every output format, returning a Promise
+     * of a consistent result. Image formats (`png`/`svg`) and `pdf` resolve with a
+     * `Blob` + object `url`; data formats (`csv`/`json`) resolve with the same plus
+     * the serialized `text`. `png` falls back to `svg` on browsers that block
+     * raster capture (flagged `fallback: true`). Pass `download: true` to also save
+     * a file.
+     *
+     * `include` carries the analysis into the export, meaning something slightly
+     * different in each medium because a spreadsheet and a report need different
+     * things: for `csv`/`json` it adds per-bar columns (`"indicators"`,
+     * `"analysis"`), and for `pdf` it sets a text summary below the chart
+     * (`"analysis"`).
+     *
+     * @param {Object} [options]
+     * @param {"png"|"svg"|"pdf"|"csv"|"json"} [options.format="png"]
+     * @param {number} [options.scale] - Image/PDF resolution multiplier.
+     * @param {"all"|"visible"} [options.range] - Data range (csv/json), and which
+     *   window the PDF summary describes (defaults to the visible one there).
+     * @param {Array<"ohlc"|"indicators"|"analysis">|string} [options.include] -
+     *   Extra content: per-bar columns for csv/json, the summary block for pdf.
+     * @param {string[]} [options.summary] - PDF only: your own summary lines.
+     * @param {boolean} [options.includeVolume] - Volume column (csv/json).
+     * @param {boolean} [options.raw] - Raw `x` instead of ISO time (csv/json).
+     * @param {boolean} [options.pretty] - Pretty-print JSON.
+     * @param {boolean} [options.download] - Also trigger a file download.
+     * @param {string} [options.filename] - Download filename (extension added).
+     * @returns {Promise<{format:string, blob: Blob, url: string, text?: string, fallback?: boolean}>}
+     */
+    export(options?: {
+        format?: "png" | "svg" | "pdf" | "csv" | "json";
+        scale?: number;
+        range?: "all" | "visible";
+        include?: Array<"ohlc" | "indicators" | "analysis"> | string;
+        summary?: string[];
+        includeVolume?: boolean;
+        raw?: boolean;
+        pretty?: boolean;
+        download?: boolean;
+        filename?: string;
+    }): Promise<{
+        format: string;
+        blob: Blob;
+        url: string;
+        text?: string;
+        fallback?: boolean;
+    }>;
+    /**
      * Export the OHLC data as CSV or JSON text (for a "download data" button,
      * reporting, or persistence). Columns: `time, open, high, low, close[,
      * volume]`; `time` is ISO-8601 for numeric timestamps (pass `{ raw: true }`
@@ -731,6 +1308,15 @@ export default class ApexStock {
      *   range isn't known yet).
      * @param {boolean} [options.includeVolume] - Force the volume column on/off
      *   (defaults to on when any point has a `v`).
+     * @param {Array<"ohlc"|"indicators"|"analysis">|string} [options.include=["ohlc"]]
+     *   Extra column groups appended after the OHLC spine (which is always
+     *   present, so the CSV keeps round-tripping through `fromCSV`):
+     *   `"indicators"` adds one column per active indicator series (main-chart
+     *   overlays *and* oscillator panes), null through each one's warm-up;
+     *   `"analysis"` adds `return` (percent change from the previous bar) and
+     *   `drawdown` (percent below the running peak, per `analysis.drawdownBasis`).
+     *   Range statistics are a summary, not a per-bar value, so they are not
+     *   columns: read them from {@link ApexStock#getRangeStats}.
      * @param {boolean} [options.raw] - Emit raw `x` instead of ISO time.
      * @param {boolean} [options.pretty] - Pretty-print JSON (default true).
      * @param {boolean} [options.download] - Also trigger a file download.
@@ -741,11 +1327,22 @@ export default class ApexStock {
         format?: "csv" | "json";
         range?: "all" | "visible";
         includeVolume?: boolean;
+        include?: Array<"ohlc" | "indicators" | "analysis"> | string;
         raw?: boolean;
         pretty?: boolean;
         download?: boolean;
         filename?: string;
     }): string;
+    /**
+     * Build the extra export columns for an `include` selection. Indicator columns
+     * come from the live chart state; analysis columns from the same engine
+     * `getRangeStats` uses, so an exported number matches an on-chart one.
+     * @param {Array<string>|string|undefined} include
+     * @param {number} length - Full series length (columns are bar-indexed).
+     * @returns {Array<{name:string, values:Array<number|null>}>}
+     * @private
+     */
+    private _exportColumns;
     /**
      * Export the chart as an image. PNG rasterizes a serialized snapshot of the
      * chart; browsers that block `<foreignObject>` rasterization fall back to SVG
@@ -776,6 +1373,45 @@ export default class ApexStock {
      * @param {string} newTheme - The new theme ('light' or 'dark')
      */
     updateTheme(newTheme: string): void;
+    /**
+     * Switch to a named theme preset (a curated look layered on light/dark; see
+     * `ApexStock.getThemePresets()` for the built-ins, `ApexStock.registerTheme`
+     * to add your own). The preset carries its own base mode.
+     * @param {string} name
+     * @returns {this}
+     */
+    setThemePreset(name: string): this;
+    /** @returns {string|null} the active theme preset name, or null for a plain mode. */
+    getThemePreset(): string | null;
+    /**
+     * Add (or replace, by `id`) a custom control in the primary toolbar. A button
+     * is created from `title`/`icon`/`html` with an `onClick(chart, event)`
+     * handler, or pass a ready-made `element`. `position` is `"left"` /
+     * `"left-start"` / `"right"` (default `"right"`); `order` sorts within a side.
+     * @param {import("./core/Toolbar.js").ToolbarItem} def
+     * @returns {string|null} the item id, or null on invalid input.
+     */
+    addToolbarItem(def: import("./core/Toolbar.js").ToolbarItem): string | null;
+    /**
+     * Remove a custom toolbar item.
+     * @param {string} id
+     * @returns {boolean} false if no such item.
+     */
+    removeToolbarItem(id: string): boolean;
+    /** @returns {Array<{id:string, title:string|undefined, position:string}>} custom toolbar items. */
+    getToolbarItems(): Array<{
+        id: string;
+        title: string | undefined;
+        position: string;
+    }>;
+    /**
+     * Shared theme-change application for {@link updateTheme} and
+     * {@link setThemePreset}: sync mainChartOptions colors, restyle the chrome,
+     * push the config, and rebuild indicators/overlays for the new palette.
+     * @param {boolean} cmpActive - Whether comparison was active (and suspended).
+     * @private
+     */
+    private _applyThemeChange;
     /**
      * Gets the current theme.
      * @returns {import("./types.js").ThemeMode} Current theme ('light' or 'dark').
@@ -851,7 +1487,13 @@ import EventEmitter from "./core/EventEmitter";
 import TradingOverlays from "./overlays/TradingOverlays";
 import Annotations from "./overlays/Annotations";
 import Comparison from "./overlays/Comparison";
+import PriceScale from "./core/PriceScale";
+import Toolbar from "./core/Toolbar";
 import Drawings from "./overlays/Drawings";
+import EventMarkers from "./overlays/EventMarkers";
+import Legend from "./components/Legend";
+import Measurement from "./analysis/Measurement";
+import AnalysisPanel from "./components/AnalysisPanel";
 import ThemeManager from "./core/ThemeManager";
 import SettingsControl from "./components/SettingsControl";
 import OscillatorSettings from "./components/OscillatorSettings";
@@ -861,3 +1503,7 @@ import Export from "./tools/export/Export";
 import XAxis from "./components/XAxis";
 import ZoomControls from "./components/ZoomControls";
 import TradingOverlayInteractions from "./overlays/TradingOverlayInteractions";
+import Statistics from "./analysis/Statistics";
+import Drawdown from "./analysis/Drawdown";
+import Align from "./analysis/Align";
+import ChartSync from "./core/ChartSync";

@@ -9,6 +9,8 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-31
+
 ### Added
 
 - **Drawdown as a first-class pane, and per-pane heights.** Phase 4 of the
@@ -314,6 +316,13 @@ those are called out explicitly below.
 
 ### Changed
 
+- **BREAKING: the `apexcharts` peer requirement is now `^7.1.0`** (was
+  `^6.7.0`). Two reasons. The declared range had gone stale: it did not admit
+  the 7.x line that every example, fixture, and e2e run here actually loads, so
+  the suite was validating a combination the manifest forbade. And the crosshair
+  fix above lives in ApexCharts 7.1.0, so a correct crosshair on a zoomed chart
+  with indicators is not available below it. Run `npm install apexcharts@^7.1.0`
+  when upgrading. The three framework wrappers carry the same requirement.
 - **The price crosshair label now matches the date chip.** ApexCharts draws the
   price (y) readout and ApexStock draws the date (x) one, so nothing kept them in
   step: the date chip was redrawn as a filled cell and the price label stayed a
@@ -361,8 +370,8 @@ those are called out explicitly below.
   (259px three wheel notches in, 2056px at nine). Because the warm-ups differ,
   the main chart and each oscillator pane disagreed with each other, and the
   date chip, which mirrors the main crosshair, inherited the error and pinned
-  itself to the edge of the axis strip. Requires an ApexCharts release carrying
-  the fix; `test/e2e/pane-sync.spec.js` now asserts the panes agree on screen at
+  itself to the edge of the axis strip. Carried by the `apexcharts@^7.1.0` peer
+  below; `test/e2e/pane-sync.spec.js` now asserts the panes agree on screen at
   every zoom level, not just that they share an x-window.
 - **A bottom-corner data legend had its lower rows sliced off.** The panel is
   positioned inside the widget, whose bottom band is the custom x-axis strip, so

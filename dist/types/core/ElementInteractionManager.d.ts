@@ -16,9 +16,17 @@ export default class ElementInteractionManager {
     coordinateConverter: any;
     hoveredElement: EventTarget;
     hoveredElementId: any;
-    selectedElement: EventTarget;
+    selectedElement: any;
     selectedElementId: any;
     isMoving: boolean;
+    /**
+     * Which anchor a resize drag is moving: 0 for `(x1,y1)`, 1 for `(x2,y2)`,
+     * null while the whole element is being translated.
+     * @type {0|1|null}
+     */
+    resizeAnchor: 0 | 1 | null;
+    /** @type {SVGCircleElement[]} */
+    resizeHandles: SVGCircleElement[];
     moveStartX: number;
     moveStartY: number;
     elementStartX: number;
@@ -71,6 +79,13 @@ export default class ElementInteractionManager {
      */
     deleteSelectedElement(): void;
     /**
+     * Begin a resize: drag one anchor instead of translating the whole element.
+     * @param {0|1} anchor - Which anchor this handle owns.
+     * @param {MouseEvent} e
+     * @returns {void}
+     */
+    handleResizeMouseDown(anchor: 0 | 1, e: MouseEvent): void;
+    /**
      * Ensures all elements in the elements array have unique IDs
      */
     ensureElementIds(): void;
@@ -90,6 +105,29 @@ export default class ElementInteractionManager {
      * Creates visual elements for hover and selection feedback
      */
     createVisualElements(): void;
+    /**
+     * Re-bind and re-place the selection visuals after a redraw.
+     *
+     * `DrawingTools.redrawElements()` empties the drawing group and builds fresh
+     * nodes, so `selectedElement` would otherwise keep pointing at a node that is
+     * no longer in the document (and the outline would vanish on every zoom or
+     * pan). The id is the stable handle, so the element is looked up by id and
+     * the reference refreshed.
+     * @returns {void}
+     */
+    refreshSelectionVisuals(): void;
+    /** Hide both resize handles. @returns {void} */
+    hideResizeHandles(): void;
+    /**
+     * Place a handle on each anchor of the selected two-anchor drawing.
+     * @param {{data: object, element: SVGElement, anchors?: object}} item
+     * @returns {void}
+     */
+    updateResizeHandles(item: {
+        data: object;
+        element: SVGElement;
+        anchors?: object;
+    }): void;
     /**
      * Attach event listeners
      */

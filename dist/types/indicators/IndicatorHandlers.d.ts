@@ -97,6 +97,30 @@ export default class IndicatorHandlers {
         builtin: boolean;
     }>;
     /**
+     * Re-assert one pane's whole-series decorations, if its registry entry has
+     * any. No-op for every indicator that does not (which is all but the analysis
+     * panes today).
+     * @param {string} key - Registry indicator key.
+     * @param {import("../ApexStock.js").default} context
+     * @param {object} pane - The pane's ApexCharts instance.
+     * @returns {void}
+     */
+    static decoratePane(key: string, context: import("../ApexStock.js").default, pane: object): void;
+    /**
+     * The dropdown group an indicator belongs to, or null for the default
+     * (ungrouped) list. Only analysis panes declare one today.
+     * @param {string} key
+     * @returns {string|null}
+     */
+    static groupOf(key: string): string | null;
+    /**
+     * An indicator's default share of the indicator area, relative to the other
+     * panes, or null when it has no preference (which the layout reads as 1).
+     * @param {string} key
+     * @returns {number|null}
+     */
+    static heightRatioOf(key: string): number | null;
+    /**
      * Resolve the per-instance indicator config from the registry defaults plus the
      * consumer's `indicators` option, producing the `{ overlays, oscillators,
      * indicators }` maps the chart keeps. Pure (no DOM / chart), so it is unit

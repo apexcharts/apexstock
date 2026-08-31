@@ -4,6 +4,28 @@
  */
 export default class XAxis {
     /**
+     * Build one axis tick: a mark and its label, positioned at `left`.
+     *
+     * The colors live in the stylesheet rather than being read from
+     * `context.colors` here. Ticks are only rebuilt on a render, so an inline
+     * color meant a theme switch left the labels in the old palette until the
+     * next zoom or pan: after switching to dark they stayed near-black on the
+     * dark strip.
+     *
+     * @param {string} label - The formatted date.
+     * @param {string} left - CSS left offset (a percentage).
+     * @returns {HTMLDivElement}
+     */
+    static buildTick(label: string, left: string): HTMLDivElement;
+    /**
+     * Whether consecutive bars sit less than a day apart.
+     * @param {Array<{x: *}>} series
+     * @returns {boolean}
+     */
+    static hasIntradayBars(series: Array<{
+        x: any;
+    }>): boolean;
+    /**
      * Creates a new XAxis instance
      * @param {import("../ApexStock.js").default} context - The ApexStock instance
      */
@@ -68,6 +90,22 @@ export default class XAxis {
      * @returns {Object} The tick interval and format information
      */
     getTickInterval(): any;
+    /**
+     * The crosshair label's date format, chosen from the data's own bar spacing.
+     *
+     * Deliberately not from the zoom level: minute bars are still minute bars
+     * when the view is zoomed out to a year. And a daily series carries one
+     * timestamp per day, so printing a time on it is noise at best. With bars
+     * stamped at UTC midnight and read in any other zone it is worse than noise:
+     * a bar that is simply March 5th was labelled "Mar 05, 2024 05:30".
+     *
+     * Cached on the series identity, since this runs on every pointer move.
+     *
+     * @returns {string} A format string for {@link XAxis#formatDate}.
+     */
+    crosshairFormat(): string;
+    _crosshairFormatKey: any;
+    _crosshairFormatValue: string;
     /**
      * Formats a date according to the specified format
      * @param {Date} date - The date to format

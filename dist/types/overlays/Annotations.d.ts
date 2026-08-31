@@ -116,6 +116,17 @@ export default class Annotations {
     /** @returns {object[]} copies of all annotation configs. */
     getAll(): object[];
     /**
+     * Lossless plain-JSON snapshot of every annotation, for state serialization.
+     * Annotations carry no callbacks, so the public config round-trips verbatim.
+     * @returns {object[]}
+     */
+    _serialize(): object[];
+    /**
+     * Replace all annotations with a serialized list (from {@link _serialize}).
+     * @param {object[]} list
+     */
+    _restore(list: object[]): void;
+    /**
      * Re-apply every annotation (removes then re-adds by id). Idempotent, and
      * re-reads theme colors so a theme switch recolors defaults. Called after any
      * chart re-render that may drop or stale dynamic annotations.

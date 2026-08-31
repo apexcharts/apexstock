@@ -1,7 +1,3 @@
-/**
- * ThemeManager.js
- * Handles theme management for ApexStock charts
- */
 export default class ThemeManager {
     /**
      * Creates a new ThemeManager
@@ -11,9 +7,35 @@ export default class ThemeManager {
     constructor(ctx: any, initialTheme?: string);
     ctx: any;
     themeStylesApplied: boolean;
+    /** Active preset def ({@link ThemePresets}), or null for a plain mode. */
+    preset: import("./ThemePresets").ThemePreset;
+    presetName: string;
     setTheme(themeName: any): void;
     theme: any;
     isDarkTheme: boolean;
+    /**
+     * Apply a named preset (or a resolved def). Sets the base mode from the
+     * preset so all `isDarkTheme` logic keeps working; the preset then overrides
+     * the chart colors ({@link getChartConfig}) and chrome tokens
+     * ({@link applyThemeStyles}).
+     * @param {string|object} nameOrDef
+     * @returns {boolean} false if a name was given but is unknown.
+     */
+    applyPreset(nameOrDef: string | object): boolean;
+    /** @returns {string|null} the active preset name, or null for a plain mode. */
+    getPreset(): string | null;
+    /**
+     * Write the current theme's chart colors (candlestick, grid, axis labels,
+     * background) into a chart-options object in place. This is the source of
+     * truth for `mainChartOptions`: at construction and on every theme change,
+     * `updateTheme` re-applies `Utils.extend(themeConfig, mainChartOptions)` with
+     * `mainChartOptions` winning, so a preset's colors must live here or they are
+     * overridden. For a plain mode it writes the exact built-in defaults, so
+     * switching a preset off restores the original appearance with no drift.
+     * @param {object} options - The chart-options object to mutate.
+     * @returns {object} the same object.
+     */
+    syncChartOptionsToTheme(options: object): object;
     getTheme(): any;
     isDark(): boolean;
     getColors(): any;
@@ -64,6 +86,7 @@ export default class ThemeManager {
                 ac: string;
                 bPercent: string;
                 bWidth: string;
+                drawdown: string;
             };
             tradingOverlays: {
                 buy: string;
@@ -117,6 +140,7 @@ export default class ThemeManager {
                 ac: string;
                 bPercent: string;
                 bWidth: string;
+                drawdown: string;
             };
             tradingOverlays: {
                 buy: string;

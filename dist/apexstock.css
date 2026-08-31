@@ -1,20 +1,34 @@
 /* ==============================
  * 1. Common & Variables
  * ============================== */
+/*
+ * The roles that mean the same thing in every ApexCharts product fall back to
+ * the shared `--apx-*` family tokens, so a page can state its brand once on
+ * `:root` and have the stock chart follow along with the charts beside it.
+ * Precedence reads left to right in each declaration:
+ *
+ *   --apexstock-* set by the host  >  --apx-* family token  >  built-in default
+ *
+ * Only the light palette and the mode-independent accent take tokens. A single
+ * set of `--apx-*` values describes one appearance, so applying a light brand
+ * surface to the palette chosen for dark mode is how you get white text on
+ * white. The dark palette stays self-contained and always legible; override
+ * `--apexstock-dark-*` (see THEMING.md) to theme it.
+ */
 [class^="apexstock-"] {
   /* Light Theme Colors */
-  --apexstock-light-bg: #ffffff;
+  --apexstock-light-bg: var(--apx-surface, #ffffff);
   --apexstock-light-surface-2: #f8fafc;
-  --apexstock-light-border: #e4e7ec;
+  --apexstock-light-border: var(--apx-grid, #e4e7ec);
   --apexstock-light-border-strong: #d0d5dd;
   --apexstock-light-hover: #f2f4f7;
-  --apexstock-light-text: #1f2937;
+  --apexstock-light-text: var(--apx-fore, #1f2937);
   --apexstock-light-muted: #667085;
   --apexstock-light-selected: #eef4ff;
-  --apexstock-light-divider: #e4e7ec;
+  --apexstock-light-divider: var(--apx-grid, #e4e7ec);
   --apexstock-light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
 
-  /* Dark Theme Colors */
+  /* Dark Theme Colors — deliberately not token-backed, see the note above. */
   --apexstock-dark-bg: #1e242b;
   --apexstock-dark-surface-2: #272e36;
   --apexstock-dark-bg-alpha: rgba(255, 255, 255, 0.04);
@@ -27,8 +41,10 @@
   --apexstock-dark-divider: #3a434d;
   --apexstock-dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 
-  /* Accent Colors */
-  --apexstock-blue: #2563eb;
+  /* Accent Colors. The accent is the one role that means the same thing in both
+     modes here (this value is shared by light and dark), so it takes the family
+     token unconditionally. */
+  --apexstock-blue: var(--apx-accent, #2563eb);
   --apexstock-blue-hover: #1d4ed8;
   --apexstock-accent-soft: rgba(37, 99, 235, 0.1);
   --apexstock-danger: #dc3545;
@@ -47,7 +63,15 @@
   --apexstock-as-ease: 0.15s ease;
 }
 
-[class^=apexstock-] * {
+/* Box-sizing + font reset for ApexStock's own elements and everything inside
+   them. Uses `*=` (contains), not `^=` (starts-with), because ApexStock appends
+   its theme class to the consumer's container, whose class attribute may already
+   start with the consumer's own class (e.g. "card apexstock-theme-light"); a
+   starts-with match would silently miss it. It also targets the elements
+   themselves, not only descendants, so top-level chrome like `.apexstock-toolbar`
+   (width:100% + padding) sizes inside its box instead of overflowing the chart. */
+[class*="apexstock-"],
+[class*="apexstock-"] * {
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -87,6 +111,36 @@
 .apexstock-toolbar-right {
   display: flex;
   align-items: center;
+}
+
+/* Custom toolbar items injected via addToolbarItem / toolbar.custom. Buttons
+ * also carry .apexstock-toolbar-button, which the theme layer recolors for
+ * light/dark; this rule is the shared layout/sizing. */
+.apexstock-toolbar-custom-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--apexstock-gap-sm);
+  min-height: var(--apexstock-button-size);
+  padding: 0 var(--apexstock-gap-md);
+  border: 1px solid var(--apexstock-light-border);
+  border-radius: var(--apexstock-border-radius-md);
+  background: transparent;
+  color: var(--apexstock-light-text);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background-color var(--apexstock-as-ease);
+}
+
+.apexstock-toolbar-custom-item svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.apexstock-toolbar-custom-item:hover {
+  background-color: var(--apexstock-light-hover);
 }
 
 /* ==============================
@@ -248,6 +302,20 @@
   background: var(--apexstock-light-hover);
 }
 
+/* Section heading inside the indicators dropdown (e.g. "Analysis"). Not an
+   option: no pointer, not focusable, and skipped by the roving tabindex, which
+   only ever queries .apexstock-custom-option. */
+.apexstock-custom-option-group {
+  padding: 10px 10px 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  cursor: default;
+  user-select: none;
+}
+
 .apexstock-custom-option.selected {
   background: var(--apexstock-accent-soft);
   color: var(--apexstock-blue);
@@ -272,7 +340,7 @@
 .apexstock-drawing-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   z-index: 11;
   padding-left: 10px;
   margin-left: 8px;
@@ -282,6 +350,10 @@
 .apexstock-drawing-tool {
   width: var(--apexstock-button-size);
   height: var(--apexstock-button-size);
+  /* Zero the native <button> padding: with box-sizing:border-box the UA
+     horizontal padding would otherwise shrink the content box and squish the
+     icon (a 32px button rendered the icon at only ~18px wide). */
+  padding: 0;
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
@@ -292,6 +364,14 @@
   color: var(--apexstock-light-text);
   transition: background-color var(--apexstock-as-ease), color var(--apexstock-as-ease),
     border-color var(--apexstock-as-ease);
+}
+
+/* Lock the drawing-tool icon size centrally (the authority over the inline SVG
+   width/height), so the glyphs read at a comfortable size in the 32px button. */
+.apexstock-drawing-tool svg {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .apexstock-drawing-tool:hover {
@@ -393,18 +473,107 @@
 /* ==============================
  * 7. X-Axis Styling
  * ============================== */
+/* The chart container's own surface. Driven by the theme class rather than an
+   inline color, so it follows updateTheme() and setThemePreset() (which feeds
+   `--apx-surface`) instead of being frozen at whatever the mode was when the
+   instance was built. */
+.apexstock-chart.apexstock-theme-light {
+  background-color: var(--apexstock-light-bg);
+}
+
+.apexstock-chart.apexstock-theme-dark {
+  background-color: var(--apexstock-dark-bg);
+}
+
+/* The custom x-axis strip: ApexStock draws its own axis (the native one is
+ * turned off), so it has to be themed here rather than by ApexCharts. */
+.apexstock-xaxis {
+  border-top: 1px solid var(--apexstock-light-border);
+  background: var(--apexstock-light-bg);
+}
+
+.apexstock-xaxis-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.apexstock-xaxis-tick-mark {
+  width: 1px;
+  height: 6px;
+  margin: 0 auto 4px;
+  background: var(--apexstock-light-border-strong);
+}
+
+/* Axis dates are secondary to the plot, so they read muted rather than at full
+   text strength. */
+.apexstock-xaxis-tick-label {
+  font-size: 11px;
+  padding: 0 4px;
+  color: var(--apexstock-light-muted);
+}
+
+/* The crosshair's date readout on the custom x-axis.
+ *
+ * Styled as a filled cell that spans the axis strip rather than a bordered box
+ * floating on it: it has to stay legible over the tick labels it covers, and it
+ * reads as "the axis position under the cursor" rather than as a panel. The
+ * fill is the text color and the text is the surface color, so it inverts with
+ * the theme and follows a theme preset's `--apx-fore` / `--apx-surface` instead
+ * of being pinned to one palette. JS toggles `display` between none and flex.
+ */
 .apexstock-xaxis-tooltip {
   position: absolute;
+  top: 0;
+  bottom: 0;
   display: none;
-  padding: 6px;
-  border-radius: var(--apexstock-border-radius-md);
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--apexstock-border-radius-sm);
   font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* The value changes on every pointer move. Proportional figures would resize
+     the chip under the cursor on each new digit, so it visibly jitters; fixed
+     digit widths keep it still. */
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
   z-index: 1000;
   white-space: nowrap;
-  transform: translateX(-50%) translateY(1px);
-  background-color: #eceff1;
-  border: 1px solid #90a4ae;
+  transform: translateX(-50%);
+  background: var(--apexstock-light-text);
+  color: var(--apexstock-light-bg);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.18);
+}
+
+/* The price (y) crosshair label, the horizontal twin of the date chip above.
+ *
+ * ApexCharts draws this one, not us, but it has to read as the same control:
+ * the same fill, the same inverted text, the same rounding and figures. It was
+ * left as a white pill with a hairline border, which was fine on its own and
+ * obviously mismatched once the date chip became a filled cell.
+ *
+ * Only ApexCharts' four `--apx-axt-*` tokens are set. Its pointer triangle is a
+ * pair of pseudo-elements that take their colours from those same tokens, so it
+ * retints with the box and no border-width geometry has to be overridden here.
+ * A transparent border keeps the 1px ApexCharts reserves, so the label does not
+ * shift when the palette changes.
+ *
+ * Scoped with the theme class as well as the marker class: ApexCharts' own dark
+ * rule is `.apexcharts-yaxistooltip.apexcharts-theme-dark`, which carries the
+ * same specificity as a single-class ancestor selector would, and stylesheet
+ * order between the two is not ours to rely on.
+ */
+.apexstock-chart.apexstock-theme-light .apexcharts-yaxistooltip {
+  --apx-axt-bg: var(--apexstock-light-text);
+  --apx-axt-color: var(--apexstock-light-bg);
+  --apx-axt-border: transparent;
+  --apx-axt-shadow: 0 1px 2px rgba(16, 24, 40, 0.18);
+  border-radius: var(--apexstock-border-radius-sm);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ==============================
@@ -418,6 +587,27 @@
 .apexstock-drawing-overlay .apexstock-text-annotation {
   pointer-events: all;
   cursor: pointer;
+}
+
+/* The hover and selection outlines are feedback, not targets. They are drawn
+   ON TOP of the element they surround, and the blanket rule above beats the
+   `pointer-events="none"` presentation attribute they carry, so they used to
+   swallow every click and drag meant for the selected element: selecting a
+   drawing made it undraggable. */
+.apexstock-drawing-overlay .apexstock-hover-outline,
+.apexstock-drawing-overlay .apexstock-selection-outline {
+  pointer-events: none;
+}
+
+/* The resize handles, by contrast, ARE targets: one per anchor of a selected
+   two-anchor drawing, dragged to reshape it. */
+.apexstock-drawing-overlay .apexstock-resize-handle {
+  pointer-events: all;
+  cursor: grab;
+}
+
+.apexstock-drawing-overlay .apexstock-resize-handle:active {
+  cursor: grabbing;
 }
 
 /* ==============================
@@ -764,10 +954,33 @@
   color: #222;
 }
 
+.apexstock-theme-dark .apexstock-xaxis {
+  border-top-color: var(--apexstock-dark-border);
+  background: var(--apexstock-dark-bg);
+}
+
+.apexstock-theme-dark .apexstock-xaxis-tick-mark {
+  background: var(--apexstock-dark-border-strong);
+}
+
+.apexstock-theme-dark .apexstock-xaxis-tick-label {
+  color: var(--apexstock-dark-muted);
+}
+
 .apexstock-theme-dark .apexstock-xaxis-tooltip {
-  background: rgba(0, 0, 0, .8);
-  border: 1px solid rgba(0, 0, 0, .5);
-  color: var(--apexstock-dark-text);
+  background: var(--apexstock-dark-text);
+  color: var(--apexstock-dark-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.apexstock-chart.apexstock-theme-dark .apexcharts-yaxistooltip {
+  --apx-axt-bg: var(--apexstock-dark-text);
+  --apx-axt-color: var(--apexstock-dark-bg);
+  --apx-axt-border: transparent;
+  --apx-axt-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  border-radius: var(--apexstock-border-radius-sm);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .apexstock-theme-dark .apexstock-tooltip-annotation:hover rect {

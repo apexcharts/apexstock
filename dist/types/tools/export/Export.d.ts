@@ -82,10 +82,63 @@ export default class Export {
     rasterize(scale: number): Promise<Blob>;
     /** Load an image source into an <img>, resolving once decoded. */
     _loadImage(src: any): Promise<any>;
+    /** Stack PNG data URLs vertically onto one opaque canvas. */
+    _compositeToCanvas(dataUrls: any): Promise<HTMLCanvasElement>;
     /** Stack PNG data URLs vertically onto one canvas and return a PNG Blob. */
     _composite(dataUrls: any): Promise<any>;
+    /**
+     * Rasterize the chart (main chart + oscillator panes) to a single canvas.
+     * @param {number} scale
+     * @returns {Promise<HTMLCanvasElement>}
+     */
+    rasterizeToCanvas(scale: number): Promise<HTMLCanvasElement>;
+    /**
+     * Export the chart as a single-page PDF: rasterize to a canvas, encode it as a
+     * JPEG, and embed that in a minimal PDF sized to the image (see
+     * {@link buildPdfFromJpeg}). Browser-only (needs canvas + `atob`).
+     *
+     * With `include: ["analysis"]` a text summary is set below the chart, so the
+     * export carries the numbers a screenshot cannot: the window's change, high,
+     * low, averages, volatility, drawdown, and the comparison leaderboard when one
+     * is active. Pass `summary` to write that block yourself.
+     *
+     * @param {Object} [options]
+     * @param {number} [options.scale] - Output scale (resolution multiplier).
+     * @param {Array<"analysis">|string} [options.include] - `"analysis"` adds the
+     *   summary block below the chart.
+     * @param {string[]} [options.summary] - Explicit summary lines, used instead of
+     *   the generated ones (implies `include: ["analysis"]`).
+     * @param {"all"|"visible"} [options.range="visible"] - Which window the
+     *   generated summary describes.
+     * @param {boolean} [options.download] - Also trigger a file download.
+     * @param {string} [options.filename] - Download filename (extension added).
+     * @returns {Promise<{format:"pdf", blob: Blob, url: string}>}
+     */
+    capturePdf(options?: {
+        scale?: number;
+        include?: Array<"analysis"> | string;
+        summary?: string[];
+        range?: "all" | "visible";
+        download?: boolean;
+        filename?: string;
+    }): Promise<{
+        format: "pdf";
+        blob: Blob;
+        url: string;
+    }>;
+    /**
+     * The PDF's summary block: the consumer's own lines, or the analysis ones when
+     * `include` asks for them. Gathers from the public API so an exported number is
+     * the same number the chart shows.
+     * @param {Object} options
+     * @returns {string[]}
+     * @private
+     */
+    private _summaryLines;
+    /** The primary series' name, by position. @private */
+    private _seriesName;
     /** Opaque background color for rasterized PNGs. */
-    _backgroundColor(): any;
+    _backgroundColor(): string;
     /** Swap/append a file extension on the configured filename. */
     _withExt(name: any, ext: any): string;
     /** Trigger a browser download of a URL, then release it. */

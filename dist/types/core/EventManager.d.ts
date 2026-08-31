@@ -33,6 +33,15 @@ declare class EventManager {
     listenForChartEvents(): void;
     mutationObserver: MutationObserver;
     /**
+     * Reposition the drawing overlay on the next animation frame, coalescing any
+     * number of calls made in the same frame into one redraw.
+     * @returns {void}
+     */
+    scheduleReposition(): void;
+    _cancelReposition: (() => void) | (() => void);
+    /** Re-read the axis bounds, then redraw. Shared by `zoomed` and `scrolled`. */
+    refreshBoundsAndRedraw(): void;
+    /**
      * Clean up event listeners and resources
      */
     destroy(): void;

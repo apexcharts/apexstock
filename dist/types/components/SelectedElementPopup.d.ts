@@ -36,6 +36,37 @@ declare class SelectedElementPopup {
      */
     show(x: number, y: number, element: any, elementData: any): void;
     /**
+     * Position the popup so it does not sit on top of the element it belongs to.
+     *
+     * The popup is ~220px wide and the pointer that opened it is usually ON the
+     * drawing, so anchoring at the pointer covered the selection: styling
+     * controls landed over the drawing's own resize handles and swallowed the
+     * clicks meant for them. Tries below, above, right, then left of the
+     * element's box, taking the first that fits inside the chart; if none does,
+     * falls back to the roomiest side and clamps.
+     *
+     * @param {DOMRect} bbox - The selected element's client rect.
+     * @param {DOMRect} chartRect - The chart container's client rect.
+     * @param {DOMRect} popupRect - The popup's own client rect.
+     * @returns {{left: number, top: number}} Chart-relative position.
+     */
+    placeClearOf(bbox: DOMRect, chartRect: DOMRect, popupRect: DOMRect): {
+        left: number;
+        top: number;
+    };
+    /**
+     * The pointer-anchored placement, used when there is no element to measure.
+     * @param {number} x @param {number} y
+     * @param {DOMRect} chartRect @param {DOMRect} popupRect
+     * @returns {{left: number, top: number}} Chart-relative position.
+     */
+    placeAtPointer(x: number, y: number, chartRect: DOMRect, popupRect: DOMRect): {
+        left: number;
+        top: number;
+    };
+    /** Keep a position inside the chart container. @private */
+    private clamp;
+    /**
      * Hides the popup
      */
     hide(): void;

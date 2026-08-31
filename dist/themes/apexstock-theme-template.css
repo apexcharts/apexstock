@@ -11,6 +11,12 @@
  * The `[class^="apexstock-"]` part is required: it matches the same elements
  * the library declares the tokens on, at higher specificity, so your values
  * win regardless of stylesheet load order. See THEMING.md for the full guide.
+ *
+ * Note: a few of these tokens fall back to the shared `--apx-*` family tokens
+ * when you do not set them (see THEMING.md → Family tokens). Copying this file
+ * wholesale pins every one of them to a literal, which is a deliberate opt-out
+ * of that: explicit values beat the family tokens. Delete the lines you would
+ * rather leave to the family.
  * ========================================================================== */
 
 /* ---- Light mode ---------------------------------------------------------- */

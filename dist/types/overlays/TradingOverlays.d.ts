@@ -123,6 +123,22 @@ export default class TradingOverlays {
     /** @returns {object[]} copies of all line configs. */
     getAll(): object[];
     /**
+     * Plain-JSON snapshot of every price line, for state serialization. Only the
+     * declarative config is captured; the interactive callbacks (`onCross` /
+     * `onMove` / `onRemove`) are NOT serializable and are dropped, so a consumer
+     * that relies on them re-binds after {@link _restore} (or after `setState`),
+     * e.g. via `updatePriceLine(id, { onCross })`. Auto-generated labels are
+     * omitted so they regenerate (and keep tracking price) on restore.
+     * @returns {object[]}
+     */
+    _serialize(): object[];
+    /**
+     * Replace all price lines with a serialized list (from {@link _serialize}).
+     * Restored lines have no callbacks (see {@link _serialize}).
+     * @param {object[]} list
+     */
+    _restore(list: object[]): void;
+    /**
      * Re-apply every line's annotation. Idempotent (removes then re-adds by id),
      * and re-reads theme colors so a theme switch recolors the lines. Called after
      * any chart re-render that may drop or stale dynamic annotations.

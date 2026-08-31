@@ -32,6 +32,13 @@ declare class Utils {
      * @param {...*} args
      */
     static error(...args: any[]): void;
+    /**
+     * Compact human format for large counts (volume, market cap): `1.20B`,
+     * `3.40M`, `5.60K`. Anything under a thousand is returned as-is.
+     * @param {*} val
+     * @returns {string} "" when the value is not a finite number.
+     */
+    static compactNumber(val: any): string;
     static truncateNumber(val: any): any;
     static is(type: any, val: any): boolean;
     static isObject(item: any): boolean;
