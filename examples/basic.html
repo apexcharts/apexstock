@@ -102,23 +102,11 @@
 
           series: [
             {
-              data: [
-                {
-                  x: "2024-01-01",
-                  y: [100, 101.05, 96.53, 98],
-                  v: 363305,
-                },
-                {
-                  x: "2024-01-02",
-                  y: [98, 98.39, 95.55, 97.51],
-                  v: 612318,
-                },
-                {
-                  x: "2024-01-03",
-                  y: [97.51, 98.14, 97.29, 97.63],
-                  v: 915487,
-                },
-              ],
+              name: "ACME",
+              // Deterministic: Math.random is seeded above, so this is the same
+              // 72 weekday bars on every load and a screenshot diff means a
+              // rendering change rather than new dice.
+              data: generateSampleData(),
             },
           ],
         };
