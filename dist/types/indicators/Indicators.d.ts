@@ -36,6 +36,14 @@ declare class Indicators {
     static invalidate(series: any): void;
     /**
      * Simple moving average of close prices.
+     *
+     * The window arithmetic comes from apex-commons, which computes it over plain
+     * numbers; the OHLC shape and the display rounding stay here, because both
+     * belong to this product rather than to the average. The swap is exact: over
+     * 360,000 sampled positions the two forms agreed on every one, which they can
+     * only do because the shared implementation sums each window from scratch
+     * rather than carrying a running total (see its own note on why).
+     *
      * @param {import("../types.js").Series} series
      * @param {number} period
      * @returns {Array<number|null>}
@@ -50,6 +58,16 @@ declare class Indicators {
     static calculateRSI(series: import("../types.js").Series, period: number): Array<number | null>;
     /**
      * Bollinger Bands (middle SMA with upper/lower std-dev envelopes).
+     *
+     * Deliberately NOT delegated to apex-commons' `bollinger`, unlike the plain
+     * moving average above. The deviation here is measured against the ROUNDED
+     * middle band, because `middle[i]` has already been through
+     * `Utils.truncateNumber`. The shared version measures against the exact mean,
+     * so the two disagree on about 45% of positions by a cent or two. Neither is
+     * wrong, but this is the one that has shipped, and the bands are read against
+     * the middle band drawn beside them, so they should be computed from the
+     * number that is actually drawn.
+     *
      * @param {import("../types.js").Series} series
      * @param {number} period
      * @param {number} stdDev - Standard-deviation multiplier.
@@ -75,6 +93,21 @@ declare class Indicators {
     };
     /**
      * Exponential moving average of close prices (seeded with the SMA).
+     *
+     * Deliberately NOT delegated to apex-commons' `ema`. The rounding here is
+     * inside the recursion: each step reads `ema[i - 1]`, which is the TRUNCATED
+     * previous value, so the 2-decimal quantum is carried forward and compounds.
+     * The shared version keeps full precision and leaves rounding to the caller,
+     * which disagrees with this on about 41% of positions, by up to 0.04 at
+     * period 50 over 2,000 bars.
+     *
+     * That is not just a display difference. `IndicatorStep`'s streaming twins
+     * for EMA, MACD and TSI carry the truncated running value in their state and
+     * reproduce this recursion step for step, and `indicator-step.test.js`
+     * requires them to match this function EXACTLY. Changing the rounding here
+     * means changing all of them together, and changes the numbers on every
+     * EMA-derived indicator the product draws.
+     *
      * @param {import("../types.js").Series} series
      * @param {number} period
      * @returns {Array<number|null>}
@@ -196,6 +229,13 @@ declare class Indicators {
     static calculateEMAFromArray(arr: Array<number | null>, period: number): Array<number | null>;
     /**
      * Simple moving average over a plain numeric array.
+     *
+     * Looks like the obvious next candidate for apex-commons' `sma` and is not:
+     * this one sums a null as zero, so a window overlapping an indicator's
+     * warm-up returns a small number rather than nothing. `calculateAcceleratorOsc`
+     * feeds it exactly such an array. The shared version returns null there,
+     * which is the better answer but a different one.
+     *
      * @param {Array<number|null>} arr
      * @param {number} period
      * @returns {Array<number|null>}

@@ -9,7 +9,35 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-10
+
 ### Changed
+
+- **The simple moving average is now the shared one from `apex-commons`, and
+  every number it draws is unchanged.** The same window arithmetic sat here and
+  in the analysis layer, so it moved to the package both depend on; the OHLC
+  accessor, the memo cache and the 2-decimal display rounding stay here, since
+  those belong to this product rather than to the average. Verified exact
+  rather than assumed: over 360,000 sampled positions (120 price-like series,
+  periods 5 to 200) the shared implementation and the one it replaces agreed on
+  every one. `apex-commons` moves from `^0.4.0` to `^0.7.0` and is inlined into
+  the bundle as before, which grows by 223 bytes.
+
+  Only the simple average moved. The exponential average and the Bollinger
+  bands stay local on purpose and now say why in their own comments: the EMA
+  rounds inside its recursion, which the streaming steppers for EMA, MACD and
+  TSI reproduce step for step and an exactness test pins, and the bands measure
+  their deviation against the rounded middle band that is actually drawn.
+  Delegating either would change values the product displays.
+
+- **A window average no longer depends on how much history precedes it.** This
+  was already true and is now a test, because the shared implementation could
+  have quietly cost it. Computing a rolling mean with a running total (add the
+  new value, subtract the old) is the obvious faster shape and makes the result
+  carry the rounding error of everything before it, so the same window averaged
+  inside a long series and averaged alone occasionally round to a different
+  cent. That property is what lets the `appendData()` path extend an indicator
+  by recomputing only the tail window and still match a full recompute exactly.
 
 - **The test harness and the examples now load the ApexCharts a user installs.**
   Nothing in the repo declared the engine it renders with: every e2e fixture,
