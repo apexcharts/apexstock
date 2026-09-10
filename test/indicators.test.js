@@ -23,6 +23,36 @@ describe("calculateMovingAverage (SMA)", () => {
     const series = ohlc([10, 20]);
     expect(Indicators.calculateMovingAverage(series, 5)).toEqual([null, null]);
   });
+
+  // The average of a window must not depend on how much history preceded it.
+  // The O(1) streaming twin recomputes the tail window and is required to
+  // match this function exactly, so an implementation carrying a running total
+  // across the whole series would drift by a cent here and there and break
+  // that contract. IndicatorStep's agreement suite does catch it, but reports
+  // against whichever indicator noticed first (usually Bollinger, through its
+  // middle band), which points at the wrong file.
+  it("gives a window the same average however much history precedes it", () => {
+    let seed = 99;
+    const rand = () => (
+      (seed = (seed * 16807) % 2147483647), (seed - 1) / 2147483646
+    );
+    let price = 100;
+    const closes = Array.from({ length: 800 }, () => {
+      price = Number((price + (rand() - 0.5) * 4).toFixed(2));
+      return price;
+    });
+    const series = ohlc(closes);
+
+    for (const period of [5, 20, 50, 200]) {
+      const full = Indicators.calculateMovingAverage(series, period);
+      for (let i = period - 1; i < series.length; i++) {
+        const tail = series.slice(i - period + 1, i + 1);
+        expect(Indicators.calculateMovingAverage(tail, period)[period - 1]).toBe(
+          full[i]
+        );
+      }
+    }
+  });
 });
 
 describe("calculateEMA", () => {
