@@ -1,0 +1,85 @@
+## 📄 License Options for ApexStock
+
+ApexStock is a commercial product, included in the **Premium** plan and above.
+
+**There is no free tier for ApexStock.** The $2M threshold that makes some Apex products free does not apply to this one: a Premium license is required whatever your financial resources, by companies, individuals, non-profits and educators alike. Without a valid license key ApexStock renders with a trial watermark, which is for evaluation only.
+
+One license key works across every Apex product, so a customer of one does not buy a second for another.
+
+---
+
+### 💼 Commercial License (Paid)
+
+ApexStock requires a **Premium** license or higher. Plans below Premium do not include it, and neither does the free Community License.
+
+Pro and Premium are priced per developer, and priced on the features you use rather than on your size.
+
+✅ What's included:
+
+- Use in internal tools and commercial applications
+- Modifications and app-level distribution
+- 12-month subscription with updates & support
+
+🚫 Not allowed:
+
+- Redistribution in toolkits, SDKs, or platforms
+- Use by unlicensed developers
+- Competing charting products
+
+---
+
+### 🏛 Non-Profit Tiers
+
+Non-Profits are treated like commercial entities and need a **Premium** license or higher for ApexStock, whatever their annual operating budget. Discounts are available: ask us before you buy.
+
+---
+
+### 🔄 OEM / Redistribution License (Paid)
+
+Required if you are **embedding ApexStock into a product or platform used by other people**, such as:
+
+- No-code dashboards
+- Developer platforms
+- Embedded BI tools
+- SDKs
+
+✅ What's included:
+
+- Redistribution rights for **one application or product**
+- **Unlimited developer seats** on that application, with no separate per-developer license to buy
+- **Every licensed feature**, at the highest tier
+- 12-month subscription with updates & support
+
+Your end users need no license of their own. A second application needs a second OEM license. White-label, resale, and affiliate arrangements are quoted separately.
+
+✅ OEM **not required** if your app simply renders static charts and users **cannot** configure or interact with them.
+
+---
+
+### ⏳ When a subscription ends
+
+Your license key expires and **ApexStock renders with a trial watermark**, because the whole product is licensed rather than a set of features inside a free one. You no longer receive updates, new features, or technical support. Your existing deployment keeps running.
+
+For OEM licenses, continued redistribution requires an active subscription.
+
+---
+
+### ⚠️ License Acceptance
+
+By installing ApexStock (e.g., via `npm install ngx-apexstock`), you are agreeing to the applicable license based on your usage:
+
+- Commercial License (Premium or higher, whatever your financial resources)
+- OEM License (if redistributing to third-party users)
+
+---
+
+### 🛠 Need a License or Have Questions?
+
+📧 Contact us at [sales@apexcharts.com](mailto:sales@apexcharts.com)
+📚 Read full license agreements here: [https://apexcharts.com/license](https://apexcharts.com/license)
+
+---
+
+Copyright © 2026 ApexCharts. All rights reserved.
+
+Thank you for supporting ApexStock! Your licensing funds its continued development and support.

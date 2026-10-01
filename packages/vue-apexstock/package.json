@@ -33,7 +33,7 @@
     "candlestick",
     "financial-charts"
   ],
-  "license": "see LICENSE in LICENSE",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/apexcharts/apexstock.git",
