@@ -64,7 +64,7 @@
     "> 0.25%",
     "not dead"
   ],
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE IN LICENSE.md",
   "resolutions": {
     "undici": "^7.28.0",
     "picomatch": "^4.0.4",
