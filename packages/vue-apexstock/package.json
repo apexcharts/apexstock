@@ -1,6 +1,6 @@
 {
   "name": "vue-apexstock",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Vue 3 component wrapper for ApexStock (financial charting on top of ApexCharts)",
   "type": "module",
   "main": "dist/index.cjs",
