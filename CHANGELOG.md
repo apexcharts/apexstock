@@ -9,6 +9,30 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-09
+
+### Changed
+
+- **ApexCharts 8 installs next to apexstock without a peer conflict.** The
+  `apexcharts` peer range is now `^7.1.0 || ^8.0.0` (it was `^7.1.0`, which
+  excludes 8.0.0). No code change: every chart apexstock draws (line, area,
+  rangeArea, bar, candlestick) stays in the ApexCharts 8 default bundle. The
+  three framework wrappers ship at 0.2.3 with the same range.
+- `apex-commons` moves from `^0.7.0` to `^0.8.0` and is inlined into the bundle
+  as before. 0.8.0 ranks `embedded` and `oem` licences equal to `premium`, so a
+  feature gated on either is reachable by a purchasable licence.
+
+### Fixed
+
+- **Every package ships the licence its manifest points at.** The three
+  wrappers' tarballs carried no licence file at all (each said "see LICENSE in
+  LICENSE", and npm does not look in a parent directory), and after the file
+  became `LICENSE.md` ngx-apexstock's build would again have left it out. All
+  four packages now ship `LICENSE.md`.
+- The licence text no longer describes a free Community tier, which ApexStock
+  does not have: it is licensed from the Premium plan. The file is renamed
+  `LICENSE.md` so GitHub renders it.
+
 ## [0.5.1] - 2026-09-10
 
 ### Changed
