@@ -1,6 +1,6 @@
 {
   "name": "ngx-apexstock",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Angular component wrapper for ApexStock (financial charting on top of ApexCharts)",
   "keywords": [
     "apexstock",
