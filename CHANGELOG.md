@@ -9,6 +9,22 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The main chart follows a runtime theme change.** After `updateTheme()`,
+  `setThemePreset()` or `update({ theme: { mode } })`, the OHLC tooltip, text
+  color and plot background switch with the theme instead of staying in the one
+  the chart was built with, on every supported ApexCharts version (7.1 and
+  later). A plain light or dark mode leaves the main plot transparent so the
+  ApexStock surface shows through, as on the indicator panes; a preset keeps its
+  own plot background. After a switch to dark, main-pane series without their
+  own colors use ApexCharts' dark palette, as a chart built dark does. A
+  `tooltip.theme`, `chart.foreColor` or `theme.palette` you set yourself is
+  kept, and ApexStock no longer writes into the options objects you pass to
+  `update()`.
+- **The legend and analysis panel rise/fall colors match the candles** with a
+  theme preset active or candle colors passed to `update()`.
+
 ## [0.5.2] - 2026-10-09
 
 ### Changed

@@ -64,8 +64,9 @@ function buildCommonChartOptions(context) {
       ...context.mainChartOptions.grid,
       borderColor: context.isDarkTheme ? "#404040" : "#e9ecef",
     },
-    // Pass a proper theme object. `mainChartOptions.theme` is undefined (the
-    // main chart only sets `chart.theme`), and an explicit `theme: undefined`
+    // Pass a proper theme object. `mainChartOptions.theme` can be undefined (a
+    // chart built without a `theme` option has none until its first runtime
+    // theme change), and an explicit `theme: undefined`
     // overwrites ApexCharts' default — making `cnf.theme.mode` throw in
     // Core.setupElements (an *absent* key would be back-filled; an undefined
     // one is not). `context.theme` is the theme-mode string ("light"/"dark").

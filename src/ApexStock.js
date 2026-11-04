@@ -300,6 +300,15 @@ export default class ApexStock {
       this.themeManager.getChartConfig(),
       chartOptions
     );
+    const themeUpDown = this.themeManager.getUpDown();
+    // The mode-dependent keys the page named itself. A runtime theme change
+    // keeps them (an explicit option wins over the mode's defaults) and only
+    // rewrites the ones ApexStock or ApexCharts set (see _updateMainChart).
+    this._pageThemeKeys = {
+      tooltipTheme: chartOptions.tooltip && chartOptions.tooltip.theme,
+      foreColor: chartOptions.chart && chartOptions.chart.foreColor,
+      palette: chartOptions.theme && chartOptions.theme.palette,
+    };
     this.mainChartOptions = Utils.extend(
       {
         chart: {
@@ -336,9 +345,6 @@ export default class ApexStock {
             // rather than the foundation.
             measured: (ctx, payload) =>
               this.measurement.onCoreMeasured(payload),
-          },
-          theme: {
-            mode: this.theme,
           },
         },
         series: [{ name: "Price", data: this.series }],
@@ -396,8 +402,8 @@ export default class ApexStock {
         plotOptions: {
           candlestick: {
             colors: {
-              upward: this.isDarkTheme ? "#26A69A" : "#00B746",
-              downward: this.isDarkTheme ? "#EF5350" : "#EF403C",
+              upward: themeUpDown.up,
+              downward: themeUpDown.down,
             },
           },
         },
@@ -1308,6 +1314,11 @@ export default class ApexStock {
    * @returns {void}
    */
   update(newOptions) {
+    // Candle colors passed here hold until an update without them puts the
+    // theme colors back (below), so they are dropped first and recorded once
+    // the theme for this call is known.
+    this.themeManager.explicitUpDown = null;
+
     // Store current state
     const activeIndicators = Object.keys(this.indicatorChartMap);
     const activeOscillator = this.activeOscillator;
@@ -1391,6 +1402,20 @@ export default class ApexStock {
       }));
     }
 
+    // Colors the page passes win over the theme's for every surface that
+    // matches the candles (legend, analysis panel), not only the candles.
+    const passedUpDown =
+      newOptions.plotOptions &&
+      newOptions.plotOptions.candlestick &&
+      newOptions.plotOptions.candlestick.colors;
+    if (passedUpDown) {
+      const base = this.themeManager.getThemeUpDown();
+      this.themeManager.explicitUpDown = {
+        up: passedUpDown.upward || base.up,
+        down: passedUpDown.downward || base.down,
+      };
+    }
+
     // Merge options with theme configuration
     const updatedOptions = Utils.extend(
       this.themeManager.getChartConfig(),
@@ -1398,30 +1423,54 @@ export default class ApexStock {
     );
 
     // Update candlestick colors for dark/light themes if not specified in newOptions
-    if (
-      !newOptions.plotOptions ||
-      !newOptions.plotOptions.candlestick ||
-      !newOptions.plotOptions.candlestick.colors
-    ) {
+    if (!passedUpDown) {
       if (!updatedOptions.plotOptions) updatedOptions.plotOptions = {};
       if (!updatedOptions.plotOptions.candlestick)
         updatedOptions.plotOptions.candlestick = {};
 
       // Preset up/down when a preset is active, else the mode defaults.
-      const preset = this.themeManager.preset;
+      const { up, down } = this.themeManager.getUpDown();
       updatedOptions.plotOptions.candlestick.colors = {
-        upward: preset ? preset.up : this.isDarkTheme ? "#26A69A" : "#00B746",
-        downward: preset
-          ? preset.down
-          : this.isDarkTheme
-          ? "#EF5350"
-          : "#EF403C",
+        upward: up,
+        downward: down,
       };
+    }
+
+    // A mode change carries the plot background and tooltip theme with it,
+    // as updateTheme() does (see ThemeManager.syncChartModeToTheme), and the
+    // page's own mode-dependent keys, unless this call names them.
+    let keep;
+    if (themeChanged) {
+      const page = this._pageThemeKeys || {};
+      keep = {
+        tooltipTheme:
+          (newOptions.tooltip && newOptions.tooltip.theme) || page.tooltipTheme,
+        foreColor:
+          (newOptions.chart && newOptions.chart.foreColor) || page.foreColor,
+        palette: (newOptions.theme && newOptions.theme.palette) || page.palette,
+      };
+      this.themeManager.syncChartModeToTheme(updatedOptions, {
+        tooltipTheme: !!keep.tooltipTheme,
+        chartBackground: !!(
+          newOptions.chart && newOptions.chart.background != null
+        ),
+        tokenSurface: this._hasTokenSurface(),
+      });
+      if (keep.tooltipTheme) updatedOptions.tooltip.theme = keep.tooltipTheme;
+      if (keep.foreColor) updatedOptions.chart.foreColor = keep.foreColor;
+      if (keep.palette) updatedOptions.theme.palette = keep.palette;
     }
 
     // Update the chart with new options
     this.sanitizeTheme(updatedOptions);
-    this.chart.updateOptions(updatedOptions, true, true, true);
+    const updated = this._updateMainChart(
+      updatedOptions,
+      true,
+      true,
+      true,
+      keep
+    );
+    if (themeChanged) this._syncCoreTooltipTheme(updated);
 
     // Reinitialize xaxis range with new data
     this.initializeXAxisRange();
@@ -3589,22 +3638,38 @@ export default class ApexStock {
     this.theme = this.themeManager.getTheme();
     this.isDarkTheme = this.theme === "dark";
     this.colors = this.themeManager.getColors();
+    // The candles go back to the theme's colors here (mainChartOptions never
+    // holds the ones passed to update()), so the surfaces that match them do.
+    this.themeManager.explicitUpDown = null;
 
     // Keep mainChartOptions' baked colors in sync so the extend below (which
     // lets mainChartOptions win) applies the new theme/preset palette.
     this.themeManager.syncChartOptionsToTheme(this.mainChartOptions);
+    // And the mode itself (top-level theme.mode, tooltip theme, plot
+    // background), which ApexCharts re-derives its tooltip and foreColor from.
+    this.themeManager.syncChartModeToTheme(this.mainChartOptions, {
+      tooltipTheme: !!(this._pageThemeKeys && this._pageThemeKeys.tooltipTheme),
+      tokenSurface: this._hasTokenSurface(),
+    });
     this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
 
     // Get theme configuration with preserved axis settings
     const themeConfig = this.themeManager.getChartConfig();
+    const payload = Utils.extend(themeConfig, this.mainChartOptions);
+    // ApexCharts before 8.7 writes its mode defaults into the objects it is
+    // given. `chart` and `tooltip` are already fresh here (getChartConfig has
+    // both); a copy of `theme` keeps them out of mainChartOptions too.
+    payload.theme = { ...payload.theme };
 
     // Update chart with preserved configurations
-    this.chart.updateOptions(
-      Utils.extend(themeConfig, this.mainChartOptions),
+    const updated = this._updateMainChart(
+      payload,
       false,
       false,
-      false
+      false,
+      this._pageThemeKeys
     );
+    this._syncCoreTooltipTheme(updated);
 
     // Update all indicators by re-adding them with new theme colors
     const activeIndicators = Object.keys(this.indicatorChartMap);
@@ -3654,6 +3719,95 @@ export default class ApexStock {
 
     if (this.oscillatorSettings) {
       this.oscillatorSettings.updateTheme(mode);
+    }
+  }
+
+  /**
+   * Whether ApexCharts painted the main plot from a `--apx-surface` token.
+   * @returns {boolean}
+   * @private
+   */
+  _hasTokenSurface() {
+    const w = this.chart && this.chart.w;
+    return !!(w && w.globals && w.globals.tokenSurface);
+  }
+
+  /**
+   * updateOptions on the main chart for a payload that may carry `theme.mode`.
+   * ApexCharts derives the mode's tooltip theme, foreColor and palette from a
+   * payload with a `theme` key, and before 8.1 it overwrites values the page
+   * passed (7.x all three, 8.0 the tooltip theme), so a page's own choice was
+   * lost on every runtime theme change. `keep` (the keys the page named) is
+   * put back on the derived options before they are applied, in the same
+   * render. Where the core already keeps them this changes nothing.
+   * @param {object} options - The updateOptions payload.
+   * @param {boolean} redraw
+   * @param {boolean} animate
+   * @param {boolean} updateSyncedCharts
+   * @param {{tooltipTheme?: string, foreColor?: string, palette?: string}} [keep]
+   * @returns {unknown} the updateOptions result.
+   * @private
+   */
+  _updateMainChart(options, redraw, animate, updateSyncedCharts, keep = {}) {
+    const chart = this.chart;
+    const th = chart && chart.theme;
+    if (
+      !options ||
+      !options.theme ||
+      !(keep.tooltipTheme || keep.foreColor || keep.palette) ||
+      !th ||
+      typeof th.updateThemeOptions !== "function" ||
+      Object.prototype.hasOwnProperty.call(th, "updateThemeOptions")
+    ) {
+      return chart.updateOptions(options, redraw, animate, updateSyncedCharts);
+    }
+    const derive = th.updateThemeOptions;
+    th.updateThemeOptions = function (opts) {
+      const out = derive.call(this, opts);
+      if (!out) return out;
+      if (keep.tooltipTheme && out.tooltip) {
+        out.tooltip.theme = keep.tooltipTheme;
+      }
+      if (keep.foreColor && out.chart) out.chart.foreColor = keep.foreColor;
+      if (keep.palette && out.theme) out.theme.palette = keep.palette;
+      return out;
+    };
+    try {
+      return chart.updateOptions(options, redraw, animate, updateSyncedCharts);
+    } finally {
+      delete th.updateThemeOptions;
+    }
+  }
+
+  /**
+   * ApexCharts before 7.7.0 keeps the `tooltip` config object its Tooltip
+   * module was built with, while updateOptions replaces `w.config.tooltip`, so
+   * the OHLC tooltip kept the construction theme through every theme change.
+   * Point it at the live config and restyle the element it already drew, now
+   * and once the update settles. A no-op on 7.7.0+, which reads the live
+   * config through an accessor (no own `tConfig` property).
+   * @param {Promise<unknown>|undefined} [pending] - The updateOptions result.
+   * @returns {void}
+   * @private
+   */
+  _syncCoreTooltipTheme(pending) {
+    const sync = () => {
+      const w = this.chart && this.chart.w;
+      const tt = w && w.globals && w.globals.tooltip;
+      if (!tt || !Object.prototype.hasOwnProperty.call(tt, "tConfig")) return;
+      tt.tConfig = w.config.tooltip;
+      const el =
+        typeof tt.getElTooltip === "function" ? tt.getElTooltip() : null;
+      if (el) {
+        el.classList.remove("apexcharts-theme-light", "apexcharts-theme-dark");
+        el.classList.add(
+          `apexcharts-theme-${w.config.tooltip.theme || "light"}`
+        );
+      }
+    };
+    sync();
+    if (pending && typeof pending.then === "function") {
+      pending.then(sync, () => {});
     }
   }
 

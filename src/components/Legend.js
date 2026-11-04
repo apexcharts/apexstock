@@ -1,4 +1,5 @@
 import Utils from "../utils/Utils";
+import ThemeManager from "../core/ThemeManager";
 
 /**
  * On-chart data legend (a.k.a. data window): a small panel pinned in a corner of
@@ -48,12 +49,18 @@ export default class Legend {
     return !!this.ctx.isDarkTheme;
   }
 
+  /** The active theme's up/down, so a preset's candles and this agree. */
+  _upDown() {
+    const tm = this.ctx.themeManager;
+    return tm ? tm.getUpDown() : ThemeManager.modeUpDown(this._dark());
+  }
+
   _upColor() {
-    return this._dark() ? "#26A69A" : "#00B746";
+    return this._upDown().up;
   }
 
   _downColor() {
-    return this._dark() ? "#EF5350" : "#EF403C";
+    return this._upDown().down;
   }
 
   /** Compact volume format (1.2M, 3.4K). */

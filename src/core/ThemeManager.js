@@ -21,6 +21,12 @@ export default class ThemeManager {
     /** Active preset def ({@link ThemePresets}), or null for a plain mode. */
     this.preset = null;
     this.presetName = null;
+    /**
+     * Candle up/down the page passed to update(), or null. It wins over the
+     * preset and mode colors until the candles go back to theme colors.
+     * @type {{up: string, down: string}|null}
+     */
+    this.explicitUpDown = null;
     this.initColorSchemes();
     this.setTheme(initialTheme || "light");
   }
@@ -79,8 +85,7 @@ export default class ThemeManager {
     if (!options) return options;
     const p = this.preset;
     const dark = this.isDarkTheme;
-    const up = p ? p.up : dark ? "#26A69A" : "#00B746";
-    const down = p ? p.down : dark ? "#EF5350" : "#EF403C";
+    const { up, down } = this.getUpDown();
     const grid = p ? p.grid : dark ? "#404040" : "#e9ecef";
     const axis = p ? p.axis : dark ? "#e0e0e0" : "#333";
 
@@ -105,6 +110,84 @@ export default class ThemeManager {
     else applyAxis(options.yaxis);
 
     return options;
+  }
+
+  /**
+   * Write the mode-dependent ApexCharts keys for a RUNTIME theme change into a
+   * chart-options object in place. ApexCharts reads the top-level
+   * `theme.mode`, so without it a switch left the OHLC tooltip, foreColor and
+   * plot background in the construction theme. Not used at construction: a
+   * chart built without a `theme` option keeps ApexCharts' own unset mode.
+   *
+   * - `theme.mode` is merged into the consumer's own theme keys (palette,
+   *   monochrome); the ApexStock-only `preset` key is dropped.
+   * - `tooltip.theme` is written every time, since ApexCharts 8.x keeps an
+   *   existing value on a mode change. Skipped when the page named it.
+   * - A plain mode gets a transparent plot (the ApexStock surface shows
+   *   through, as for the indicator panes), because a mode with no background
+   *   makes ApexCharts paint its own white or #343A3F slab. A background the
+   *   page passed is kept. Where ApexCharts painted the plot from a
+   *   `--apx-surface` token, an empty value hands it back to that token:
+   *   ApexCharts takes 'transparent' as the page's own and stops applying it.
+   *
+   * @param {object} options - The chart-options object to mutate.
+   * @param {{tooltipTheme?: boolean, chartBackground?: boolean, tokenSurface?: boolean}} [explicit]
+   *   Keys the page set itself, and whether a `--apx-surface` token paints
+   *   the plot.
+   * @returns {object} the same object.
+   */
+  syncChartModeToTheme(options, explicit = {}) {
+    if (!options) return options;
+    const theme = { ...(options.theme || {}), mode: this.theme };
+    delete theme.preset;
+    options.theme = theme;
+
+    if (!explicit.tooltipTheme) {
+      options.tooltip = options.tooltip || {};
+      options.tooltip.theme = this.theme;
+    }
+
+    options.chart = options.chart || {};
+    if (!this.preset && !explicit.chartBackground) {
+      options.chart.background = explicit.tokenSurface ? "" : "transparent";
+    }
+    return options;
+  }
+
+  /**
+   * Built-in candle up/down colors for a plain mode.
+   * @param {boolean} dark
+   * @returns {{up: string, down: string}}
+   */
+  static modeUpDown(dark) {
+    return dark
+      ? { up: "#26A69A", down: "#EF5350" }
+      : { up: "#00B746", down: "#EF403C" };
+  }
+
+  /**
+   * The active up/down colors: the ones the page passed to update(), else the
+   * preset's when one is active, else the mode defaults. The one source for
+   * the candles and every surface that colors a rise or a fall to match them
+   * (legend, analysis panel). Colors passed at construction are not tracked
+   * (the theme colors replace them), nor are the chart-type switch colors.
+   * @returns {{up: string, down: string}}
+   */
+  getUpDown() {
+    if (this.explicitUpDown) return { ...this.explicitUpDown };
+    return this.getThemeUpDown();
+  }
+
+  /**
+   * The theme's own up/down: the preset's when one is active, else the mode
+   * defaults, ignoring colors the page passed.
+   * @returns {{up: string, down: string}}
+   */
+  getThemeUpDown() {
+    const p = this.preset;
+    return p
+      ? { up: p.up, down: p.down }
+      : ThemeManager.modeUpDown(this.isDarkTheme);
   }
 
   getTheme() {
@@ -429,12 +512,12 @@ export default class ThemeManager {
    */
   getChartConfig() {
     const p = this.preset;
+    const { up, down } = this.getUpDown();
     const config = {
-      chart: {
-        theme: {
-          mode: this.theme,
-        },
-      },
+      // Always its own object, so a config extended with the caller's options
+      // copies their `chart` instead of sharing it, and nothing ApexStock or
+      // ApexCharts writes into the result lands in the caller's object.
+      chart: {},
       tooltip: {
         theme: this.theme,
       },
@@ -451,10 +534,7 @@ export default class ThemeManager {
       },
       plotOptions: {
         candlestick: {
-          colors: {
-            upward: p ? p.up : this.isDarkTheme ? "#26A69A" : "#00B746",
-            downward: p ? p.down : this.isDarkTheme ? "#EF5350" : "#EF403C",
-          },
+          colors: { upward: up, downward: down },
         },
       },
     };

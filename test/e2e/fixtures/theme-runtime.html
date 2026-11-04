@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexStock Runtime Theme Fixture</title>
+    <style>
+      body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #eef1f4; }
+      .card { width: 900px; margin-bottom: 16px; }
+    </style>
+    <script src="/node_modules/apexcharts/dist/apexcharts.js"></script>
+    <script src="/dist/apexstock.min.js"></script>
+  </head>
+  <body>
+    <div id="charts"></div>
+
+    <script>
+      // Query string:
+      //   charts=none,light,dark,preset-<name>  one chart per entry, in order
+      //                                         (none = no theme option at all)
+      //   legend=1                              turn the data legend on
+      //   bodyDark=1                            put body.dark-mode on the page
+      //   extra=<json>                          options merged into every chart
+      //                                         (chart, theme, tooltip one level deep)
+      //   surface=<css color>                   set --apx-surface on :root
+      function generateData(count) {
+        const data = [];
+        const base = Date.UTC(2023, 0, 1);
+        let last = 100;
+        for (let i = 0; i < count; i++) {
+          let n = Math.sin((i + 1) * 12.9898) * 43758.5453;
+          n = n - Math.floor(n);
+          const o = last;
+          const c = +(o + (n - 0.5) * 5).toFixed(2);
+          const h = +(Math.max(o, c) + n * 2.5).toFixed(2);
+          const l = +(Math.min(o, c) - n * 2.5).toFixed(2);
+          data.push({ x: base + i * 86400000, y: [o, h, l, c], v: Math.floor(n * 1e6) });
+          last = c;
+        }
+        return data;
+      }
+
+      // A dark custom preset, so a preset switch can change the base mode.
+      ApexStock.registerTheme("rt-dark", {
+        mode: "dark",
+        up: "#22d3ee",
+        down: "#f472b6",
+        grid: "#2a2440",
+        axis: "#c4b5fd",
+        background: "#1a1528",
+        accent: "#22d3ee",
+      });
+
+      window.__ready = false;
+      document.addEventListener("DOMContentLoaded", function () {
+        const q = new URLSearchParams(location.search);
+        if (q.get("bodyDark") === "1") document.body.classList.add("dark-mode");
+        if (q.get("surface")) document.documentElement.style.setProperty("--apx-surface", q.get("surface"));
+        const extra = q.get("extra") ? JSON.parse(q.get("extra")) : {};
+        const specs = (q.get("charts") || "none").split(",");
+        const host = document.getElementById("charts");
+        window.__charts = specs.map(function (spec, i) {
+          const el = document.createElement("div");
+          el.id = "chart" + i;
+          el.className = "card";
+          host.appendChild(el);
+          const opts = {
+            chart: { height: 360, animations: { enabled: false }, redrawOnParentResize: false },
+            series: [{ name: "AAPL", data: generateData(120) }],
+          };
+          if (spec === "light" || spec === "dark") opts.theme = { mode: spec };
+          else if (spec.indexOf("preset-") === 0) opts.theme = { preset: spec.slice(7) };
+          if (q.get("legend") === "1") opts.legend = { show: true, position: "top-left" };
+          Object.keys(extra).forEach(function (k) {
+            opts[k] = Object.assign({}, opts[k], extra[k]);
+          });
+          const chart = new ApexStock(el, opts);
+          chart.render();
+          return chart;
+        });
+        window.__chart = window.__charts[window.__charts.length - 1];
+
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            window.__ready = true;
+          })
+        );
+      });
+    </script>
+  </body>
+</html>
