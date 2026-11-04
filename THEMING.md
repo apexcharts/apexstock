@@ -26,9 +26,12 @@ shows the override recipe.
    tokens; the dark stylesheet re-points the same components at the
    `--apexstock-dark-*` tokens. So **each mode has its own palette** — override
    the `light-*` tokens to restyle light mode, the `dark-*` tokens for dark.
-3. Popups that ApexStock appends to `document.body` (element settings, tooltip
-   annotations) copy the `apexstock-theme-dark` class onto themselves, so the
-   dark tokens reach them too.
+3. The element-settings popup is mounted inside the chart container, so it
+   picks up the container's `apexstock-theme-<mode>` class and follows theme
+   changes without a class of its own. Tooltip annotations are drawn into the
+   chart and take their dark colors from that same class. To restyle the popup
+   for dark mode, target
+   `.apexstock-chart.apexstock-theme-dark .apexstock-element-popup`.
 
 ---
 

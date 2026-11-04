@@ -19,7 +19,6 @@ class SelectedElementPopup {
     this.strokeColorPicker = null;
     this.fillColorPicker = null;
     this.fillOpacitySlider = null;
-    this.isDarkTheme = false;
 
     this.createPopup();
   }
@@ -32,14 +31,10 @@ class SelectedElementPopup {
     this.popupElement = document.createElement("div");
     this.popupElement.className = "apexstock-element-popup";
 
-    // Check if we're in dark mode
-    this.isDarkTheme =
-      document.body.classList.contains("dark-mode") ||
-      document.querySelector(".apexstock-theme-dark") !== null;
-
-    if (this.isDarkTheme) {
-      this.popupElement.classList.add("apexstock-theme-dark");
-    }
+    // No theme class of its own: the popup lives inside the chart container,
+    // which carries apexstock-theme-<mode> and is reclassed on every theme
+    // change, so it follows its own chart. Deciding from the whole page (any
+    // dark chart, body.dark-mode), once, gave a light chart a half-dark popup.
 
     // Create toolbar container for styling options
     const styleToolbar = document.createElement("div");

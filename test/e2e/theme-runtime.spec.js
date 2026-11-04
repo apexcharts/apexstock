@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 // Runtime theme changes in a real browser, against the ApexCharts the suite
-// pins. Two surfaces used to stay behind:
+// pins. Three surfaces used to stay behind:
 // - the main pane's OHLC tooltip, foreColor and plot paper kept the
 //   construction theme (ApexStock wrote `chart.theme.mode`, which ApexCharts
 //   never reads), so the shipped theming example showed a white tooltip on a
 //   dark chart;
+// - the drawing popup decided dark from the whole page, once;
 // - the legend's rise/fall colors ignored a preset's up/down.
 // The "default" tests pin today's output for charts that never hit these.
 const FIXTURE = "/test/e2e/fixtures/theme-runtime.html";
@@ -260,6 +261,124 @@ test.describe("runtime theme: main pane", () => {
     expect(got.bg).not.toBe(WHITE);
     expect(got.paper).not.toBe(WHITE);
     expect(errors).toEqual([]);
+  });
+});
+
+// ---- Drawing popup ----
+
+/** Add a measure drawing, select it with a real click, read the popup. */
+async function selectDrawingPopup(page, i) {
+  await page.evaluate((i) => {
+    const c = window.__charts[i];
+    const s = c.series;
+    c.addDrawing({
+      type: "measure",
+      points: [
+        { x: s[40].x, y: 96 },
+        { x: s[70].x, y: 104 },
+      ],
+    });
+  }, i);
+  await page.waitForTimeout(150);
+  const at = await page.evaluate((i) => {
+    const r = document
+      .querySelector(`#chart${i} .apexstock-drawing-overlay rect`)
+      .getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  }, i);
+  // A zero-delay click does not select.
+  await page.mouse.click(at.x, at.y, { delay: 60 });
+  await page.waitForTimeout(300);
+  await expect(
+    page.locator(`#chart${i} .apexstock-element-popup`)
+  ).toBeVisible();
+  return page.evaluate((i) => {
+    const p = document.querySelector(`#chart${i} .apexstock-element-popup`);
+    return {
+      ownDark: p.classList.contains("apexstock-theme-dark"),
+      bg: getComputedStyle(p).backgroundColor,
+      del: getComputedStyle(p.querySelector(".apexstock-element-delete-btn"))
+        .color,
+      label: getComputedStyle(
+        p.querySelector(".apexstock-color-container label")
+      ).color,
+      picker: getComputedStyle(
+        p.querySelector(".apexstock-stroke-color-picker")
+      ).backgroundColor,
+    };
+  }, i);
+}
+
+// Today's popup styling for a plain light and a plain dark chart.
+const LIGHT_POPUP = {
+  ownDark: false,
+  bg: WHITE,
+  del: "rgb(31, 41, 55)",
+  label: "rgb(102, 102, 102)",
+  picker: "rgb(239, 239, 239)",
+};
+const DARK_POPUP = {
+  bg: "rgb(30, 36, 43)",
+  del: "rgb(230, 234, 240)",
+  label: "rgb(173, 181, 189)",
+  picker: "rgb(39, 46, 54)",
+};
+
+test.describe("runtime theme: drawing popup", () => {
+  test("default: a single light chart's popup is unchanged", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=light");
+    expect(await selectDrawingPopup(page, 0)).toEqual(LIGHT_POPUP);
+  });
+
+  test("default: a single dark chart's popup is still dark", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=dark");
+    expect(await selectDrawingPopup(page, 0)).toMatchObject(DARK_POPUP);
+  });
+
+  test("a light chart after a dark one gets a light popup", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=dark,light");
+    expect(await selectDrawingPopup(page, 1)).toEqual(LIGHT_POPUP);
+  });
+
+  test("a light chart before a dark one under the same wrapper stays light", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=light,dark");
+    expect(await selectDrawingPopup(page, 0)).toEqual(LIGHT_POPUP);
+  });
+
+  test("a sibling switching to dark leaves a light chart's popup light", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=light,light");
+    await page.evaluate(() => window.__charts[1].updateTheme("dark"));
+    await page.waitForTimeout(200);
+    expect(await selectDrawingPopup(page, 0)).toEqual(LIGHT_POPUP);
+  });
+
+  test("follows its chart from dark to light", async ({ page }) => {
+    await gotoFixture(page, "charts=dark");
+    await page.evaluate(() => window.__chart.updateTheme("light"));
+    await page.waitForTimeout(200);
+    expect(await selectDrawingPopup(page, 0)).toEqual(LIGHT_POPUP);
+  });
+
+  test("follows its chart from light to dark", async ({ page }) => {
+    await gotoFixture(page, "charts=light");
+    await page.evaluate(() => window.__chart.updateTheme("dark"));
+    await page.waitForTimeout(200);
+    expect(await selectDrawingPopup(page, 0)).toMatchObject(DARK_POPUP);
+  });
+
+  test("ignores body.dark-mode around a light chart", async ({ page }) => {
+    await gotoFixture(page, "charts=light&bodyDark=1");
+    expect(await selectDrawingPopup(page, 0)).toEqual(LIGHT_POPUP);
   });
 });
 

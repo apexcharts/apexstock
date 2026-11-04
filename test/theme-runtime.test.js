@@ -5,6 +5,7 @@
 //   read the old `chart.theme.mode`), an explicit tooltip theme and a plot
 //   background, so its tooltip/foreColor/paper follow updateTheme() and
 //   setThemePreset() instead of staying in the construction theme;
+// - the drawing popup follows its own chart, not the whole page;
 // - the legend and analysis panel take up/down from the active theme (so a
 //   preset's candles and their rise/fall colors agree).
 // Each block also pins today's default output, which must not change.
@@ -14,6 +15,7 @@ import ThemePresets from "../src/core/ThemePresets.js";
 import ApexStock from "../src/ApexStock.js";
 import Legend from "../src/components/Legend.js";
 import AnalysisPanel from "../src/components/AnalysisPanel.js";
+import SelectedElementPopup from "../src/components/SelectedElementPopup.js";
 
 const DARK_PRESET = {
   mode: "dark",
@@ -611,5 +613,51 @@ describe("Legend and AnalysisPanel up/down colors", () => {
         DARK_PRESET.down,
       ]);
     }
+  });
+});
+
+// ---- Drawing popup ----
+
+describe("SelectedElementPopup theme", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    document.body.className = "";
+  });
+
+  const make = (cls) => {
+    const chart = document.createElement("div");
+    chart.className = cls;
+    document.body.appendChild(chart);
+    const popup = new SelectedElementPopup(
+      chart,
+      () => {},
+      () => {}
+    );
+    return { chart, popup };
+  };
+
+  it("does not take a dark class from another dark chart on the page", () => {
+    make("apexstock-theme-dark");
+    const { chart, popup } = make("apexstock-theme-light");
+    expect(popup.popupElement.parentNode).toBe(chart);
+    expect(popup.popupElement.classList.contains("apexstock-theme-dark")).toBe(
+      false
+    );
+    popup.destroy();
+  });
+
+  it("does not take a dark class from body.dark-mode", () => {
+    document.body.classList.add("dark-mode");
+    const { popup } = make("apexstock-theme-light");
+    expect(popup.popupElement.classList.contains("apexstock-theme-dark")).toBe(
+      false
+    );
+    popup.destroy();
+  });
+
+  it("pins the popup's own classes for a single chart", () => {
+    const { popup } = make("apexstock-theme-light");
+    expect(popup.popupElement.className).toBe("apexstock-element-popup");
+    popup.destroy();
   });
 });

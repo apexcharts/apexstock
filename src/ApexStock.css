@@ -921,9 +921,11 @@
   border-color: #7aa7ff;
 }
 
-/* Form controls */
-.apexstock-theme-dark select,
-.apexstock-theme-dark input {
+/* Form controls. Not inside a light chart's element popup: a dark sibling
+   chart mirrors its class onto a wrapper the two share. :where() keeps the
+   specificity of the bare rule. */
+.apexstock-theme-dark select:not(:where(.apexstock-chart.apexstock-theme-light .apexstock-element-popup *)),
+.apexstock-theme-dark input:not(:where(.apexstock-chart.apexstock-theme-light .apexstock-element-popup *)) {
   background-color: var(--apexstock-dark-surface-2);
   color: var(--apexstock-dark-text);
   border: 1px solid var(--apexstock-dark-border);
@@ -987,27 +989,30 @@
   filter: brightness(1.1);
 }
 
-.apexstock-theme-dark .apexstock-element-popup {
+/* The element popup lives in the chart's own container. Scoped to it (and not
+   the bare theme class) so a dark sibling chart, which mirrors its class onto a
+   wrapper the two share, cannot darken a light chart's popup. */
+.apexstock-chart.apexstock-theme-dark .apexstock-element-popup {
   background-color: var(--apexstock-dark-bg);
   border: 1px solid var(--apexstock-dark-border);
   color: var(--apexstock-dark-text);
 }
 
-.apexstock-theme-dark .apexstock-color-container label,
-.apexstock-theme-dark .apexstock-opacity-container label {
+.apexstock-chart.apexstock-theme-dark .apexstock-color-container label,
+.apexstock-chart.apexstock-theme-dark .apexstock-opacity-container label {
   color: #adb5bd;
 }
 
-.apexstock-theme-dark .apexstock-stroke-color-picker,
-.apexstock-theme-dark .apexstock-fill-color-picker {
+.apexstock-chart.apexstock-theme-dark .apexstock-stroke-color-picker,
+.apexstock-chart.apexstock-theme-dark .apexstock-fill-color-picker {
   border-color: var(--apexstock-dark-border);
 }
 
-.apexstock-theme-dark .apexstock-element-delete-btn {
+.apexstock-chart.apexstock-theme-dark .apexstock-element-delete-btn {
   color: var(--apexstock-dark-text);
 }
 
-.apexstock-theme-dark .apexstock-element-delete-btn:hover {
+.apexstock-chart.apexstock-theme-dark .apexstock-element-delete-btn:hover {
   background-color: rgba(220, 53, 69, 0.2);
   color: var(--apexstock-danger-light);
 }

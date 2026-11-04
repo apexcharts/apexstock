@@ -24,6 +24,11 @@ those are called out explicitly below.
   `update()`.
 - **The legend and analysis panel rise/fall colors match the candles** with a
   theme preset active or candle colors passed to `update()`.
+- **The drawing settings popup follows its own chart's theme**, including after
+  a theme switch, and no longer turns dark because of `body.dark-mode` or
+  another dark chart on the page. To restyle it for dark mode, target
+  `.apexstock-chart.apexstock-theme-dark .apexstock-element-popup` (THEMING.md
+  is updated).
 
 ## [0.5.2] - 2026-10-09
 
