@@ -1,4 +1,5 @@
 import SettingsControl from "../components/SettingsControl";
+import ThemeManager from "./ThemeManager";
 
 /**
  * ChartSwitch component for ApexStock
@@ -737,6 +738,11 @@ export default class ChartSwitch {
       tooltipLabels = ["Open", "High", "", "Low", "Close"];
     }
 
+    const tm = this.ctx.themeManager;
+    const switchUpDown = tm
+      ? tm.getUpDown(ThemeManager.SWITCH_UP_DOWN)
+      : ThemeManager.SWITCH_UP_DOWN;
+
     // Special options for Renko charts to handle null values
     const chartOptions = {
       series: [...newSeries, ...indicators],
@@ -786,13 +792,14 @@ export default class ChartSwitch {
           }
         },
       },
-      // Add custom colors for different chart types
+      // The switch has its own green and red in a plain mode; a preset and
+      // colors passed to update() win over them, as on the candles.
       plotOptions: {
         candlestick: {
           type,
           colors: {
-            upward: "#34D399", // Different green for different types
-            downward: "#F87171", // Different red for different types
+            upward: switchUpDown.up,
+            downward: switchUpDown.down,
           },
         },
       },

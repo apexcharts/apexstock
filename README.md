@@ -1648,7 +1648,9 @@ apexStock.clearDrawings();  // removes every drawing
 | `measure` | 2 | A box labeled with the price change, % change, and bar count. |
 
 The fib types accept `levels` (a custom ratio array) and `showLabels` (default
-true); `measure` accepts `upColor` / `downColor` / `showLabel`. Pass `snap: true`
+true); `measure` accepts `upColor` / `downColor` / `showLabel` (without either
+color the box takes the theme's rise and fall colors, so it follows a preset and
+a theme change; in a plain mode they are teal `#26a69a` and red `#ef5350`). Pass `snap: true`
 (or `"open"` / `"high"` / `"low"` / `"close"`) to snap each point to the nearest
 bar's OHLC values. Common fields: `color`, `width`, `fill`, `fillOpacity`, `dashArray`, `locked`
 (not selectable/draggable when true), `visible` (rendered when true, still

@@ -9,6 +9,7 @@ import TooltipAnnotationManager from "./TooltipAnnotationManager";
 import ElementInteractionManager from "../../core/ElementInteractionManager";
 import Utils from "../../utils/Utils";
 import { getDrawingTool } from "./DrawingToolRegistry";
+import ThemeManager from "../../core/ThemeManager";
 
 // Tools drawn interactively via the data-space model (seed on mousedown, update
 // data coords on drag, render through redrawElements) rather than the legacy
@@ -549,8 +550,10 @@ export default class DrawingTools {
           y1: dataY,
           x2: dataX,
           y2: dataY,
-          upColor: "#26a69a",
-          downColor: "#ef5350",
+          upColor: ThemeManager.MEASURE_UP_DOWN.up,
+          downColor: ThemeManager.MEASURE_UP_DOWN.down,
+          // No colors were chosen: the tint follows the theme's up/down.
+          themeTint: true,
           fillOpacity: 0.2,
           showLabel: true,
         };
@@ -868,7 +871,7 @@ export default class DrawingTools {
           const ma = this.coordinateConverter.dataToScreen(geo.x1, geo.y1);
           const mb = this.coordinateConverter.dataToScreen(geo.x2, geo.y2);
           const up = geo.y2 >= geo.y1;
-          const tint = up ? data.upColor : data.downColor;
+          const tint = this._measureTint(data, up);
           const left = Math.min(ma.x, mb.x);
           const right = Math.max(ma.x, mb.x);
           const top = Math.min(ma.y, mb.y);
@@ -1196,6 +1199,26 @@ export default class DrawingTools {
       this.elementInteractionManager.createVisualElements();
       this.elementInteractionManager.updateElementEventListeners();
     }
+  }
+
+  /**
+   * The measure box tint for a rise or a fall. A box drawn without colors
+   * (`themeTint`) takes the theme's up/down at paint time, so it follows a
+   * preset and a theme change; colors chosen for the drawing are kept as
+   * they are.
+   * @param {object} data - The measure element record.
+   * @param {boolean} up - Whether the measured move is a rise.
+   * @returns {string}
+   */
+  _measureTint(data, up) {
+    if (data.themeTint) {
+      const tm = this.ctx && this.ctx.themeManager;
+      const pair = tm
+        ? tm.getUpDown(ThemeManager.MEASURE_UP_DOWN)
+        : ThemeManager.MEASURE_UP_DOWN;
+      return up ? pair.up : pair.down;
+    }
+    return up ? data.upColor : data.downColor;
   }
 
   /**

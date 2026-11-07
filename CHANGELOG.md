@@ -34,6 +34,13 @@ those are called out explicitly below.
   `update()`.
 - **The legend and analysis panel rise/fall colors match the candles** with a
   theme preset active or candle colors passed to `update()`.
+- **A chart-type switch and the measure box follow the theme's rise and fall
+  colors.** After a switch (including back to candlestick) the candles kept a
+  fixed green and red over a preset or candle colors passed to `update()`, and
+  a measure box was teal and red under every theme. Both now take the same
+  colors as the candles. In a plain light or dark mode they keep their own
+  colors, so charts without a preset look the same; a measure drawn with
+  `upColor` or `downColor` keeps them.
 - **The drawing settings popup follows its own chart's theme**, including after
   a theme switch, and no longer turns dark because of `body.dark-mode` or
   another dark chart on the page. To restyle it for dark mode, target

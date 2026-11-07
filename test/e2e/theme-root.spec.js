@@ -112,3 +112,82 @@ test.describe("Toolbar theme rules (K1)", () => {
     await expect.poll(() => chrome(page)).toMatchObject(DARK);
   });
 });
+
+// One semantic source for rise and fall: the chart-type switch and a measure
+// box drawn without colors have their own pair in a plain mode, and take a
+// preset's (or colors passed to update()) like the candles do.
+test.describe("Up/down on the chart-type switch and the measure box", () => {
+  /** The measure box fill (the overlay's filled rect). */
+  const boxFill = (page) =>
+    page.evaluate(() =>
+      [...window.__root.querySelectorAll(".apexstock-drawing-overlay rect")]
+        .map((r) => r.getAttribute("fill"))
+        .find((f) => f && f !== "none")
+    );
+
+  /** Measure a rising stretch of the fixture data, then its box fill. */
+  const measure = async (page) => {
+    await page.evaluate(() => {
+      const c = window.__chart;
+      const s = c.series;
+      // The longest rise in the fixture data, so the box is tinted "up".
+      let best = [0, 1];
+      for (let i = 0; i < s.length; i++) {
+        for (let j = i + 5; j < s.length; j++) {
+          if (s[j].y[3] - s[i].y[3] > s[best[1]].y[3] - s[best[0]].y[3])
+            best = [i, j];
+        }
+      }
+      c.measureRange(s[best[0]].x, s[best[1]].x);
+    });
+    return boxFill(page);
+  };
+
+  const candleFills = (page) =>
+    page.evaluate(() => {
+      const paths = [
+        ...window.__root.querySelectorAll(
+          ".apexstock-main-chart .apexcharts-candlestick-series path"
+        ),
+      ];
+      return [...new Set(paths.map((p) => p.getAttribute("fill")))].sort();
+    });
+
+  test("default: a plain-mode measure keeps its own teal", async ({ page }) => {
+    await gotoFixture(page, "charts=none");
+    expect(await measure(page)).toBe("#26a69a");
+  });
+
+  test("a measure follows the preset, and a later preset switch", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=preset-rose");
+    expect(await measure(page)).toBe("#16a34a");
+    await page.evaluate(() => window.__chart.setThemePreset("mint"));
+    await expect.poll(() => boxFill(page)).toBe("#10b981");
+  });
+
+  test("default: a plain-mode chart-type switch keeps its own green and red", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=none");
+    await page.evaluate(() =>
+      window.__chart.chartSwitch.changeChartType("heikinashi")
+    );
+    await expect
+      .poll(() => candleFills(page))
+      .toEqual(["rgba(248,113,113,1)", "rgba(52,211,153,1)"]);
+  });
+
+  test("a chart-type switch keeps the preset's candle colors", async ({
+    page,
+  }) => {
+    await gotoFixture(page, "charts=preset-mint");
+    await page.evaluate(() =>
+      window.__chart.chartSwitch.changeChartType("heikinashi")
+    );
+    await expect
+      .poll(() => candleFills(page))
+      .toEqual(["rgba(16,185,129,1)", "rgba(239,68,68,1)"]);
+  });
+});

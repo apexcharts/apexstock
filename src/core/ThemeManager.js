@@ -11,6 +11,20 @@ const APX_PROPS = ["--apx-accent", "--apx-surface", "--apx-fore", "--apx-grid"];
 
 export default class ThemeManager {
   /**
+   * The chart-type switch's own candle pair in a plain mode (a 2025 design
+   * choice: a different green and red after a switch). A preset and colors
+   * passed to update() still win over it.
+   */
+  static SWITCH_UP_DOWN = Object.freeze({ up: "#34D399", down: "#F87171" });
+
+  /**
+   * The measure box's own tint in a plain mode. A preset and colors passed to
+   * update() still win over it; colors passed with the drawing win over
+   * everything.
+   */
+  static MEASURE_UP_DOWN = Object.freeze({ up: "#26a69a", down: "#ef5350" });
+
+  /**
    * Creates a new ThemeManager
    * @param {Object} ctx - The ApexStock context
    * @param {string} initialTheme - The initial theme ('light' or 'dark')
@@ -166,27 +180,30 @@ export default class ThemeManager {
 
   /**
    * The active up/down colors: the ones the page passed to update(), else the
-   * preset's when one is active, else the mode defaults. The one source for
+   * preset's when one is active, else the built-in pair. The one source for
    * the candles and every surface that colors a rise or a fall to match them
-   * (legend, analysis panel). Colors passed at construction are not tracked
-   * (the theme colors replace them), nor are the chart-type switch colors.
+   * (legend, analysis panel, chart-type switch, measure box). Colors passed at
+   * construction are not tracked (the theme colors replace them).
+   * @param {{up: string, down: string}} [builtin] - The surface's own pair for
+   *   a plain mode, for the surfaces that have one ({@link SWITCH_UP_DOWN},
+   *   {@link MEASURE_UP_DOWN}); the mode's candle defaults otherwise.
    * @returns {{up: string, down: string}}
    */
-  getUpDown() {
+  getUpDown(builtin) {
     if (this.explicitUpDown) return { ...this.explicitUpDown };
-    return this.getThemeUpDown();
+    return this.getThemeUpDown(builtin);
   }
 
   /**
-   * The theme's own up/down: the preset's when one is active, else the mode
-   * defaults, ignoring colors the page passed.
+   * The theme's own up/down: the preset's when one is active, else the
+   * built-in pair, ignoring colors the page passed.
+   * @param {{up: string, down: string}} [builtin] - As for {@link getUpDown}.
    * @returns {{up: string, down: string}}
    */
-  getThemeUpDown() {
+  getThemeUpDown(builtin) {
     const p = this.preset;
-    return p
-      ? { up: p.up, down: p.down }
-      : ThemeManager.modeUpDown(this.isDarkTheme);
+    if (p) return { up: p.up, down: p.down };
+    return { ...(builtin || ThemeManager.modeUpDown(this.isDarkTheme)) };
   }
 
   getTheme() {

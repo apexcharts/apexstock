@@ -690,3 +690,106 @@ describe("toolbar theme rules and font (plan 34 K1)", () => {
     expect(font(b.primaryToolbar)).toBe("");
   });
 });
+
+describe("chart-type switch and measure box up/down (one source)", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  const switchColors = (inst, type) => {
+    inst.chart.updateOptions.mockReturnValue(Promise.resolve());
+    inst.chartSwitch.originalSeries = inst.series;
+    inst.chartSwitch.changeChartType(type);
+    return mainUpdate(inst).plotOptions.candlestick.colors;
+  };
+
+  it("getUpDown takes a surface's own pair for a plain mode only", () => {
+    const tm = new ThemeManager({}, "light");
+    expect(tm.getUpDown(ThemeManager.SWITCH_UP_DOWN)).toEqual({
+      up: "#34D399",
+      down: "#F87171",
+    });
+    expect(tm.getUpDown(ThemeManager.MEASURE_UP_DOWN)).toEqual({
+      up: "#26a69a",
+      down: "#ef5350",
+    });
+    tm.applyPreset("mint");
+    const mint = ThemePresets.get("mint");
+    expect(tm.getUpDown(ThemeManager.SWITCH_UP_DOWN)).toEqual({
+      up: mint.up,
+      down: mint.down,
+    });
+    tm.explicitUpDown = { up: "#0000ff", down: "#ff00ff" };
+    expect(tm.getUpDown(ThemeManager.MEASURE_UP_DOWN)).toEqual({
+      up: "#0000ff",
+      down: "#ff00ff",
+    });
+  });
+
+  it("default: a plain-mode switch keeps the switch's own green and red", () => {
+    const inst = makeInstance();
+    inst.render();
+    expect(switchColors(inst, "heikinashi")).toEqual({
+      upward: "#34D399",
+      downward: "#F87171",
+    });
+  });
+
+  it("a switch keeps a preset's candle colors", () => {
+    const inst = makeInstance({ theme: { preset: "mint" } });
+    inst.render();
+    const mint = ThemePresets.get("mint");
+    expect(switchColors(inst, "heikinashi")).toEqual({
+      upward: mint.up,
+      downward: mint.down,
+    });
+  });
+
+  it("a measure drawn without colors takes the theme's up/down at paint time", () => {
+    const inst = makeInstance();
+    inst.render();
+    const dt = inst.drawingTools;
+    const plain = { themeTint: true, upColor: "#26a69a", downColor: "#ef5350" };
+    expect([
+      dt._measureTint(plain, true),
+      dt._measureTint(plain, false),
+    ]).toEqual(["#26a69a", "#ef5350"]);
+    inst.setThemePreset("rose");
+    const rose = ThemePresets.get("rose");
+    expect([
+      dt._measureTint(plain, true),
+      dt._measureTint(plain, false),
+    ]).toEqual([rose.up, rose.down]);
+    // Colors chosen for the drawing are kept.
+    const chosen = {
+      themeTint: false,
+      upColor: "#111111",
+      downColor: "#222222",
+    };
+    expect(dt._measureTint(chosen, true)).toBe("#111111");
+  });
+
+  it("marks only a measure added without colors as theme-tinted", () => {
+    const inst = makeInstance();
+    const norm = (cfg) =>
+      inst.drawings._normalize({
+        type: "measure",
+        points: [
+          { x: 1, y: 10 },
+          { x: 2, y: 12 },
+        ],
+        ...cfg,
+      });
+    expect(norm({})).toMatchObject({
+      upColor: "#26a69a",
+      downColor: "#ef5350",
+      themeTint: true,
+    });
+    expect(norm({ upColor: "#123456" })).toMatchObject({
+      upColor: "#123456",
+      themeTint: false,
+    });
+  });
+});

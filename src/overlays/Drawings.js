@@ -1,5 +1,6 @@
 import Utils from "../utils/Utils";
 import { getDrawingTool } from "../tools/drawing/DrawingToolRegistry";
+import ThemeManager from "../core/ThemeManager";
 
 /**
  * Programmatic, data-space drawing API — a public facade over the drawing
@@ -337,8 +338,10 @@ export default class Drawings {
           y1: p0.y,
           x2: p1.x,
           y2: p1.y,
-          upColor: config.upColor || "#26a69a",
-          downColor: config.downColor || "#ef5350",
+          upColor: config.upColor || ThemeManager.MEASURE_UP_DOWN.up,
+          downColor: config.downColor || ThemeManager.MEASURE_UP_DOWN.down,
+          // Neither color passed: the tint follows the theme's up/down.
+          themeTint: !config.upColor && !config.downColor,
           fillOpacity: config.fillOpacity != null ? config.fillOpacity : 0.2,
           showLabel: config.showLabel !== false,
         };
