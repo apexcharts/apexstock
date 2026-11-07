@@ -17,7 +17,6 @@ export default class ThemeManager {
    */
   constructor(ctx, initialTheme = "light") {
     this.ctx = ctx;
-    this.themeStylesApplied = false;
     /** Active preset def ({@link ThemePresets}), or null for a plain mode. */
     this.preset = null;
     this.presetName = null;
@@ -401,76 +400,28 @@ export default class ThemeManager {
       toolbar.style.borderColor = colors.toolbar.border;
     }
 
-    this.injectThemeStyles();
+    this.applyFontFamily([chartContainer, toolbar]);
   }
 
   /**
-   * Inject theme-specific CSS into the document
+   * Write `chart.fontFamily` as `--_apexstock-font` on this chart's own
+   * elements, for the stylesheet's font rule (ApexStock.css, section 15).
+   *
+   * The per-mode toolbar and dropdown colors used to be generated here into
+   * one `<style>` in the document `<head>`. That missed a chart inside a shadow
+   * root, and each chart's render replaced the rules and the font of every
+   * other chart on the page, so they are static rules in the stylesheet now,
+   * which ApexStock injects into the chart's own root.
+   * @param {Array<HTMLElement|null|undefined>} elements - The chart container
+   *   and the toolbar, which sits beside it.
    */
-  injectThemeStyles() {
-    const colors = this.getColors();
-
-    let themeStyles = document.getElementById("apexstock-theme-styles");
-    if (!themeStyles) {
-      themeStyles = document.createElement("style");
-      themeStyles.id = "apexstock-theme-styles";
-      document.head.appendChild(themeStyles);
-    }
-
-    // Font family from chart options or default
-    const fontFamily =
-      this.ctx.chartOptions?.chart?.fontFamily ||
-      "Helvetica, Arial, sans-serif";
-
-    // Generate CSS for the current theme
-    themeStyles.textContent = `
-      [class^=apexstock-] * {
-        font-family: ${fontFamily}
-      }
-
-      .apexstock-theme-${this.theme} .apexstock-toolbar {
-        background-color: ${colors.toolbar.background};
-        color: ${colors.toolbar.text};
-        border-color: ${colors.toolbar.border};
-      }
-      
-      .apexstock-theme-${this.theme} .apexstock-custom-select-trigger,
-      .apexstock-theme-${this.theme} .apexstock-custom-options {
-        background-color: ${colors.dropdown.background};
-        color: ${colors.dropdown.text};
-        border-color: ${colors.dropdown.border};
-      }
-      
-      .apexstock-theme-${this.theme} .apexstock-custom-option {
-        color: ${colors.dropdown.text};
-      }
-      
-      .apexstock-theme-${this.theme} .apexstock-custom-option:hover {
-        background-color: ${colors.dropdown.hover};
-      }
-      
-      .apexstock-theme-${this.theme} .apexstock-custom-option.selected {
-        background-color: ${colors.dropdown.selectedBackground};
-      }
-      
-      .apexstock-theme-${this.theme} .apexchart-tooltip {
-        background-color: ${this.isDarkTheme ? "#212529" : "#ffffff"};
-        color: ${this.isDarkTheme ? "#f8f9fa" : "#333"};
-        border-color: ${this.isDarkTheme ? "#343a40" : "#e9ecef"};
-      }
-      
-      .apexstock-theme-${this.theme} .apexstock-toolbar-button {
-        background-color: ${colors.dropdown.background};
-        color: ${colors.dropdown.text};
-        border-color: ${colors.dropdown.border};
-      }
-      
-      .apexstock-theme-${this.theme} .apexstock-toolbar-button:hover {
-        background-color: ${colors.dropdown.hover};
-      }
-    `;
-
-    this.themeStylesApplied = true;
+  applyFontFamily(elements) {
+    const fontFamily = this.ctx.chartOptions?.chart?.fontFamily;
+    elements.forEach((el) => {
+      if (!el || !el.style) return;
+      if (fontFamily) el.style.setProperty("--_apexstock-font", fontFamily);
+      else el.style.removeProperty("--_apexstock-font");
+    });
   }
 
   /**

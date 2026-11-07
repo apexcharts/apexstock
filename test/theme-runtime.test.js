@@ -661,3 +661,32 @@ describe("SelectedElementPopup theme", () => {
     popup.destroy();
   });
 });
+
+describe("toolbar theme rules and font (plan 34 K1)", () => {
+  beforeEach(() => installApexChartsMock());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    document.head.innerHTML = "";
+    delete global.ApexCharts;
+  });
+
+  it("generates no per-chart <style> into the document head", () => {
+    const inst = makeInstance({ theme: { mode: "dark" } });
+    inst.render();
+    inst.updateTheme("light");
+    expect(document.getElementById("apexstock-theme-styles")).toBeNull();
+  });
+
+  it("writes chart.fontFamily on the chart's own container and toolbar", () => {
+    const a = makeInstance({ chart: { height: 400, fontFamily: "Georgia" } });
+    const b = makeInstance();
+    a.render();
+    b.render();
+    const font = (el) => el.style.getPropertyValue("--_apexstock-font");
+    expect(font(a.chartEl)).toBe("Georgia");
+    expect(font(a.primaryToolbar)).toBe("Georgia");
+    // The other chart keeps the stylesheet's default.
+    expect(font(b.chartEl)).toBe("");
+    expect(font(b.primaryToolbar)).toBe("");
+  });
+});

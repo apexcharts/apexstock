@@ -39,6 +39,14 @@ those are called out explicitly below.
   another dark chart on the page. To restyle it for dark mode, target
   `.apexstock-chart.apexstock-theme-dark .apexstock-element-popup` (THEMING.md
   is updated).
+- **The toolbar's light and dark colors and the font reach every chart.** They
+  were generated per chart into one `<style>` in the document `<head>`, so a
+  chart inside a shadow root kept the browser's font and the stylesheet's
+  dropdown colors, and each chart's render replaced the dropdown colors and
+  the font of every other chart on the page (a light chart rendered after a
+  dark one left the dark chart's dropdowns light). They are rules in the
+  stylesheet now, and `chart.fontFamily` applies to its own chart only. A
+  single chart in the light DOM looks the same as before.
 
 ## [0.5.2] - 2026-10-09
 

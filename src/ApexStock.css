@@ -1367,3 +1367,75 @@
     align-self: flex-end;
   }
 }
+
+/* ==============================
+ * 15. Toolbar Theme Colors
+ * ============================== */
+/*
+ * The toolbar, its indicator dropdowns and custom buttons, per mode. These
+ * used to be generated per chart into one <style> in the document <head>, so
+ * they never reached a chart inside a shadow root, and the last chart to render
+ * replaced the rules (and the font) of every other chart on the page. They sit
+ * last in the sheet, where the generated rules used to land, so they win the
+ * same ties as before.
+ *
+ * The font follows `chart.fontFamily`, which ApexStock writes per chart as
+ * `--_apexstock-font` on the chart container and the toolbar.
+ */
+[class^="apexstock-"] * {
+  font-family: var(--_apexstock-font, Helvetica, Arial, sans-serif);
+}
+
+.apexstock-theme-light .apexstock-toolbar {
+  background-color: #ffffff;
+  color: #333;
+  border-color: #e9ecef;
+}
+
+.apexstock-theme-light .apexstock-custom-select-trigger,
+.apexstock-theme-light .apexstock-custom-options,
+.apexstock-theme-light .apexstock-toolbar-button {
+  background-color: #ffffff;
+  color: #333;
+  border-color: #ced4da;
+}
+
+.apexstock-theme-light .apexstock-custom-option {
+  color: #333;
+}
+
+.apexstock-theme-light .apexstock-custom-option:hover,
+.apexstock-theme-light .apexstock-toolbar-button:hover {
+  background-color: #f1f3f5;
+}
+
+.apexstock-theme-light .apexstock-custom-option.selected {
+  background-color: #e9ecef;
+}
+
+.apexstock-theme-dark .apexstock-toolbar {
+  background-color: #343a3f;
+  color: #f8f9fa;
+  border-color: #343a40;
+}
+
+.apexstock-theme-dark .apexstock-custom-select-trigger,
+.apexstock-theme-dark .apexstock-custom-options,
+.apexstock-theme-dark .apexstock-toolbar-button {
+  background-color: #343a40;
+  color: #f8f9fa;
+  border-color: #495057;
+}
+
+.apexstock-theme-dark .apexstock-custom-option {
+  color: #f8f9fa;
+}
+
+.apexstock-theme-dark .apexstock-custom-option:hover,
+.apexstock-theme-dark .apexstock-toolbar-button:hover {
+  background-color: #495057;
+}
+
+.apexstock-theme-dark .apexstock-custom-option.selected {
+  background-color: #495057;
+}
