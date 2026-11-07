@@ -71,6 +71,14 @@ ApexStock.registerTheme("corp", {
 ApexStock.getThemePresets(); // -> all names, built-in + registered
 ```
 
+Registered presets live in the theme registry every ApexCharts product on the
+page shares. A theme registered from another product (for example
+`ApexCharts.registerTheme("acme", { tokens: { accent, surface, fore, grid } })`)
+is usable as a preset too: its `accent`, `surface`, `fore` and `grid` tokens
+fill the preset's accent, plot background, axis text and grid, and its `mode`
+(light when unset) picks the base. A preset you register here is stated the
+same way, so the other products can name it.
+
 A preset drives the container's `--apx-accent` / `--apx-surface` / `--apx-fore`
 / `--apx-grid` family tokens, so the token overrides below still apply *on top*
 of a preset if you want to fine-tune. The price lines follow the accent; the

@@ -1,3 +1,5 @@
+import { getTheme, registeredThemes, registerTheme } from "apex-commons";
+
 /**
  * ThemePresets — a curated pack of named themes layered on the base light/dark
  * modes, plus the registry behind `ApexStock.registerTheme`.
@@ -92,32 +94,64 @@ const BUILT_IN = {
 
 const REQUIRED = ["up", "down", "grid", "axis", "background", "accent"];
 
-/** Consumer-registered presets (kept separate from the built-ins). */
-const CUSTOM = {};
+/**
+ * A theme from the family registry as a preset def. A preset registered here
+ * carries its own fields; a theme another product registered carries only the
+ * family `tokens` (and maybe a `mode`), which fill the matching roles.
+ * @param {Record<string, any>} theme
+ * @returns {Partial<ThemePreset>}
+ */
+function fromFamilyTheme(theme) {
+  const t =
+    (theme.tokens && typeof theme.tokens === "object" && theme.tokens) || {};
+  return {
+    mode: theme.mode,
+    up: theme.up,
+    down: theme.down,
+    grid: theme.grid || t.grid,
+    axis: theme.axis || t.fore,
+    background: theme.background || t.surface,
+    accent: theme.accent || t.accent,
+  };
+}
 
 const ThemePresets = {
-  /** @returns {boolean} true if `name` resolves to a built-in or custom preset. */
+  /** @returns {boolean} true if `name` resolves to a built-in or registered preset. */
   has(name) {
-    return typeof name === "string" && (name in CUSTOM || name in BUILT_IN);
+    return (
+      typeof name === "string" &&
+      (!!(name && getTheme(name)) || name in BUILT_IN)
+    );
   },
 
   /**
+   * A registered theme wins over a built-in of the same name, as a preset
+   * registered with `ApexStock.registerTheme` always did.
    * @param {string} name
    * @returns {ThemePreset|null} a copy of the preset def, or null if unknown.
    */
   get(name) {
-    const def = (typeof name === "string" && (CUSTOM[name] || BUILT_IN[name])) || null;
-    return def ? { ...def } : null;
+    if (typeof name !== "string" || !name) return null;
+    const registered = getTheme(name);
+    if (registered) return ThemePresets.resolve(fromFamilyTheme(registered));
+    return name in BUILT_IN ? { ...BUILT_IN[name] } : null;
   },
 
-  /** @returns {string[]} all known preset names (custom take precedence). */
+  /** @returns {string[]} all known preset names, the built-ins first. */
   names() {
-    return Array.from(new Set([...Object.keys(BUILT_IN), ...Object.keys(CUSTOM)]));
+    return Array.from(
+      new Set([...Object.keys(BUILT_IN), ...registeredThemes()])
+    );
   },
 
   /**
    * Register (or override) a named preset. Missing colors fall back to the
    * `paper` (light) or a dark baseline so a partial def is still valid.
+   *
+   * The preset goes into the registry the whole ApexCharts family shares
+   * (apex-commons `registerTheme`), with its accent, plot background, axis
+   * text and grid also stated as the family `tokens`. So a theme registered
+   * once, from any product, is usable by name from every other one.
    * @param {string} name
    * @param {Partial<ThemePreset>} def
    * @returns {ThemePreset|null} the stored def, or null on invalid input.
@@ -126,8 +160,17 @@ const ThemePresets = {
     if (typeof name !== "string" || !name || !def || typeof def !== "object") {
       return null;
     }
-    CUSTOM[name] = ThemePresets.resolve(def);
-    return { ...CUSTOM[name] };
+    const preset = ThemePresets.resolve(def);
+    registerTheme(name, {
+      ...preset,
+      tokens: {
+        accent: preset.accent,
+        surface: preset.background,
+        fore: preset.axis,
+        grid: preset.grid,
+      },
+    });
+    return { ...preset };
   },
 
   /**

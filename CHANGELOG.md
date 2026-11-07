@@ -9,6 +9,16 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Changed
+
+- **Theme presets share the ApexCharts family theme registry.**
+  `ApexStock.registerTheme()` stores the preset in the registry every
+  ApexCharts product reads (apex-commons), with its accent, plot background,
+  axis text and grid also stated as the family tokens. A theme registered from
+  another product is now usable as `theme.preset` and listed by
+  `getThemePresets()`. Nothing changes for pages that register presets only
+  with ApexStock.
+
 ### Fixed
 
 - **The main chart follows a runtime theme change.** After `updateTheme()`,

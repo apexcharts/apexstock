@@ -4,6 +4,7 @@
 // ThemeManager preset layer (chart-color overrides + chrome tokens + reset), and
 // the ApexStock static/instance API plus state round-trip.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { getTheme, registerTheme, unregisterTheme } from "apex-commons";
 import ThemePresets from "../src/core/ThemePresets.js";
 import ThemeManager from "../src/core/ThemeManager.js";
 import ApexStock from "../src/ApexStock.js";
@@ -58,6 +59,63 @@ describe("ThemePresets registry", () => {
     ThemePresets.register("brandx", { accent: "#ff0000", up: "#00ff00" });
     expect(ThemePresets.get("brandx").accent).toBe("#ff0000");
     expect(ThemePresets.get("brandx").up).toBe("#00ff00");
+  });
+
+  it("keeps registered presets in the registry the whole family shares", () => {
+    ThemePresets.register("shared-x", {
+      mode: "dark",
+      accent: "#112233",
+      background: "#0b0e11",
+      axis: "#e6edf3",
+      grid: "#30363d",
+    });
+    const stored = getTheme("shared-x");
+    expect(stored).toMatchObject({ mode: "dark", accent: "#112233" });
+    // The family roles, so another product can name this theme too.
+    expect(stored.tokens).toEqual({
+      accent: "#112233",
+      surface: "#0b0e11",
+      fore: "#e6edf3",
+      grid: "#30363d",
+    });
+    // What register() returns is the preset alone, as before.
+    expect(
+      ThemePresets.register("shared-y", { accent: "#abcdef" })
+    ).not.toHaveProperty("tokens");
+  });
+
+  it("resolves a theme another product registered from its family tokens", () => {
+    registerTheme("family-only", {
+      mode: "dark",
+      tokens: {
+        accent: "#5b21b6",
+        surface: "#101418",
+        fore: "#f1f5f9",
+        grid: "#334155",
+      },
+    });
+    expect(ThemePresets.has("family-only")).toBe(true);
+    expect(ThemePresets.names()).toContain("family-only");
+    const def = ThemePresets.get("family-only");
+    expect(def).toMatchObject({
+      mode: "dark",
+      accent: "#5b21b6",
+      background: "#101418",
+      axis: "#f1f5f9",
+      grid: "#334155",
+    });
+    // Up/down come from the dark baseline.
+    expect(def.up).toBe(ThemePresets.resolve({ mode: "dark" }).up);
+  });
+
+  it("lets a registered theme replace a built-in of the same name", () => {
+    registerTheme("graphite", { tokens: { accent: "#ff00aa" } });
+    try {
+      expect(ThemePresets.get("graphite").accent).toBe("#ff00aa");
+    } finally {
+      unregisterTheme("graphite");
+    }
+    expect(ThemePresets.get("graphite").accent).toBe("#334155");
   });
 });
 
