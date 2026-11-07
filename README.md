@@ -224,6 +224,39 @@ the `--apexstock-*` CSS custom properties — no stylesheet fork required. See
 [THEMING.md](THEMING.md) for the full token reference and override recipe, the
 copy-ready `apexstock/theme-template.css`, and `examples/theming.html`.
 
+#### Using with Ignite UI
+
+Ignite UI theming is an add-on. Load it once and stock charts follow the Ignite
+UI theme on the page: the toolbar, its menus and popups, the legend, the
+analysis panel, the rise and fall colors (candles, measure boxes, price lines)
+from the theme's success and error colors, the font, and light or dark.
+
+```javascript
+import ApexCharts from "apexcharts";
+import ApexStock from "apexstock";
+import "apexstock/ignite-ui"; // also loads apexcharts/features/ignite-ui
+```
+
+```html
+<!-- Script tags: ApexCharts' add-on themes the charts, ApexStock's the rest. -->
+<script src="apexcharts/dist/apexcharts.min.js"></script>
+<script src="apexcharts/dist/features/ignite-ui.js"></script>
+<script src="apexstock/dist/apexstock.min.js"></script>
+<script src="apexstock/dist/apexstock.ignite-ui.min.js"></script>
+```
+
+- With no `theme.mode`, a dark Ignite UI theme makes the chart dark; a mode or
+  preset you set wins. The main plot stays transparent over ApexStock's own
+  surface, which keeps its light and dark backgrounds.
+- Everything you set outranks the theme: options, `--apexstock-*` and
+  `--apx-*` tokens, a preset, candle colors passed to `update()`. A preset, a
+  color-blind mode or monochrome keeps ApexStock's own colors.
+- `theme: { designSystem: false }` turns it off for one chart.
+- Without the add-on the `--ig-*` tokens are ignored; the `--apx-*` tokens work
+  either way. Import it before the first render, or call `update()` after.
+- The bundler entry needs the ApexCharts release that ships
+  `apexcharts/features/ignite-ui`.
+
 ### Indicator Configuration
 
 You can configure indicators in two ways:

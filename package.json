@@ -13,12 +13,22 @@
       "require": "./dist/apexstock.cjs",
       "default": "./dist/apexstock.cjs"
     },
+    "./ignite-ui": {
+      "types": "./dist/types/ignite-ui.d.ts",
+      "import": "./dist/apexstock.ignite-ui.esm.js",
+      "require": "./dist/apexstock.ignite-ui.cjs",
+      "default": "./dist/apexstock.ignite-ui.cjs"
+    },
     "./apexstock.css": "./dist/apexstock.css",
     "./theme-template.css": "./dist/themes/apexstock-theme-template.css",
     "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/apexstock.ignite-ui.esm.js",
+    "./dist/apexstock.ignite-ui.cjs",
+    "./dist/apexstock.ignite-ui.min.js"
+  ],
   "files": [
     "dist",
     "THEMING.md",
@@ -81,7 +91,7 @@
     "@rollup/plugin-node-resolve": "^15.2.1",
     "@rollup/plugin-terser": "^1.0.0",
     "@vitest/coverage-v8": "^4.1.8",
-    "apexcharts": "^7.1.0",
+    "apexcharts": "^8.7.0",
     "core-js": "^3.33.0",
     "eslint": "^10.4.1",
     "eslint-config-prettier": "^10.1.8",

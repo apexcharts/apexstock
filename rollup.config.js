@@ -7,7 +7,72 @@ import path from "path";
 
 const production = !process.env.ROLLUP_WATCH;
 
-export default {
+/** Transpile and minify, as for the main bundle. */
+const transpile = () => [
+  resolve({
+    extensions: [".js", ".jsx", ".css"],
+  }),
+
+  commonjs(),
+
+  babel({
+    babelHelpers: "bundled",
+    presets: [
+      [
+        "@babel/preset-env",
+        {
+          // Browser targets are read from the "browserslist" field in package.json
+          useBuiltIns: "usage",
+          corejs: 3,
+        },
+      ],
+    ],
+    exclude: "node_modules/**",
+  }),
+
+  // Minify in production
+  production &&
+    terser({
+      compress: {
+        pure_getters: true,
+        unsafe: true,
+        unsafe_comps: true,
+        warnings: false,
+      },
+    }),
+];
+
+/**
+ * `apexstock/ignite-ui`, the opt-in Ignite UI add-on (src/ignite-ui.js). It
+ * bundles the apex-commons adapter, which registers on import. ApexCharts' own
+ * add-on stays an import for a bundler, so it resolves against the page's
+ * ApexCharts; the script-tag file has no import to make, and a page loads
+ * `apexcharts/dist/features/ignite-ui.js` itself.
+ */
+const igniteUi = {
+  input: "src/ignite-ui.js",
+  external: (id) => id === "apexcharts" || id.startsWith("apexcharts/"),
+  output: [
+    {
+      file: "dist/apexstock.ignite-ui.min.js",
+      format: "iife",
+      sourcemap: !production,
+    },
+    {
+      file: "dist/apexstock.ignite-ui.cjs",
+      format: "cjs",
+      sourcemap: !production,
+    },
+    {
+      file: "dist/apexstock.ignite-ui.esm.js",
+      format: "es",
+      sourcemap: !production,
+    },
+  ],
+  plugins: transpile(),
+};
+
+export default [{
   input: "src/ApexStock.js",
   output: [
     {
@@ -160,36 +225,6 @@ export default {
       },
     },
 
-    resolve({
-      extensions: [".js", ".jsx", ".css"],
-    }),
-
-    commonjs(),
-
-    babel({
-      babelHelpers: "bundled",
-      presets: [
-        [
-          "@babel/preset-env",
-          {
-            // Browser targets are read from the "browserslist" field in package.json
-            useBuiltIns: "usage",
-            corejs: 3,
-          },
-        ],
-      ],
-      exclude: "node_modules/**",
-    }),
-
-    // Minify in production
-    production &&
-      terser({
-        compress: {
-          pure_getters: true,
-          unsafe: true,
-          unsafe_comps: true,
-          warnings: false,
-        },
-      }),
+    ...transpile(),
   ],
-};
+}, igniteUi];

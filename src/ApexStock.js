@@ -247,13 +247,22 @@ export default class ApexStock {
     const themeOpt = (chartOptions && chartOptions.theme) || {};
     const themeName = themeOpt.mode || "light";
     this.themeManager = new ThemeManager(this, themeName);
+    if (themeOpt.mode) this.themeManager.modeSource = "page";
     if (themeOpt.preset != null) {
-      if (!this.themeManager.applyPreset(themeOpt.preset)) {
+      if (this.themeManager.applyPreset(themeOpt.preset)) {
+        this.themeManager.modeSource = "preset";
+      } else {
         Utils.warn(
           `Unknown theme preset "${themeOpt.preset}"; using "${themeName}".`
         );
       }
     }
+    // The page's design system (only an add-on such as `apexstock/ignite-ui`
+    // registers one). A mode nobody chose follows its variant (plan 36 D6),
+    // and the grid and axis text the page passed outrank it.
+    this.themeManager.notePageChartColors(chartOptions);
+    this.themeManager.readDesignSystem(chartEl, themeOpt);
+    this.themeManager.applyVariantMode();
 
     this.theme = this.themeManager.getTheme();
     this.isDarkTheme = this.theme === "dark";
@@ -439,6 +448,20 @@ export default class ApexStock {
     // mainChartOptions so the initial render and every later theme change paint
     // the preset (or the exact mode defaults when there is no preset).
     this.themeManager.syncChartOptionsToTheme(this.mainChartOptions);
+
+    // A mode the design system's variant chose reaches the chart as a mode,
+    // with a transparent plot so the ApexStock surface shows through (plan 36
+    // D6b), and the tooltip theme, as a runtime theme change sends them. The
+    // sync above drops a background the page passed in a plain mode, so only
+    // one it kept counts as set; and a `--apx-surface` token paints the plot,
+    // as it does after a runtime switch (the chart is not built yet to say so).
+    if (this.themeManager.modeSource === "variant") {
+      this.themeManager.syncChartModeToTheme(this.mainChartOptions, {
+        tooltipTheme: !!this._pageThemeKeys.tooltipTheme,
+        chartBackground: this.mainChartOptions.chart.background != null,
+        tokenSurface: !!this.themeManager.cssTokens.surface,
+      });
+    }
 
     this.sanitizeTheme(this.mainChartOptions);
 
@@ -1319,6 +1342,16 @@ export default class ApexStock {
     // the theme for this call is known.
     this.themeManager.explicitUpDown = null;
 
+    // Read the design system again, so a stylesheet swap or an add-on loaded
+    // after construction applies, and a mode nobody chose follows its variant.
+    const tm = this.themeManager;
+    const hadDesignSystem = !!tm.designSystem;
+    tm.readDesignSystem(this.chartEl, newOptions.theme);
+    tm.notePageChartColors(newOptions);
+    const pageMode = newOptions.theme && newOptions.theme.mode;
+    const variantMode = pageMode ? null : tm.variantMode();
+    const wantMode = pageMode || variantMode;
+
     // Store current state
     const activeIndicators = Object.keys(this.indicatorChartMap);
     const activeOscillator = this.activeOscillator;
@@ -1337,18 +1370,14 @@ export default class ApexStock {
     let seriesChanged = false;
 
     // Handle theme if it's being updated
-    if (
-      newOptions.theme &&
-      newOptions.theme.mode &&
-      newOptions.theme.mode !== this.theme
-    ) {
+    if (wantMode && wantMode !== this.theme) {
       themeChanged = true;
       if (this.chartSwitch) {
-        this.chartSwitch.updateTheme(newOptions.theme.mode);
+        this.chartSwitch.updateTheme(wantMode);
       }
 
       // Update theme manager
-      this.themeManager.setTheme(newOptions.theme.mode);
+      this.themeManager.setTheme(wantMode);
       this.theme = this.themeManager.getTheme();
       this.isDarkTheme = this.theme === "dark";
       this.colors = this.themeManager.getColors();
@@ -1358,7 +1387,13 @@ export default class ApexStock {
       // Apply theme to all UI elements. This also mirrors the theme class onto
       // the wrapper, so there is nothing to do for it here.
       this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
+    } else if (hadDesignSystem || tm.designSystem) {
+      // The same mode, but the design system came, went or changed its colors.
+      this.themeManager.applyThemeStyles(this.chartEl, this.primaryToolbar);
     }
+    if (pageMode) tm.modeSource = "page";
+    else if (variantMode)
+      tm.modeSource = wantMode === "dark" ? "variant" : "default";
 
     // Update internal series data if new series is provided
     if (
@@ -3563,6 +3598,10 @@ export default class ApexStock {
       return;
     }
 
+    // The page chose the mode now, so the design system's variant no longer
+    // moves it.
+    this.themeManager.modeSource = "page";
+
     // No-op only when already on that plain mode (a preset shares a base mode,
     // so switching from a preset to its mode must still clear the preset).
     if (this.theme === newTheme && !this.themeManager.getPreset()) return;
@@ -3592,6 +3631,7 @@ export default class ApexStock {
     if (cmpActive) this.comparison.suspend();
 
     this.themeManager.applyPreset(name);
+    this.themeManager.modeSource = "preset";
     this._applyThemeChange(cmpActive);
     return this;
   }
@@ -3635,6 +3675,8 @@ export default class ApexStock {
    * @private
    */
   _applyThemeChange(cmpActive) {
+    // The page's design system, read again for the new mode's colors.
+    this.themeManager.readDesignSystem(this.chartEl);
     this.theme = this.themeManager.getTheme();
     this.isDarkTheme = this.theme === "dark";
     this.colors = this.themeManager.getColors();

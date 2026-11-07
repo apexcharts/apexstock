@@ -9,6 +9,30 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Added
+
+- **Ignite UI theming, as an opt-in add-on: `apexstock/ignite-ui`.** Import it
+  once (or load `dist/apexstock.ignite-ui.min.js`) and stock charts follow the
+  Ignite UI theme on the page: the toolbar, its menus and popups, the legend,
+  the analysis panel, the font, the accent, and the rise and fall colors of the
+  candles, measure boxes and price lines (the theme's success and error
+  colors). A dark Ignite UI theme makes a chart with no `theme.mode` dark, with
+  a transparent main plot. Everything the page sets outranks it: options, the
+  `--apexstock-*` and `--apx-*` tokens, and presets (a preset replaces the
+  Ignite UI colors). ApexStock sends its charts only the colors the page chose,
+  so they read the theme through ApexCharts' own add-on, which the bundler
+  entry imports (a script-tag page loads `apexcharts/dist/features/ignite-ui.js`
+  itself; without it the plot keeps ApexStock's grid and axis text).
+  `theme.designSystem: false` turns it off for one chart. Without the add-on
+  nothing changes and the `--ig-*` tokens are ignored. See THEMING.md. The
+  bundler entry needs an ApexCharts release that ships
+  `apexcharts/features/ignite-ui` (after 8.7.0); the main `apexstock` entry
+  keeps its ApexCharts 7.1 and 8.x range.
+- **`--apx-font-family`** sets the font of the toolbar, menus and charts, below
+  `chart.fontFamily`.
+- **Types for the ApexCharts `theme` keys ApexStock passes on**: `palette`,
+  `monochrome` and `accessibility`.
+
 ### Changed
 
 - **Theme presets share the ApexCharts family theme registry.**

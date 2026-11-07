@@ -7,49 +7,56 @@
  * `:root` and have the stock chart follow along with the charts beside it.
  * Precedence reads left to right in each declaration:
  *
- *   --apexstock-* set by the host  >  --apx-* family token  >  built-in default
+ *   --apexstock-* set by the host  >  --apx-* family token
+ *     >  the page's design system  >  built-in default
  *
- * Only the light palette and the mode-independent accent take tokens. A single
- * set of `--apx-*` values describes one appearance, so applying a light brand
- * surface to the palette chosen for dark mode is how you get white text on
- * white. The dark palette stays self-contained and always legible; override
- * `--apexstock-dark-*` (see THEMING.md) to theme it.
+ * Only the light palette and the mode-independent accent take `--apx-*`
+ * tokens. A single set of `--apx-*` values describes one appearance, so
+ * applying a light brand surface to the palette chosen for dark mode is how you
+ * get white text on white. The dark palette stays self-contained and always
+ * legible; override `--apexstock-dark-*` (see THEMING.md) to theme it.
+ *
+ * The design system (`apexstock/ignite-ui`) arrives as `--_apexstock-ds-*`,
+ * written on the chart's own elements only while its variant matches the mode,
+ * with the page's `--apx-*` token for the role already over it. Without the
+ * add-on none is set.
  */
 [class^="apexstock-"] {
   /* Light Theme Colors */
   --apexstock-light-bg: var(--apx-surface, #ffffff);
   --apexstock-light-surface-2: #f8fafc;
-  --apexstock-light-border: var(--apx-grid, #e4e7ec);
+  --apexstock-light-border: var(--apx-grid, var(--_apexstock-ds-grid, #e4e7ec));
   --apexstock-light-border-strong: #d0d5dd;
   --apexstock-light-hover: #f2f4f7;
-  --apexstock-light-text: var(--apx-fore, #1f2937);
-  --apexstock-light-muted: #667085;
+  --apexstock-light-text: var(--apx-fore, var(--_apexstock-ds-fore, #1f2937));
+  --apexstock-light-muted: var(--_apexstock-ds-muted, #667085);
   --apexstock-light-selected: #eef4ff;
-  --apexstock-light-divider: var(--apx-grid, #e4e7ec);
+  --apexstock-light-divider: var(--apx-grid, var(--_apexstock-ds-grid, #e4e7ec));
   --apexstock-light-shadow: 0 6px 24px rgba(16, 24, 40, 0.14);
 
-  /* Dark Theme Colors — deliberately not token-backed, see the note above. */
+  /* Dark Theme Colors: not `--apx-*` backed, see the note above. */
   --apexstock-dark-bg: #1e242b;
   --apexstock-dark-surface-2: #272e36;
   --apexstock-dark-bg-alpha: rgba(255, 255, 255, 0.04);
-  --apexstock-dark-border: #3a434d;
+  --apexstock-dark-border: var(--_apexstock-ds-grid, #3a434d);
   --apexstock-dark-border-strong: #4a545f;
   --apexstock-dark-hover: #2d353e;
-  --apexstock-dark-text: #e6eaf0;
-  --apexstock-dark-muted: #9aa4b2;
+  --apexstock-dark-text: var(--_apexstock-ds-fore, #e6eaf0);
+  --apexstock-dark-muted: var(--_apexstock-ds-muted, #9aa4b2);
   --apexstock-dark-selected: #2b3a55;
-  --apexstock-dark-divider: #3a434d;
+  --apexstock-dark-divider: var(--_apexstock-ds-grid, #3a434d);
   --apexstock-dark-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 
   /* Accent Colors. The accent is the one role that means the same thing in both
      modes here (this value is shared by light and dark), so it takes the family
-     token unconditionally. */
-  --apexstock-blue: var(--apx-accent, #2563eb);
+     token unconditionally. Rise and fall take the design system's success and
+     error colors. */
+  --apexstock-blue: var(--apx-accent, var(--_apexstock-ds-accent, #2563eb));
   --apexstock-blue-hover: #1d4ed8;
   --apexstock-accent-soft: rgba(37, 99, 235, 0.1);
-  --apexstock-danger: #dc3545;
+  --apexstock-danger: var(--_apexstock-ds-down, #dc3545);
   --apexstock-danger-light: #f8d7da;
-  --apexstock-success: #28a745;
+  --apexstock-success: var(--_apexstock-ds-up, #28a745);
 
   /* Common Sizing */
   --apexstock-button-size: 32px;
@@ -61,6 +68,19 @@
   --apexstock-gap-md: 8px;
   --apexstock-gap-lg: 10px;
   --apexstock-as-ease: 0.15s ease;
+}
+
+/* Menus and popups take the design system's overlay surface (Ignite UI 7.5).
+   Same specificity as the block above, later; a host override still wins. */
+[class^="apexstock-"]:where(.apexstock-chart-type-dropdown, .apexstock-custom-options, .apexstock-element-popup, .apexstock-text-toolbar),
+:where(.apexstock-chart-type-dropdown, .apexstock-custom-options, .apexstock-element-popup, .apexstock-text-toolbar) [class^="apexstock-"] {
+  --apexstock-light-bg: var(--apx-surface, var(--_apexstock-ds-overlay, #ffffff));
+  --apexstock-light-text: var(
+    --apx-fore,
+    var(--_apexstock-ds-overlay-text, var(--_apexstock-ds-fore, #1f2937))
+  );
+  --apexstock-dark-bg: var(--_apexstock-ds-overlay, #1e242b);
+  --apexstock-dark-text: var(--_apexstock-ds-overlay-text, var(--_apexstock-ds-fore, #e6eaf0));
 }
 
 /* Box-sizing + font reset for ApexStock's own elements and everything inside
@@ -1372,41 +1392,42 @@
  * 15. Toolbar Theme Colors
  * ============================== */
 /*
- * The toolbar, its indicator dropdowns and custom buttons, per mode. These
- * used to be generated per chart into one <style> in the document <head>, so
- * they never reached a chart inside a shadow root, and the last chart to render
- * replaced the rules (and the font) of every other chart on the page. They sit
- * last in the sheet, where the generated rules used to land, so they win the
- * same ties as before.
- *
- * The font follows `chart.fontFamily`, which ApexStock writes per chart as
- * `--_apexstock-font` on the chart container and the toolbar.
+ * Per mode. Last in the sheet, where the per-chart <style> they replace used
+ * to land, so they win the same ties. The font: `chart.fontFamily` (written
+ * per chart as `--_apexstock-font`), `--apx-font-family`, the design system.
  */
 [class^="apexstock-"] * {
-  font-family: var(--_apexstock-font, Helvetica, Arial, sans-serif);
+  font-family: var(
+    --_apexstock-font,
+    var(--apx-font-family, var(--_apexstock-ds-font, Helvetica, Arial, sans-serif))
+  );
 }
 
 .apexstock-theme-light .apexstock-toolbar {
   background-color: #ffffff;
-  color: #333;
-  border-color: #e9ecef;
+  color: var(--_apexstock-ds-fore, #333);
+  border-color: var(--_apexstock-ds-grid, #e9ecef);
 }
 
 .apexstock-theme-light .apexstock-custom-select-trigger,
 .apexstock-theme-light .apexstock-custom-options,
 .apexstock-theme-light .apexstock-toolbar-button {
   background-color: #ffffff;
-  color: #333;
-  border-color: #ced4da;
+  color: var(--_apexstock-ds-fore, #333);
+  border-color: var(--_apexstock-ds-grid, #ced4da);
+}
+
+.apexstock-theme-light .apexstock-custom-options {
+  background-color: var(--_apexstock-ds-overlay, #ffffff);
 }
 
 .apexstock-theme-light .apexstock-custom-option {
-  color: #333;
+  color: var(--_apexstock-ds-overlay-text, var(--_apexstock-ds-fore, #333));
 }
 
 .apexstock-theme-light .apexstock-custom-option:hover,
 .apexstock-theme-light .apexstock-toolbar-button:hover {
-  background-color: #f1f3f5;
+  background-color: var(--_apexstock-ds-hover, #f1f3f5);
 }
 
 .apexstock-theme-light .apexstock-custom-option.selected {
@@ -1415,25 +1436,29 @@
 
 .apexstock-theme-dark .apexstock-toolbar {
   background-color: #343a3f;
-  color: #f8f9fa;
-  border-color: #343a40;
+  color: var(--_apexstock-ds-fore, #f8f9fa);
+  border-color: var(--_apexstock-ds-grid, #343a40);
 }
 
 .apexstock-theme-dark .apexstock-custom-select-trigger,
 .apexstock-theme-dark .apexstock-custom-options,
 .apexstock-theme-dark .apexstock-toolbar-button {
   background-color: #343a40;
-  color: #f8f9fa;
-  border-color: #495057;
+  color: var(--_apexstock-ds-fore, #f8f9fa);
+  border-color: var(--_apexstock-ds-grid, #495057);
+}
+
+.apexstock-theme-dark .apexstock-custom-options {
+  background-color: var(--_apexstock-ds-overlay, #343a40);
 }
 
 .apexstock-theme-dark .apexstock-custom-option {
-  color: #f8f9fa;
+  color: var(--_apexstock-ds-overlay-text, var(--_apexstock-ds-fore, #f8f9fa));
 }
 
 .apexstock-theme-dark .apexstock-custom-option:hover,
 .apexstock-theme-dark .apexstock-toolbar-button:hover {
-  background-color: #495057;
+  background-color: var(--_apexstock-ds-hover, #495057);
 }
 
 .apexstock-theme-dark .apexstock-custom-option.selected {

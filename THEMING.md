@@ -217,6 +217,7 @@ diagrams and Gantt charts all follow:
 | `--apx-grid` | Hairlines: borders, gridlines, dividers |
 | `--apx-surface` | The plane content sits on |
 | `--apx-series-1` … `--apx-series-N` | An ordered categorical palette (1-based) |
+| `--apx-font-family` | The font of the toolbar, menus and charts, below `chart.fontFamily` |
 
 ```css
 :root {
@@ -250,7 +251,10 @@ white and put white text on it. Rather than guess, the dark palette stays
 self-contained and always legible.
 
 To brand dark mode, override the `--apexstock-dark-*` tokens directly with the
-[recipe above](#override-recipe-no-fork) — those still win over everything.
+[recipe above](#override-recipe-no-fork), which still win over everything. The
+one design system ApexStock follows in dark mode is Ignite UI, and only from a
+dark Ignite UI theme (below). While it does, the `--apx-*` tokens you set rank
+above its colors in dark mode too, as they do in the charts.
 
 ### Opting out
 
@@ -258,6 +262,70 @@ The [theme template](src/themes/apexstock-theme-template.css) pins every token
 to a literal value. Copying it wholesale is a deliberate opt-out: explicit
 values beat the family tokens, which is the same precedence rule as everywhere
 else. Delete the lines you want left to the family tokens.
+
+## Ignite UI
+
+Load the add-on once and stock charts follow the Ignite UI theme on the page:
+
+```javascript
+import "apexstock/ignite-ui"; // also loads apexcharts/features/ignite-ui
+```
+
+On a script-tag page, load `dist/apexstock.ignite-ui.min.js` after
+`apexstock.min.js`, and ApexCharts' own add-on
+(`apexcharts/dist/features/ignite-ui.js`) after `apexcharts.js` for the charts.
+ApexCharts' add-on alone has the same effect on stock charts: it registers the
+Ignite UI adapter every Apex product reads. Without either add-on the `--ig-*`
+tokens are ignored, with no error.
+
+What follows the theme:
+
+| Ignite UI role | ApexStock |
+| --- | --- |
+| `--ig-gray-800` (text) | `--apexstock-light-text` / `--apexstock-dark-text`, the toolbar and dropdown text, the legend and analysis panel |
+| `--ig-gray-600` (muted text) | `--apexstock-light-muted` / `--apexstock-dark-muted` |
+| `--ig-gray-300` (hairlines) | `--apexstock-light-border`, `-divider` and their dark twins, the dropdown borders |
+| `--ig-gray-100` (hover) | the dropdown and toolbar button hover |
+| primary seed | `--apexstock-blue` (active tool, focus ring), the order price line |
+| success / error seeds | the candles, legend, analysis panel, measure boxes, buy / sell / stop / target price lines, `--apexstock-success` / `--apexstock-danger` |
+| `--ig-surface-overlay` (+ `-contrast`), Ignite UI 7.5 | the dropdowns, chart-type menu and drawing popups |
+| `--ig-font-family` | the toolbar, menus and chart text |
+| `--ig-theme-variant` | a dark theme makes a chart with no `theme.mode` dark |
+
+The text, muted text, hairlines, hover and overlays apply only while the chart's
+mode matches the Ignite UI theme's, so a dark theme's light text never lands
+on a light chart. The surfaces (the chart and toolbar backgrounds) keep
+ApexStock's own light and dark colors. The indicator palette is not mapped.
+
+Everything you set ranks above Ignite UI: options (`theme.mode`,
+`chart.fontFamily`, candle colors passed to `update()`), the `--apexstock-*`
+tokens, the `--apx-*` tokens and a preset:
+
+```
+--apexstock-* you set  >  --apx-* token or preset  >  Ignite UI  >  built-in default
+```
+
+An `--apx-*` token outranks the Ignite UI role it shares a meaning with on
+every surface: `--apx-fore` the text, `--apx-grid` the hairlines, `--apx-accent`
+the accent, and `--apx-surface` the menus (with Ignite UI 7.5's overlay
+surface). The toolbar, its controls, the legend, the panel and the plot then
+agree, in light and dark.
+
+A preset is a whole look: while one is active none of the Ignite UI colors
+apply, only its font. A color-blind or monochrome mode
+(`theme.accessibility.colorBlindMode`, `theme.monochrome.enabled`) also keeps
+ApexStock's own colors; the Ignite UI font and light or dark still apply. The
+indicator panes follow the main chart in each of these cases, and with
+`theme.designSystem: false` and `theme.tokens: false`.
+
+`theme: { designSystem: false }` turns it off for one chart. ApexStock sends
+its charts only the colors you chose, so the charts read the Ignite UI theme
+themselves through ApexCharts' add-on and match a standalone ApexCharts chart.
+A script-tag page that loads only ApexStock's add-on gets the themed toolbar,
+menus, legend, panel and candles, and a plot with ApexStock's built-in grid and
+axis text. Import the add-on before the first render; a chart built earlier
+picks it up on its next `update()`, which also picks up a swapped Ignite UI
+stylesheet.
 
 ## See it in action
 

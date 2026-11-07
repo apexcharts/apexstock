@@ -16,12 +16,48 @@ function toPoints(context, values) {
 }
 
 /**
+ * The grid color an oscillator pane is built with: `builtin`, or, where the
+ * page's design system fills the grid role, only the grid the page passed,
+ * so the pane reads the design system itself (ThemeManager.paneGridColor).
+ * @param {object} context - ApexStock instance.
+ * @param {string} builtin
+ * @returns {string|undefined}
+ */
+function paneGridColor(context, builtin) {
+  const tm = context.themeManager;
+  return tm && tm.paneGridColor ? tm.paneGridColor(builtin) : builtin;
+}
+
+/**
+ * The `theme` and font an oscillator pane is built with: the main chart's
+ * design-system switches (ThemeManager.paneTheme), or `{ mode }` alone.
+ * @param {object} context - ApexStock instance.
+ * @returns {{theme: object, fontFamily?: string}}
+ */
+function paneTheme(context) {
+  const tm = context.themeManager;
+  return tm && tm.paneTheme
+    ? tm.paneTheme()
+    : { theme: { mode: context.theme } };
+}
+
+/**
  * Builds the chart options shared by every oscillator pane.
  * @param {object} context - ApexStock instance.
  */
 function buildCommonChartOptions(context) {
+  const grid = {
+    ...context.mainChartOptions.grid,
+    borderColor: paneGridColor(
+      context,
+      context.isDarkTheme ? "#404040" : "#e9ecef"
+    ),
+  };
+  if (!grid.borderColor) delete grid.borderColor;
+  const pane = paneTheme(context);
   return {
     chart: {
+      ...(pane.fontFamily ? { fontFamily: pane.fontFamily } : {}),
       parentHeightOffset: 0,
       animations: { enabled: false },
       group: context.groupID,
@@ -60,17 +96,15 @@ function buildCommonChartOptions(context) {
     stroke: { width: 1 },
     legend: { show: false },
     dataLabels: { enabled: false },
-    grid: {
-      ...context.mainChartOptions.grid,
-      borderColor: context.isDarkTheme ? "#404040" : "#e9ecef",
-    },
+    grid,
     // Pass a proper theme object. `mainChartOptions.theme` can be undefined (a
     // chart built without a `theme` option has none until its first runtime
     // theme change), and an explicit `theme: undefined`
     // overwrites ApexCharts' default — making `cnf.theme.mode` throw in
     // Core.setupElements (an *absent* key would be back-filled; an undefined
-    // one is not). `context.theme` is the theme-mode string ("light"/"dark").
-    theme: { mode: context.theme },
+    // one is not). Its `mode` is the theme-mode string ("light"/"dark"); the
+    // page's design-system switches come with it (see paneTheme).
+    theme: pane.theme,
     tooltip: {
       x: { show: false },
       marker: { show: false },
@@ -1396,9 +1430,10 @@ export default class IndicatorHandlers {
     if (context.isDarkTheme) {
       indicatorChartOptions.grid = {
         ...indicatorChartOptions.grid,
-        borderColor: "#404040",
         strokeDashArray: 3,
       };
+      const paneGrid = paneGridColor(context, "#404040");
+      if (paneGrid) indicatorChartOptions.grid.borderColor = paneGrid;
     }
 
     const indicatorDiv = document.createElement("div");

@@ -10,6 +10,30 @@
  */
 
 /**
+ * The `theme` option. Every key is optional; it is passed on to ApexCharts as
+ * well, so ApexCharts' own `theme` keys (such as `palette`) apply to the charts.
+ * @typedef {Object} StockThemeOptions
+ * @property {ThemeMode} [mode] - Light or dark. Unset, it is light, or dark
+ *   when the page's design system is dark (Ignite UI, with the
+ *   `apexstock/ignite-ui` add-on loaded).
+ * @property {string} [preset] - A named preset (built-in or registered with
+ *   `ApexStock.registerTheme`); it carries its own base mode.
+ * @property {boolean} [designSystem] - `false` ignores the page's design
+ *   system (Ignite UI) for this chart. It has an effect only while the
+ *   `apexstock/ignite-ui` add-on (or another product's) is loaded.
+ * @property {boolean} [tokens] - `false` also ignores the design system, and
+ *   turns off ApexCharts' own `--apx-*` token reads for the charts.
+ * @property {string} [palette] - An ApexCharts palette name (`"palette1"` to
+ *   `"palette10"`) for the charts.
+ * @property {{enabled?: boolean, color?: string, shadeTo?: ThemeMode, shadeIntensity?: number}} [monochrome]
+ *   ApexCharts' monochrome mode for the charts. While it is on, ApexStock keeps
+ *   its own colors over the design system's (its font and mode still apply).
+ * @property {{colorBlindMode?: "deuteranopia" | "protanopia" | "tritanopia" | "highContrast" | ""}} [accessibility]
+ *   ApexCharts' color-blind palettes for the charts. A `colorBlindMode` keeps
+ *   ApexStock's own colors over the design system's, as monochrome does.
+ */
+
+/**
  * A single OHLC(V) data point. The `y` tuple is ordered [open, high, low, close];
  * most indicators read the close (`y[3]`).
  * @typedef {Object} OHLCPoint
@@ -54,7 +78,7 @@
  * @typedef {Object} StockChartOptions
  * @property {Object} chart - ApexCharts `chart` config (height, id, zoom, ...).
  * @property {Array<{name?: string, data: Series}>} series - The first series holds the OHLC data.
- * @property {{mode?: ThemeMode}} [theme]
+ * @property {StockThemeOptions} [theme]
  * @property {{stockChart?: StockChartPlotOptions}} [plotOptions]
  * @property {AnalysisOptions} [analysis] - Analysis engine, measurement, panel,
  *   and comparison defaults.

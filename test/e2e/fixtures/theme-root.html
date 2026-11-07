@@ -13,12 +13,29 @@
       //   charts=none,light,dark,preset-<name>  one chart per entry, each in its
       //                                         own wrapper (none = no theme option)
       //   shadow=1                              mount every chart in one open shadow root
+      //   sheet=<name>                          link fixtures/ignite-ui/<name>.css
+      //   addon=1                               load dist/apexstock.ignite-ui.min.js
+      //   acaddon=1                             load ApexCharts' own Ignite UI add-on
       //   legend=1                              turn the data legend on
       //   extra=<json>                          options merged into every chart
       //                                         (chart, theme, tooltip one level deep)
+      //   css=<text>                            a page <style> in place before the charts
+      //                                         render (after the sheet)
       var q = new URLSearchParams(location.search);
       document.write('<script src="/node_modules/apexcharts/dist/apexcharts.js"><\/script>');
+      if (q.get("acaddon") === "1") {
+        document.write('<script src="/node_modules/apexcharts/dist/features/ignite-ui.js"><\/script>');
+      }
       document.write('<script src="/dist/apexstock.min.js"><\/script>');
+      if (q.get("addon") === "1") {
+        document.write('<script src="/dist/apexstock.ignite-ui.min.js"><\/script>');
+      }
+      if (q.get("sheet")) {
+        document.write('<link rel="stylesheet" href="/test/e2e/fixtures/ignite-ui/' + q.get("sheet") + '.css" />');
+      }
+      if (q.get("css")) {
+        document.write("<style>" + q.get("css").replace(/</g, "") + "</style>");
+      }
     </script>
   </head>
   <body>

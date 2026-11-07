@@ -126,8 +126,23 @@ export default class AnalysisPanel {
     return this._upDown().down;
   }
 
+  /**
+   * A chrome color: the page's design system for `role` when it has one
+   * (ThemeManager.chromeColor), else the built-in `fallback`.
+   */
+  _chrome(role, fallback) {
+    const tm = this.ctx.themeManager;
+    return tm && tm.chromeColor ? tm.chromeColor(role, fallback) : fallback;
+  }
+
+  /** The font stack, the design system's family first when it has one. */
+  _font(fallback) {
+    const tm = this.ctx.themeManager;
+    return tm && tm.chromeFont ? tm.chromeFont(fallback) : fallback;
+  }
+
   _muted() {
-    return this._dark() ? "#9aa4b2" : "#667085";
+    return this._chrome("muted", this._dark() ? "#9aa4b2" : "#667085");
   }
 
   /** A price, via `formatters.price`, else 2dp. */
@@ -193,13 +208,19 @@ export default class AnalysisPanel {
       (pos.endsWith("left") ? "left:10px;" : "right:10px;") +
       "z-index:8;pointer-events:none;" +
       "padding:7px 10px;border-radius:6px;min-width:168px;max-width:260px;" +
-      "font:400 11px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" +
-      "background:" +
+      "font:400 11px/1.55 " +
+      this._font(
+        "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"
+      ) +
+      ";background:" +
       (dark ? "rgba(28,32,42,0.90)" : "rgba(255,255,255,0.92)") +
       ";color:" +
-      (dark ? "#e5e7eb" : "#1f2937") +
+      this._chrome("fore", dark ? "#e5e7eb" : "#1f2937") +
       ";border:1px solid " +
-      (dark ? "rgba(255,255,255,0.10)" : "rgba(16,24,40,0.10)") +
+      this._chrome(
+        "grid",
+        dark ? "rgba(255,255,255,0.10)" : "rgba(16,24,40,0.10)"
+      ) +
       ";box-shadow:0 1px 4px rgba(16,24,40,0.12);";
 
     const title = document.createElement("div");
