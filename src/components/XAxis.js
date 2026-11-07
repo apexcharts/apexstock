@@ -73,7 +73,9 @@ export default class XAxis {
     if (!this.context.chartEl) return;
 
     // Find the main chart
-    const mainChartElement = document.getElementById(this.context.mainChartId);
+    const mainChartElement = Utils.rootOf(this.context.chartEl).getElementById(
+      this.context.mainChartId
+    );
     if (!mainChartElement) return;
 
     // Create tooltip element that stays at the bottom of the axis
@@ -113,7 +115,9 @@ export default class XAxis {
     };
 
     // Main chart
-    const mainChartElement = document.getElementById(this.context.mainChartId);
+    const mainChartElement = Utils.rootOf(this.context.chartEl).getElementById(
+      this.context.mainChartId
+    );
     if (mainChartElement) attach(mainChartElement);
 
     // All current indicator charts
@@ -125,9 +129,9 @@ export default class XAxis {
         const chart = this.context.indicatorChartMap[key];
 
         if (chart && chart.opts && chart.opts.chart && chart.opts.chart.id) {
-          const indicatorElement = document.getElementById(
-            `apexcharts${chart.opts.chart.id}`
-          );
+          const indicatorElement = Utils.rootOf(
+            this.context.chartEl
+          ).getElementById(`apexcharts${chart.opts.chart.id}`);
           if (indicatorElement) attach(indicatorElement);
         }
       });
@@ -160,7 +164,9 @@ export default class XAxis {
   handleMouseMove(e) {
     if (!this.context.xaxisRange) return;
 
-    const chartElement = document.getElementById(this.context.mainChartId);
+    const chartElement = Utils.rootOf(this.context.chartEl).getElementById(
+      this.context.mainChartId
+    );
     if (!chartElement) return;
 
     // Get the xcrosshairs element from ApexCharts, which follows the cursor position
@@ -404,7 +410,9 @@ export default class XAxis {
     // iframe). Stop instead of throwing.
     if (typeof document === "undefined") return;
 
-    const chartElement = document.getElementById(this.context.mainChartId);
+    const chartElement = Utils.rootOf(this.context.chartEl).getElementById(
+      this.context.mainChartId
+    );
     if (!chartElement) return;
 
     const graphicalElement = chartElement.querySelector(

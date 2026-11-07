@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import ApexStock from "../src/ApexStock.js";
+import Utils from "../src/utils/Utils.js";
 
 // Vitest stubs the CSS import to "" (the real build inlines it via Rollup), so
 // content assertions read the source stylesheet straight from disk. Vitest
@@ -134,5 +135,31 @@ describe("ApexStock CSS isolation", () => {
     // destroy() is terminal: a second call is a no-op, not an error.
     expect(() => inst.destroy()).not.toThrow();
     expect(styleTags().length).toBe(0);
+  });
+});
+
+describe("Utils.rootOf (plan 34 K2, K3)", () => {
+  it("finds a chart's own elements inside a shadow root", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const chartEl = document.createElement("div");
+    const inner = document.createElement("div");
+    inner.id = "apexchartsinner";
+    chartEl.appendChild(inner);
+    shadow.appendChild(chartEl);
+    expect(document.getElementById("apexchartsinner")).toBeNull();
+    expect(Utils.rootOf(chartEl)).toBe(shadow);
+    expect(Utils.rootOf(chartEl).getElementById("apexchartsinner")).toBe(inner);
+    host.remove();
+  });
+
+  it("is the document in the light DOM and for a detached element", () => {
+    const el = document.createElement("div");
+    expect(Utils.rootOf(el)).toBe(document);
+    document.body.appendChild(el);
+    expect(Utils.rootOf(el)).toBe(document);
+    expect(Utils.rootOf(null)).toBe(document);
+    el.remove();
   });
 });

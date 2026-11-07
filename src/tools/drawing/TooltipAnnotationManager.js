@@ -301,7 +301,7 @@ export default class TooltipAnnotationManager {
       Utils.warn(`Tooltip ID mismatch! Expected: ${id}, Found: ${tooltipId}`);
 
       // Find the correct element with the specified ID
-      const correctElement = document.querySelector(
+      const correctElement = Utils.rootOf(this.chartDiv).querySelector(
         `.apexstock-tooltip-annotation[data-tooltip-id="${id}"], .apexstock-tooltip-annotation[data-element-id="${id}"]`
       );
 
@@ -332,7 +332,7 @@ export default class TooltipAnnotationManager {
     if (!id) return false;
 
     // Find element by ID - try both element-id and tooltip-id attributes
-    const element = document.querySelector(
+    const element = Utils.rootOf(this.chartDiv).querySelector(
       `.apexstock-tooltip-annotation[data-tooltip-id="${id}"], .apexstock-tooltip-annotation[data-element-id="${id}"]`
     );
 

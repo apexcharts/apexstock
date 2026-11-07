@@ -252,6 +252,18 @@ class Utils {
   }
 
   /**
+   * The root `el` sits in: its shadow root inside one, else the document.
+   * Look a chart's own elements up through it: `document` never sees into a
+   * shadow root, so a chart mounted in one found none of them.
+   * @param {Node|null|undefined} el
+   * @returns {Document|ShadowRoot}
+   */
+  static rootOf(el) {
+    const root = el && el.getRootNode ? el.getRootNode() : null;
+    return root && typeof root.getElementById === "function" ? root : document;
+  }
+
+  /**
    * Generates a unique ID for an element
    * @param {string} type - Element type
    * @returns {string} - A unique ID

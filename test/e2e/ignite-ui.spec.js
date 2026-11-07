@@ -487,4 +487,42 @@ test.describe("Ignite UI add-on loading", () => {
     expect(s.yLabel).toBe("51,51,51");
     expect(s.grid).toBe("233,236,239");
   });
+
+  test("a chart in a shadow root shows the x-axis hover label in the theme", async ({
+    page,
+  }) => {
+    await gotoFixture(
+      page,
+      `charts=none&sheet=dark-material&${ADDONS}&shadow=1`
+    );
+    const box = await page.evaluate(() => {
+      const plot = window.__root.querySelector(
+        "#wrap0 .apexstock-main-chart .apexcharts-grid"
+      );
+      const r = plot.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(box.x, box.y);
+    await page.mouse.move(box.x + 5, box.y + 5);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const tip = window.__root.querySelector(
+            "#wrap0 .apexstock-xaxis-tooltip"
+          );
+          return tip ? getComputedStyle(tip).display : null;
+        })
+      )
+      .toBe("flex");
+    const tip = await page.evaluate(() => {
+      const el = window.__root.querySelector("#wrap0 .apexstock-xaxis-tooltip");
+      return {
+        text: el.textContent,
+        bg: getComputedStyle(el).backgroundColor.match(/\d+/g).join(","),
+      };
+    });
+    expect(tip.text).not.toBe("");
+    // Dark mode paints the label in the text color, the sheet's gray-800.
+    expect(tip.bg).toBe((await read(page)).sheet.fore);
+  });
 });

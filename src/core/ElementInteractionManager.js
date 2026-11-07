@@ -921,7 +921,9 @@ export default class ElementInteractionManager {
       ];
 
       selectors.forEach((selector) => {
-        const domElements = document.querySelectorAll(selector);
+        const domElements = Utils.rootOf(this.chartEl).querySelectorAll(
+          selector
+        );
         domElements.forEach((element) => {
           if (element && element.parentNode) {
             element.parentNode.removeChild(element);

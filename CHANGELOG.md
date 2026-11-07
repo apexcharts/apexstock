@@ -78,6 +78,11 @@ those are called out explicitly below.
   dark one left the dark chart's dropdowns light). They are rules in the
   stylesheet now, and `chart.fontFamily` applies to its own chart only. A
   single chart in the light DOM looks the same as before.
+- **A chart inside a shadow root shows the x-axis hover label and pins
+  tooltips.** Both looked the chart up on `document`, which never sees into a
+  shadow root, so the label never appeared, a double-click pinned nothing and
+  a pinned tooltip annotation could not be removed by id. They look it up in
+  the chart's own root now.
 
 ## [0.5.2] - 2026-10-09
 

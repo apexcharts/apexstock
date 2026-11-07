@@ -165,7 +165,9 @@ export default class DrawingTools {
    */
   setupTooltipPinningHandler() {
     // Find the main chart element
-    const mainChartEl = document.getElementById(this.chart.w.globals.chartID);
+    const mainChartEl = Utils.rootOf(this.chartEl).getElementById(
+      this.chart.w.globals.chartID
+    );
     if (!mainChartEl) return;
 
     // Add click listener to handle tooltip pinning
@@ -183,7 +185,7 @@ export default class DrawingTools {
     if (!this.tooltipPinningEnabled) return;
 
     // Check if a tooltip is currently showing
-    const tooltip = document.querySelector(
+    const tooltip = Utils.rootOf(this.chartEl).querySelector(
       ".apexcharts-tooltip:not(.apexcharts-tooltip-hidden)"
     );
     if (!tooltip) return;
@@ -1477,7 +1479,9 @@ export default class DrawingTools {
     }
 
     // Remove tooltip click handler
-    const mainChartEl = document.getElementById(this.chart.w.globals.chartID);
+    const mainChartEl = Utils.rootOf(this.chartEl).getElementById(
+      this.chart.w.globals.chartID
+    );
     if (mainChartEl) {
       mainChartEl.removeEventListener(
         "dblclick",
