@@ -25,9 +25,9 @@ those are called out explicitly below.
   itself; without it the plot keeps ApexStock's grid and axis text).
   `theme.designSystem: false` turns it off for one chart. Without the add-on
   nothing changes and the `--ig-*` tokens are ignored. See THEMING.md. The
-  bundler entry needs an ApexCharts release that ships
-  `apexcharts/features/ignite-ui` (after 8.7.0); the main `apexstock` entry
-  keeps its ApexCharts 7.1 and 8.x range.
+  bundler entry needs ApexCharts 8.8.0 or later, the first release that
+  ships `apexcharts/features/ignite-ui`; the main `apexstock` entry keeps its
+  ApexCharts 7.1 and 8.x range.
 - **`--apx-font-family`** sets the font of the toolbar, menus and charts, below
   `chart.fontFamily`.
 - **Types for the ApexCharts `theme` keys ApexStock passes on**: `palette`,

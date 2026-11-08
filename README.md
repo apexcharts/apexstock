@@ -237,6 +237,8 @@ import ApexStock from "apexstock";
 import "apexstock/ignite-ui"; // also loads apexcharts/features/ignite-ui
 ```
 
+The add-on needs ApexCharts 8.8.0 or later.
+
 ```html
 <!-- Script tags: ApexCharts' add-on themes the charts, ApexStock's the rest. -->
 <script src="apexcharts/dist/apexcharts.min.js"></script>

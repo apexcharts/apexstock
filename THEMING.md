@@ -271,6 +271,9 @@ Load the add-on once and stock charts follow the Ignite UI theme on the page:
 import "apexstock/ignite-ui"; // also loads apexcharts/features/ignite-ui
 ```
 
+The add-on needs ApexCharts 8.8.0 or later, the first release with
+`apexcharts/features/ignite-ui`. ApexStock itself still runs on 7.1 and later.
+
 On a script-tag page, load `dist/apexstock.ignite-ui.min.js` after
 `apexstock.min.js`, and ApexCharts' own add-on
 (`apexcharts/dist/features/ignite-ui.js`) after `apexcharts.js` for the charts.
