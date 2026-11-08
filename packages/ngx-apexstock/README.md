@@ -33,7 +33,7 @@ import { ApexStockComponent } from "ngx-apexstock";
   template: `<apex-stock [options]="options" [series]="series"></apex-stock>`,
 })
 export class PriceComponent {
-  options = { chart: { height: 420 }, theme: { mode: "light" as const } };
+  options = { chart: { height: 420 } };
   series = [{ name: "Price", data: [] as { x: number; y: number[] }[] }];
 }
 ```
@@ -106,6 +106,43 @@ npm run build                       # build the wrapper -> dist/ (consumed by th
 cd demo && npm install && npm run dev
 # http://localhost:5199/
 ```
+
+## Using with Ignite UI
+
+From ApexStock 0.6.0, stock charts can follow the Ignite UI theme on the page:
+the toolbar, its menus and popups, the legend, the analysis panel, the rise and
+fall colors, the font, and light or dark. Import the core's add-on once,
+anywhere in the app, before the first chart renders:
+
+```ts
+import "apexstock/ignite-ui"; // also loads apexcharts/features/ignite-ui
+```
+
+`apexstock/ignite-ui` loads the ApexCharts add-on for you, so the charts inside
+the stock chart follow the theme too; it needs the ApexCharts release that
+ships `apexcharts/features/ignite-ui`. A page that loads the libraries with
+script tags loads the ApexCharts add-on first, then the ApexStock one:
+
+```html
+<script src="apexcharts/dist/apexcharts.min.js"></script>
+<script src="apexcharts/dist/features/ignite-ui.js"></script>
+<script src="apexstock/dist/apexstock.min.js"></script>
+<script src="apexstock/dist/apexstock.ignite-ui.min.js"></script>
+```
+
+The add-ons are free and need no licence key. Without them the `--ig-*` tokens
+are ignored; the `--apexstock-*` and `--apx-*` tokens work either way, and
+everything you set ranks above the theme. Without a `theme.mode`, a dark
+Ignite UI theme makes the chart dark; a mode you set wins.
+
+To turn it off for one chart, set `theme.designSystem` in the options:
+
+```ts
+options = { chart: { height: 420 }, theme: { designSystem: false } };
+```
+
+It is part of the core's options type, so the `options` input is typed for it.
+See the ApexStock README (Using with Ignite UI) for what the theme reaches.
 
 ## SSR
 
