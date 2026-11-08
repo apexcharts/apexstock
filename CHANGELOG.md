@@ -9,6 +9,8 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
 ### Added
 
 - **Ignite UI theming, as an opt-in add-on: `apexstock/ignite-ui`.** Import it
