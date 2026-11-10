@@ -9,6 +9,28 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-10
+
+### Fixed
+
+- **The price chart's horizontal crosshair follows the theme.** Its color was
+  fixed at construction from the mode the chart was built in, so after
+  `updateTheme()`, `setThemePreset()`, `update({ theme: { mode } })` or an
+  Ignite UI stylesheet swap picked up by `update({})` it kept the first
+  render's gray. It now repaints on every theme change, also while a
+  comparison is active or one is added or removed later, and with the
+  `apexstock/ignite-ui` add-on it takes the Ignite UI guide gray
+  (`--ig-gray-400`) while the chart's mode matches the theme's light or dark.
+  A `yaxis.crosshairs.stroke.color` you set wins and is kept through theme
+  changes. Without a design system, under a preset, and with
+  `theme.designSystem: false` it stays `#90A4AE` in light and `#6c757d` in
+  dark, as before.
+- **`update()` no longer writes into the options object you pass.** When
+  the options named no `yaxis`, the chart's current axes were written into
+  your object, so passing the same object to `update()` again pinned that
+  call's axis-text and crosshair colors through later theme changes. A
+  reused options object now follows the theme.
+
 ## [0.6.0] - 2026-11-08
 
 ### Added
