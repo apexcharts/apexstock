@@ -1424,8 +1424,11 @@ export default class ApexStock {
       if (this.comparison) this.comparison.invalidate();
     }
 
-    // Force update yaxis label colors based on theme
+    // Force update yaxis label colors based on theme. The live axes go into a
+    // copy: written into the caller's object, a later update() with the same
+    // object would note today's colors as the page's own and pin them.
     if (!newOptions.yaxis) {
+      newOptions = { ...newOptions };
       newOptions.yaxis = this.chart.w.config.yaxis.map((axis) => ({
         ...axis,
         labels: {

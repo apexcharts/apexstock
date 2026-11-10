@@ -754,4 +754,23 @@ describe("the y crosshair", () => {
     expect(lastAxis(ds).stroke.color).toBe(DARK_GUIDE);
   });
 
+  // update() fills in the live axes when the call names none; it must not
+  // write them into the caller's object, or a page that passes the same
+  // object again would pin today's crosshair and axis-text colors.
+  it("leaves the caller's options alone and follows the theme on reuse", () => {
+    const inst = makeInstance();
+    inst.render();
+    // The live chart carries the light gray it was built with.
+    inst.chart.w.config.yaxis = [
+      { crosshairs: { stroke: { color: "#90A4AE" } } },
+    ];
+    const opts = {};
+    inst.update(opts);
+    expect(opts).toEqual({});
+    inst.updateTheme("dark");
+    inst.update(opts);
+    expect(sent(inst).stroke.color).toBe("#6c757d");
+    inst.updateTheme("light");
+    expect(sent(inst).stroke.color).toBe("#90A4AE");
+  });
 });
