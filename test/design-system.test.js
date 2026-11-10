@@ -574,3 +574,184 @@ describe("an add-on loaded after the chart", () => {
     });
   });
 });
+
+// The price chart's y crosshair: the family guide role (`--ig-gray-400` for
+// Ignite UI) under the same gates as the other chrome roles, else the mode's
+// built-in gray. It was baked from the construction mode, so a theme change
+// or a swapped stylesheet kept the first render's color.
+describe("the y crosshair", () => {
+  const LIGHT_GUIDE = "#b8b8b8";
+  const DARK_GUIDE = "#5c5c5c";
+  const lightSheet = () =>
+    layer({
+      variant: "light",
+      colors: { ...LIGHT_COLORS, guide: LIGHT_GUIDE },
+    });
+  const darkSheet = () =>
+    layer({ variant: "dark", colors: { ...LIGHT_COLORS, guide: DARK_GUIDE } });
+  const built = (inst) => firstAxis(inst.mainChartOptions.yaxis).crosshairs;
+  const sent = (inst) => firstAxis(mainUpdate(inst).yaxis).crosshairs;
+
+  it("keeps the built-in light and dark grays without a design system", () => {
+    expect(built(makeInstance()).stroke).toEqual({
+      dashArray: 3,
+      color: "#90A4AE",
+    });
+    expect(built(makeInstance({ theme: { mode: "dark" } })).stroke).toEqual({
+      dashArray: 3,
+      color: "#6c757d",
+    });
+  });
+
+  it("follows a light to dark switch through updateTheme()", () => {
+    const inst = makeInstance();
+    inst.render();
+    inst.updateTheme("dark");
+    expect(sent(inst).stroke.color).toBe("#6c757d");
+    expect(built(inst).stroke).toEqual({ dashArray: 3, color: "#6c757d" });
+    inst.updateTheme("light");
+    expect(sent(inst).stroke.color).toBe("#90A4AE");
+  });
+
+  it("follows a mode passed to update()", () => {
+    const inst = makeInstance();
+    inst.render();
+    inst.update({ theme: { mode: "dark" } });
+    expect(sent(inst).stroke.color).toBe("#6c757d");
+  });
+
+  it("takes the design system's guide gray in its own variant", () => {
+    installAdapter(lightSheet());
+    expect(built(makeInstance()).stroke.color).toBe(LIGHT_GUIDE);
+    installAdapter(darkSheet());
+    const dark = makeInstance();
+    expect(dark.theme).toBe("dark");
+    expect(built(dark).stroke.color).toBe(DARK_GUIDE);
+  });
+
+  it("follows a swapped stylesheet on update({})", () => {
+    installAdapter(lightSheet());
+    const inst = makeInstance();
+    inst.render();
+    expect(built(inst).stroke.color).toBe(LIGHT_GUIDE);
+    installAdapter(darkSheet());
+    inst.update({});
+    expect(inst.theme).toBe("dark");
+    expect(sent(inst).stroke.color).toBe(DARK_GUIDE);
+    // The same mode with a new guide gray (a design-system refresh).
+    installAdapter(
+      layer({ variant: "dark", colors: { ...LIGHT_COLORS, guide: "#707070" } })
+    );
+    inst.update({});
+    expect(sent(inst).stroke.color).toBe("#707070");
+  });
+
+  it("follows the design system through updateTheme()", () => {
+    installAdapter(lightSheet());
+    const inst = makeInstance();
+    inst.render();
+    // A light sheet's guide never lands on a dark chart.
+    inst.updateTheme("dark");
+    expect(sent(inst).stroke.color).toBe("#6c757d");
+    inst.updateTheme("light");
+    expect(sent(inst).stroke.color).toBe(LIGHT_GUIDE);
+  });
+
+  it("keeps the built-in gray while the mode is not the sheet's", () => {
+    installAdapter(darkSheet());
+    const inst = makeInstance({ theme: { mode: "light" } });
+    expect(built(inst).stroke.color).toBe("#90A4AE");
+  });
+
+  it("keeps the mode's gray under a preset, color-blind or monochrome mode", () => {
+    installAdapter(lightSheet());
+    for (const theme of [
+      { preset: "mint" },
+      { accessibility: { colorBlindMode: "deuteranopia" } },
+      { monochrome: { enabled: true } },
+    ]) {
+      expect(built(makeInstance({ theme })).stroke.color).toBe("#90A4AE");
+    }
+    const inst = makeInstance();
+    inst.render();
+    inst.setThemePreset("mint");
+    expect(sent(inst).stroke.color).toBe("#90A4AE");
+  });
+
+  for (const off of [{ designSystem: false }, { tokens: false }]) {
+    it(`keeps the built-in gray with theme ${JSON.stringify(off)}`, () => {
+      installAdapter(lightSheet());
+      const inst = makeInstance({ theme: off });
+      expect(built(inst).stroke.color).toBe("#90A4AE");
+      inst.render();
+      installAdapter(darkSheet());
+      inst.update({});
+      expect(sent(inst).stroke.color).toBe("#90A4AE");
+      inst.updateTheme("dark");
+      expect(sent(inst).stroke.color).toBe("#6c757d");
+    });
+  }
+
+  it("lets a color the page passed win, through every theme change", () => {
+    installAdapter(lightSheet());
+    const inst = makeInstance({
+      yaxis: { crosshairs: { stroke: { color: "#ff8800" } } },
+    });
+    expect(built(inst).stroke.color).toBe("#ff8800");
+    inst.render();
+    inst.updateTheme("dark");
+    expect(sent(inst).stroke.color).toBe("#ff8800");
+    inst.setThemePreset("mint");
+    expect(sent(inst).stroke.color).toBe("#ff8800");
+    installAdapter(darkSheet());
+    inst.update({});
+    expect(sent(inst).stroke.color).toBe("#ff8800");
+  });
+
+  it("keeps a color passed to update() and never writes into it", () => {
+    const inst = makeInstance();
+    inst.render();
+    const yaxis = [{ crosshairs: { stroke: { color: "#00aa88" } } }];
+    inst.update({ yaxis });
+    expect(sent(inst).stroke.color).toBe("#00aa88");
+    expect(yaxis[0]).toEqual({ crosshairs: { stroke: { color: "#00aa88" } } });
+    inst.updateTheme("dark");
+    expect(sent(inst).stroke.color).toBe("#00aa88");
+  });
+
+  // A comparison rebuilds the price axis from mainChartOptions when it is
+  // added, removed or reapplied, so update() keeps the color there too.
+  it("keeps the color update() resolves when a comparison rebuilds the axis", () => {
+    const peer = { name: "PEER", data: ohlcData() };
+    const lastAxis = (inst) =>
+      firstAxis(
+        inst.chart.updateOptions.mock.calls
+          .map((c) => c[0])
+          .filter((o) => o && o.yaxis)
+          .at(-1).yaxis
+      ).crosshairs;
+    const inst = makeInstance();
+    inst.render();
+    inst.addComparison(peer);
+    inst.update({ theme: { mode: "dark" } });
+    expect(built(inst).stroke.color).toBe("#6c757d");
+    expect(lastAxis(inst).stroke.color).toBe("#6c757d");
+    inst.removeComparison("PEER");
+    expect(lastAxis(inst).stroke.color).toBe("#6c757d");
+    inst.update({ yaxis: { crosshairs: { stroke: { color: "#00aa88" } } } });
+    inst.addComparison(peer);
+    expect(lastAxis(inst).stroke.color).toBe("#00aa88");
+
+    // A light sheet's guide never stays on a chart a dark sheet turned dark.
+    installAdapter(lightSheet());
+    const ds = makeInstance();
+    ds.render();
+    ds.addComparison(peer);
+    installAdapter(darkSheet());
+    ds.update({});
+    expect(built(ds).stroke.color).toBe(DARK_GUIDE);
+    ds.removeComparison("PEER");
+    expect(lastAxis(ds).stroke.color).toBe(DARK_GUIDE);
+  });
+
+});

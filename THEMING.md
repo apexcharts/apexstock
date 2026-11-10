@@ -289,15 +289,16 @@ What follows the theme:
 | `--ig-gray-600` (muted text) | `--apexstock-light-muted` / `--apexstock-dark-muted` |
 | `--ig-gray-300` (hairlines) | `--apexstock-light-border`, `-divider` and their dark twins, the dropdown borders |
 | `--ig-gray-100` (hover) | the dropdown and toolbar button hover |
+| `--ig-gray-400` (guides) | the price chart's horizontal crosshair |
 | primary seed | `--apexstock-blue` (active tool, focus ring), the order price line |
 | success / error seeds | the candles, legend, analysis panel, measure boxes, buy / sell / stop / target price lines, `--apexstock-success` / `--apexstock-danger` |
 | `--ig-surface-overlay` (+ `-contrast`), Ignite UI 7.5 | the dropdowns, chart-type menu and drawing popups |
 | `--ig-font-family` | the toolbar, menus and chart text |
 | `--ig-theme-variant` | a dark theme makes a chart with no `theme.mode` dark |
 
-The text, muted text, hairlines, hover and overlays apply only while the chart's
-mode matches the Ignite UI theme's, so a dark theme's light text never lands
-on a light chart. The surfaces (the chart and toolbar backgrounds) keep
+The text, muted text, hairlines, hover, guides and overlays apply only while
+the chart's mode matches the Ignite UI theme's, so a dark theme's light text
+never lands on a light chart. The surfaces (the chart and toolbar backgrounds) keep
 ApexStock's own light and dark colors. The indicator palette is not mapped.
 
 Everything you set ranks above Ignite UI: options (`theme.mode`,

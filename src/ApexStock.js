@@ -386,10 +386,11 @@ export default class ApexStock {
               return Number(val).toFixed(2);
             },
           },
+          // The color comes from the theme (syncChartOptionsToTheme below),
+          // so a theme change repaints it.
           crosshairs: {
             stroke: {
               dashArray: 3,
-              color: this.isDarkTheme ? "#6c757d" : "#90A4AE",
             },
           },
         },
@@ -1470,6 +1471,13 @@ export default class ApexStock {
         downward: down,
       };
     }
+
+    // The y crosshair, as the theme, design system or a color passed now or
+    // before resolves it. The axes above carry the one the chart was last
+    // given, so it is written over them on every update. mainChartOptions
+    // takes it too: a comparison rebuilds the price axis from there.
+    this.themeManager.syncCrosshairToTheme(updatedOptions);
+    this.themeManager.syncCrosshairToTheme(this.mainChartOptions);
 
     // A mode change carries the plot background and tooltip theme with it,
     // as updateTheme() does (see ThemeManager.syncChartModeToTheme), and the

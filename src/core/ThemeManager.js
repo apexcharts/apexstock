@@ -55,6 +55,13 @@ export default class ThemeManager {
   static MEASURE_UP_DOWN = Object.freeze({ up: "#26a69a", down: "#ef5350" });
 
   /**
+   * The price chart's horizontal (y) crosshair in each plain mode, which a
+   * preset keeps too. The design system's guide gray and a color the page
+   * passed win over it ({@link crosshairColor}).
+   */
+  static CROSSHAIR = Object.freeze({ light: "#90A4AE", dark: "#6c757d" });
+
+  /**
    * Creates a new ThemeManager
    * @param {Object} ctx - The ApexStock context
    * @param {string} initialTheme - The initial theme ('light' or 'dark')
@@ -97,9 +104,9 @@ export default class ThemeManager {
       monochrome: false,
     };
     /**
-     * Grid and axis-text colors the page passed at construction or to
-     * update(), which pass to the charts over the design system's.
-     * @type {{grid?: string, axis?: string|string[]}}
+     * Grid, axis-text and y crosshair colors the page passed at construction
+     * or to update(), which pass to the charts over the theme's.
+     * @type {{grid?: string, axis?: string|string[], crosshair?: string}}
      */
     this.pageChartColors = {};
     /** Whether a grid color was ever sent to the main chart. */
@@ -297,10 +304,10 @@ export default class ThemeManager {
   }
 
   /**
-   * Note the grid and axis-text colors the page passed in `options`, at
-   * construction or to update(); they go to the charts over the design
-   * system's ({@link chartColor}). A key `options` does not carry keeps what
-   * was noted before.
+   * Note the grid, axis-text and y crosshair colors the page passed in
+   * `options`, at construction or to update(); they go to the charts over the
+   * design system's ({@link chartColor}, {@link crosshairColor}). A key
+   * `options` does not carry keeps what was noted before.
    * @param {object} [options] - Chart options as the page passed them.
    */
   notePageChartColors(options) {
@@ -308,8 +315,54 @@ export default class ThemeManager {
     const grid = options.grid && options.grid.borderColor;
     const y = Array.isArray(options.yaxis) ? options.yaxis[0] : options.yaxis;
     const axis = y && y.labels && y.labels.style && y.labels.style.colors;
+    const cross =
+      y && y.crosshairs && y.crosshairs.stroke && y.crosshairs.stroke.color;
     if (grid) this.pageChartColors.grid = grid;
     if (axis) this.pageChartColors.axis = axis;
+    if (cross) this.pageChartColors.crosshair = cross;
+  }
+
+  /**
+   * The price chart's y crosshair color: one the page passed, else the design
+   * system's guide gray ({@link roleColor}: gated on the mode matching the
+   * sheet's variant, off under a preset, a color-blind or a monochrome mode),
+   * else the mode's built-in gray ({@link CROSSHAIR}). ApexCharts does not
+   * read the guide role itself, so ApexStock always sends one.
+   * @returns {string}
+   */
+  crosshairColor() {
+    return (
+      this.pageChartColors.crosshair ||
+      this.roleColor("guide") ||
+      ThemeManager.CROSSHAIR[this.isDarkTheme ? "dark" : "light"]
+    );
+  }
+
+  /**
+   * Write {@link crosshairColor} into every y axis of a chart-options object,
+   * keeping the axis's other crosshair keys. Each axis is replaced by a copy,
+   * so an axis object the page passed to update() is never written into.
+   * @param {object} options - The chart-options object to mutate.
+   * @returns {object} the same object.
+   */
+  syncCrosshairToTheme(options) {
+    if (!options) return options;
+    const color = this.crosshairColor();
+    const withColor = (ax) => {
+      if (!ax || typeof ax !== "object") return ax;
+      const crosshairs = ax.crosshairs || {};
+      return {
+        ...ax,
+        crosshairs: {
+          ...crosshairs,
+          stroke: { ...crosshairs.stroke, color },
+        },
+      };
+    };
+    options.yaxis = Array.isArray(options.yaxis)
+      ? options.yaxis.map(withColor)
+      : withColor(options.yaxis || {});
+    return options;
   }
 
   /**
@@ -424,7 +477,7 @@ export default class ThemeManager {
 
   /**
    * Write the current theme's chart colors (candlestick, grid, axis labels,
-   * background) into a chart-options object in place. This is the source of
+   * y crosshair, background) into a chart-options object in place. This is the source of
    * truth for `mainChartOptions`: at construction and on every theme change,
    * `updateTheme` re-applies `Utils.extend(themeConfig, mainChartOptions)` with
    * `mainChartOptions` winning, so a preset's colors must live here or they are
@@ -465,6 +518,10 @@ export default class ThemeManager {
     };
     if (Array.isArray(options.yaxis)) options.yaxis.forEach(applyAxis);
     else applyAxis(options.yaxis);
+
+    // The y crosshair, recomputed with the rest, so a mode, preset or design
+    // system change repaints it instead of keeping the first render's gray.
+    this.syncCrosshairToTheme(options);
 
     return options;
   }
