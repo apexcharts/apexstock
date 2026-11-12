@@ -9,6 +9,11 @@ those are called out explicitly below.
 
 ## [Unreleased]
 
+### Changed
+
+- `apex-commons` moves from `^0.10.0` to `^0.11.0` and is inlined into the
+  bundle as before, with no change in bundle size.
+
 ## [0.6.1] - 2026-11-10
 
 ### Fixed
